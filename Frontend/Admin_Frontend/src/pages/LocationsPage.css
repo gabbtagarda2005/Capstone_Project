@@ -1,0 +1,110 @@
+.locations-page {
+  max-width: 1200px;
+  padding: 0.25rem 0 2rem;
+}
+
+.locations-page__head {
+  margin-bottom: 1rem;
+}
+
+.locations-page__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--neo-text, #f1f5f9);
+}
+
+.locations-page__lead {
+  margin: 0.4rem 0 0;
+  font-size: 0.92rem;
+  color: var(--neo-muted, rgba(148, 163, 184, 0.85));
+  line-height: 1.45;
+}
+
+.locations-page__actions {
+  margin-top: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.locations-page__scan-btn {
+  padding: 0.45rem 0.9rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(90deg, #8a4af3 0%, #c471ed 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  box-shadow: 0 6px 16px rgba(138, 74, 243, 0.3);
+}
+
+.locations-page__warn {
+  font-size: 0.8rem;
+  color: #fecaca;
+}
+
+.locations-page__map-wrap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--neo-border, rgba(100, 120, 200, 0.18));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  min-height: min(70vh, 560px);
+  background: rgba(16, 22, 36, 0.6);
+}
+
+.locations-page__map {
+  width: 100%;
+  height: min(70vh, 560px);
+  z-index: 0;
+}
+
+.locations-page__map .leaflet-container {
+  font-family: inherit;
+  background: #0f172a;
+}
+
+.locations-page__map-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(70vh, 560px);
+  color: var(--neo-muted, rgba(148, 163, 184, 0.85));
+  font-size: 0.95rem;
+}
+
+.locations-page__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: var(--neo-muted, rgba(148, 163, 184, 0.9));
+}
+
+.locations-page__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.locations-page__legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.locations-page__traffic-summary {
+  margin: 0.75rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--neo-muted, rgba(148, 163, 184, 0.9));
+  font-size: 0.82rem;
+}

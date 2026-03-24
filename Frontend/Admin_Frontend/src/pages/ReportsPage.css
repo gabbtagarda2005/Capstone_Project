@@ -1,0 +1,123 @@
+.reports-page {
+  max-width: 1180px;
+  padding: 0.25rem 0 2rem;
+}
+
+.reports-page__head {
+  margin-bottom: 1rem;
+}
+
+.reports-page__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.reports-page__lead {
+  margin: 0.35rem 0 0;
+  color: var(--dg-muted);
+  font-size: 0.9rem;
+}
+
+.reports-page__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.reports-page__stat {
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--dg-border);
+  background: var(--dg-glass);
+}
+
+.reports-page__stat div {
+  font-size: 0.78rem;
+  color: var(--dg-muted);
+}
+
+.reports-page__stat strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.25rem;
+}
+
+.reports-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 960px) {
+  .reports-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reports-page__card {
+  padding: 1rem 1rem 1.1rem;
+  border-radius: 16px;
+  border: 1px solid var(--dg-border);
+  background: var(--dg-glass);
+}
+
+.reports-page__card h2 {
+  margin: 0 0 0.65rem;
+  font-size: 0.98rem;
+}
+
+.reports-page__chart {
+  width: 100%;
+  height: 280px;
+}
+
+.reports-page__table-wrap {
+  overflow-x: auto;
+}
+
+.reports-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.reports-page__table th,
+.reports-page__table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--dg-border);
+  text-align: left;
+}
+
+.reports-page__table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dg-muted);
+}
+
+.reports-page__muted {
+  color: var(--dg-muted);
+}
+
+.reports-page__goal-bar {
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--dg-border);
+  overflow: hidden;
+}
+
+.reports-page__goal-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.reports-page__goal-meta {
+  margin: 0.55rem 0 0;
+  font-size: 0.84rem;
+  color: var(--dg-muted);
+}

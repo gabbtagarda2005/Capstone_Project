@@ -1,0 +1,51 @@
+/* Module entry cards (management hub) */
+
+.mgmt-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
+}
+
+.mgmt-module-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  padding: 1.05rem 1.1rem;
+  border-radius: 16px;
+  border: 1px solid var(--dg-border, rgba(255, 255, 255, 0.2));
+  background: var(--dg-glass, rgba(255, 255, 255, 0.08));
+  color: var(--dg-text, #fff);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+}
+
+.mgmt-module-card:hover {
+  border-color: rgba(196, 113, 237, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.mgmt-module-card:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.65);
+  outline-offset: 2px;
+}
+
+.mgmt-module-card__label {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--dg-text, #fff);
+}
+
+.mgmt-module-card__hint {
+  display: block;
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--dg-muted, rgba(255, 255, 255, 0.65));
+  line-height: 1.35;
+}
