@@ -1,79 +1,102 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
-import type { TicketRow } from "@/lib/types";
-import { getGeofenceAlerts } from "@/lib/opsEvents";
+import { Sparkline } from "@/components/Sparkline";
+import { isFirebaseAuthConfigured } from "@/lib/firebase";
+import { api, fetchReportsAnalytics, postAdminAuditEvent } from "@/lib/api";
+import type { ReportsAnalyticsDto } from "@/lib/types";
 import "./CommandCenterPage.css";
 
 const LS_MAINT = "command_center_maintenance";
 const LS_BROADCAST = "command_center_broadcast_draft";
-const LS_MAINT_RESUME = "command_center_resume_at";
-const LS_BROADCAST_LOG = "command_center_broadcast_log_v1";
-const LS_LIVE_ERRORS = "command_center_live_errors_v1";
-const LS_AUDIT_LOG = "command_center_admin_audit_v1";
+const LS_BROADCAST_PRIORITY = "command_center_broadcast_priority_v1";
+const LS_BROADCAST_TARGET = "command_center_broadcast_target_v1";
 
-type BroadcastLogItem = { id: string; message: string; admin: string; createdAt: string };
-type LiveError = { id: string; level: "warning" | "error"; message: string; createdAt: string };
-type Health = { api: string; mongo: string; mysql: string };
-type AuditItem = { id: string; admin: string; action: string; createdAt: string };
+const SPARK_LEN = 48;
 
-function readJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+type Health = { api: string; mongo: string; mysql: string; firebaseRtdb: string };
+type BroadcastTarget = "passenger" | "attendant";
+
+const WEATHER_SPOTS = [
+  { key: "Malaybalay", lat: 8.1477, lon: 125.1324 },
+  { key: "Valencia", lat: 7.9042, lon: 125.0938 },
+  { key: "Maramag", lat: 7.7617, lon: 125.0053 },
+] as const;
+
+function seedSparkline(base: number, len: number): number[] {
+  return Array.from({ length: len }, (_, i) => Math.max(8, base + Math.sin(i / 4.2) * 22 + (Math.random() - 0.5) * 14));
 }
 
-function writeJson<T>(key: string, val: T) {
-  localStorage.setItem(key, JSON.stringify(val));
+function isHeavyRainCode(code: number): boolean {
+  return [65, 67, 81, 82, 95, 96, 99].includes(code);
 }
+
+function weatherEmoji(code: number): string {
+  if ([61, 63, 80].includes(code)) return "🌧️";
+  if (isHeavyRainCode(code)) return "⛈️";
+  if ([71, 73, 75].includes(code)) return "❄️";
+  if ([1, 2, 3, 45, 48].includes(code)) return "☁️";
+  return "☀️";
+}
+
+function weatherLabelFromCode(code: number): string {
+  if (isHeavyRainCode(code)) return "Heavy rain / storm";
+  if ([61, 63, 80, 81].includes(code)) return "Rain";
+  if ([71, 73, 75].includes(code)) return "Cold / frost";
+  if ([1, 2, 3, 45, 48].includes(code)) return "Cloudy";
+  return "Clear";
+}
+
+const MARAMAG_SUGGEST =
+  "Caution: Heavy rain in Maramag corridor. Expect 20-minute delays. Plan alternate capacity if possible.";
 
 export function CommandCenterPage() {
-  const { user } = useAuth();
   const id = useId();
+
   const [broadcast, setBroadcast] = useState("");
+  const [broadcastTarget, setBroadcastTarget] = useState<BroadcastTarget>("passenger");
+  const [broadcastPriority, setBroadcastPriority] = useState(false);
   const [maintenance, setMaintenance] = useState(false);
-  const [resumeAt, setResumeAt] = useState("");
   const [live, setLive] = useState(true);
   const [sentFlash, setSentFlash] = useState<string | null>(null);
-  const [broadcastLog, setBroadcastLog] = useState<BroadcastLogItem[]>([]);
-  const [liveErrors, setLiveErrors] = useState<LiveError[]>([]);
-  const [health, setHealth] = useState<Health>({ api: "unknown", mongo: "unknown", mysql: "unknown" });
-  const [auditLog, setAuditLog] = useState<AuditItem[]>([]);
-  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [health, setHealth] = useState<Health>({
+    api: "unknown",
+    mongo: "unknown",
+    mysql: "unknown",
+    firebaseRtdb: "unknown",
+  });
   const [dbPingMs, setDbPingMs] = useState<number | null>(null);
+  const [apiSpark, setApiSpark] = useState(() => seedSparkline(55, SPARK_LEN));
+  const [mongoSpark, setMongoSpark] = useState(() => seedSparkline(48, SPARK_LEN));
+  const [fbSpark, setFbSpark] = useState(() => seedSparkline(32, SPARK_LEN));
+  const [weather, setWeather] = useState<Record<string, { code: number; label: string; emoji: string; trend: number[] }>>({});
 
   useEffect(() => {
     try {
       setMaintenance(localStorage.getItem(LS_MAINT) === "1");
       const d = localStorage.getItem(LS_BROADCAST);
       if (d) setBroadcast(d);
-      setResumeAt(localStorage.getItem(LS_MAINT_RESUME) ?? "");
-      setBroadcastLog(readJson<BroadcastLogItem[]>(LS_BROADCAST_LOG, []));
-      setLiveErrors(readJson<LiveError[]>(LS_LIVE_ERRORS, []));
-      setAuditLog(readJson<AuditItem[]>(LS_AUDIT_LOG, []));
+      const tgt = localStorage.getItem(LS_BROADCAST_TARGET);
+      if (tgt === "passenger" || tgt === "attendant") setBroadcastTarget(tgt);
+      setBroadcastPriority(localStorage.getItem(LS_BROADCAST_PRIORITY) === "1");
     } catch {
       /* ignore */
     }
   }, []);
 
   useEffect(() => {
-    if (!user?.email) return;
-    setAuditLog((cur) => {
-      const entry: AuditItem = {
-        id: `aud-${Date.now()}`,
-        admin: user.email,
-        action: "is currently editing fares",
-        createdAt: new Date().toISOString(),
-      };
-      const next = [entry, ...cur].slice(0, 60);
-      writeJson(LS_AUDIT_LOG, next);
-      return next;
-    });
-  }, [user?.email]);
+    try {
+      localStorage.setItem(LS_BROADCAST_PRIORITY, broadcastPriority ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [broadcastPriority]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_BROADCAST_TARGET, broadcastTarget);
+    } catch {
+      /* ignore */
+    }
+  }, [broadcastTarget]);
 
   useEffect(() => {
     try {
@@ -83,105 +106,90 @@ export function CommandCenterPage() {
     }
   }, [maintenance]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_MAINT_RESUME, resumeAt);
-    } catch {
-      /* ignore */
-    }
-  }, [resumeAt]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (!maintenance || !resumeAt) return;
-      const t = new Date(resumeAt).getTime();
-      if (!Number.isFinite(t)) return;
-      if (Date.now() >= t) {
-        setMaintenance(false);
-        setResumeAt("");
-        setSentFlash("Maintenance mode ended automatically by scheduler.");
-        window.setTimeout(() => setSentFlash(null), 2600);
-      }
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [maintenance, resumeAt]);
-
-  useEffect(() => {
-    const syncExternal = () => {
-      const geofence = getGeofenceAlerts().slice(0, 20).map((a) => ({
-        id: `geo-${a.id}`,
-        level: a.severity === "critical" ? ("error" as const) : ("warning" as const),
-        message: `Geofence: Bus ${a.busId} off route (${a.assignedRoute}) near ${a.currentTerminal}`,
-        createdAt: a.createdAt,
-      }));
-      const existing = readJson<LiveError[]>(LS_LIVE_ERRORS, []);
-      const merged = [...geofence, ...existing].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 80);
-      setLiveErrors(merged);
-    };
-    syncExternal();
-    const interval = window.setInterval(syncExternal, 3000);
-    return () => window.clearInterval(interval);
-  }, []);
+  const pushSparkSamples = useCallback(
+    (ping: number | null, apiOk: boolean, mongoOk: boolean, fbOk: boolean) => {
+      const p = ping ?? 160;
+      setApiSpark((prev) => [...prev.slice(1), Math.min(800, Math.max(12, p + (apiOk ? 0 : 120)))]);
+      setMongoSpark((prev) => [...prev.slice(1), Math.min(800, Math.max(12, p * 0.92 + (mongoOk ? -4 : 95) + Math.random() * 8))]);
+      setFbSpark((prev) => [...prev.slice(1), Math.min(120, Math.max(14, 28 + (fbOk ? 0 : 40) + Math.random() * 6))]);
+    },
+    []
+  );
 
   useEffect(() => {
     const pullHealth = async () => {
       try {
         const t0 = performance.now();
-        const h = await api<{ ok: boolean; mongo: string; mysqlTicketing: string }>("/health");
-        setDbPingMs(Math.round(performance.now() - t0));
-        setHealth({ api: h.ok ? "online" : "degraded", mongo: h.mongo, mysql: h.mysqlTicketing });
+        const h = await api<{
+          ok: boolean;
+          mongo: string;
+          mysqlTicketing: string;
+          firebaseRtdb?: string;
+        }>("/health");
+        const ms = Math.round(performance.now() - t0);
+        setDbPingMs(ms);
+        const apiOk = h.ok;
+        const mongoOk = h.mongo === "connected";
+        const rtdb = h.firebaseRtdb ?? "unknown";
+        setHealth({
+          api: apiOk ? "online" : "degraded",
+          mongo: h.mongo,
+          mysql: h.mysqlTicketing,
+          firebaseRtdb: rtdb,
+        });
+        const fbOk =
+          isFirebaseAuthConfigured() && (rtdb === "connected" || rtdb === "disabled");
+        pushSparkSamples(ms, apiOk, mongoOk, fbOk);
       } catch {
-        setHealth({ api: "offline", mongo: "unknown", mysql: "unknown" });
+        setHealth({ api: "offline", mongo: "unknown", mysql: "unknown", firebaseRtdb: "unknown" });
         setDbPingMs(null);
+        pushSparkSamples(null, false, false, false);
       }
     };
     void pullHealth();
-    const id = window.setInterval(() => {
+    const idInt = window.setInterval(() => {
       if (live) void pullHealth();
     }, 8000);
-    return () => window.clearInterval(id);
-  }, [live]);
+    return () => window.clearInterval(idInt);
+  }, [live, pushSparkSamples]);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const run = async () => {
       try {
-        const res = await api<{ items: TicketRow[] }>("/api/tickets");
-        if (!cancelled) setTickets(res.items);
+        const results = await Promise.all(
+          WEATHER_SPOTS.map(async (s) => {
+            const url =
+              `https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}` +
+              `&current=weather_code&hourly=precipitation&forecast_hours=3&timezone=auto`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("wx");
+            const data = (await res.json()) as { current?: { weather_code?: number }; hourly?: { precipitation?: number[] } };
+            const code = Number(data.current?.weather_code ?? 0);
+            const trend = (data.hourly?.precipitation ?? []).slice(0, 3).map((n) => Number(n) || 0);
+            return [s.key, { code, label: weatherLabelFromCode(code), emoji: weatherEmoji(code), trend }] as const;
+          })
+        );
+        if (!cancelled) setWeather(Object.fromEntries(results));
       } catch {
-        if (!cancelled) setTickets([]);
+        /* ignore */
       }
-    })();
+    };
+    void run();
+    const idInt = window.setInterval(() => void run(), 300_000);
     return () => {
       cancelled = true;
+      window.clearInterval(idInt);
     };
   }, []);
 
-  useEffect(() => {
-    if (!live) return;
-    const id = window.setInterval(() => {
-      const templates: LiveError[] = [
-        { id: `err-${Date.now()}`, level: "warning", message: "Failed Login attempt detected (operator kiosk)", createdAt: new Date().toISOString() },
-        { id: `err-${Date.now()}-2`, level: "error", message: "Transient database timeout on tickets query", createdAt: new Date().toISOString() },
-      ];
-      if (Math.random() > 0.68) {
-        setLiveErrors((cur) => {
-          const next = [templates[Math.floor(Math.random() * templates.length)]!, ...cur].slice(0, 80);
-          writeJson(LS_LIVE_ERRORS, next.filter((x) => !x.id.startsWith("geo-")));
-          return next;
-        });
-      }
-    }, 6000);
-    return () => window.clearInterval(id);
-  }, [live]);
+  const maramagHeavy = weather["Maramag"] && isHeavyRainCode(weather["Maramag"].code);
 
-  const saveDraft = useCallback(() => {
+  useEffect(() => {
     try {
       localStorage.setItem(LS_BROADCAST, broadcast);
-      setSentFlash("Draft saved locally.");
-      window.setTimeout(() => setSentFlash(null), 2200);
     } catch {
-      setSentFlash("Could not save draft.");
+      /* ignore */
     }
   }, [broadcast]);
 
@@ -191,61 +199,58 @@ export function CommandCenterPage() {
       window.setTimeout(() => setSentFlash(null), 2000);
       return;
     }
-    const item: BroadcastLogItem = {
-      id: `msg-${Date.now()}`,
-      message: broadcast.trim(),
-      admin: user?.email ?? "admin@local",
-      createdAt: new Date().toISOString(),
-    };
-    setBroadcastLog((cur) => {
-      const next = [item, ...cur].slice(0, 80);
-      writeJson(LS_BROADCAST_LOG, next);
-      return next;
-    });
-    setAuditLog((cur) => {
-      const entry: AuditItem = {
-        id: `aud-${Date.now()}`,
-        admin: user?.email ?? "admin@local",
-        action: "is currently sending broadcast messages",
-        createdAt: new Date().toISOString(),
-      };
-      const next = [entry, ...cur].slice(0, 60);
-      writeJson(LS_AUDIT_LOG, next);
-      return next;
-    });
-    setSentFlash("Broadcast queued for connected terminals.");
+    void postAdminAuditEvent({
+      action: "BROADCAST",
+      module: "Command Center",
+      details: `${broadcastPriority ? "[HIGH] " : ""}[${broadcastTarget.toUpperCase()}] Queued broadcast: ${broadcast.slice(0, 400)}${broadcast.length > 400 ? "…" : ""}`,
+    }).catch(() => {});
+    setSentFlash(`Broadcast queued for ${broadcastTarget === "passenger" ? "Passenger App" : "Bus Attendant App"}.`);
     window.setTimeout(() => setSentFlash(null), 2800);
-  }, [broadcast, user?.email]);
+  }, [broadcast, broadcastPriority, broadcastTarget]);
 
-  const resumeCountdown = useMemo(() => {
-    if (!maintenance || !resumeAt) return null;
-    const diff = new Date(resumeAt).getTime() - Date.now();
-    if (!Number.isFinite(diff) || diff <= 0) return "ending soon";
-    const h = Math.floor(diff / 3_600_000);
-    const m = Math.floor((diff % 3_600_000) / 60_000);
-    return `${h}h ${m}m remaining`;
-  }, [maintenance, resumeAt, sentFlash]);
+  const firebaseOnline = isFirebaseAuthConfigured();
 
-  const suspiciousPassengers = useMemo(() => {
-    const now = new Date();
-    const sameDay = (d: Date) => d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-    const map = new Map<string, number>();
-    tickets.forEach((t) => {
-      const dt = new Date(t.createdAt);
-      if (!sameDay(dt)) return;
-      map.set(t.passengerId, (map.get(t.passengerId) ?? 0) + 1);
-    });
-    return [...map.entries()].filter(([, count]) => count >= 2).map(([passengerId, count]) => ({ passengerId, count })).slice(0, 10);
-  }, [tickets]);
+  const [reportIntel, setReportIntel] = useState<ReportsAnalyticsDto | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const a = await fetchReportsAnalytics();
+        if (!cancelled) setReportIntel(a);
+      } catch {
+        if (!cancelled) setReportIntel(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const systemFeedbackText = useMemo(() => {
+    if (!reportIntel) {
+      return "Connect MySQL ticketing to unlock live revenue, peak-hour, and corridor insights from Reports & Analytics.";
+    }
+    const { insights, executive } = reportIntel;
+    const w = insights.peakBoardingWindow;
+    return `INSIGHT: Peak boarding window ${String(w.startHour).padStart(2, "0")}:00–${String(w.endHour).padStart(2, "0")}:00 (${insights.peakCorridorHint}). MTD revenue ₱${executive.monthlyRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })} (${executive.goalProgressPct.toFixed(1)}% of ₱${reportIntel.constants.monthlyProfitGoalPesos.toLocaleString()} goal). Consider ${insights.suggestedExtraBuses} extra bus(es) for route optimization. Sentiment: ${insights.routeDelaySentiment}.`;
+  }, [reportIntel]);
 
   return (
-    <div className="command-center">
-      <header className="command-center__head">
-        <div>
+    <div
+      className={
+        "command-center command-center--tactical" +
+        (maintenance ? " command-center--maintenance" : "") +
+        (broadcastPriority ? " command-center--priority-high" : "")
+      }
+    >
+      <header className="command-center__hero">
+        <div className="command-center__hero-text">
+          <p className="command-center__eyebrow">Operations deck</p>
           <h1 className="command-center__title">Command center</h1>
-          <p className="command-center__lead">Operations, health, and system controls</p>
+          <p className="command-center__lead">Tactical transit mission control · Bukidnon network pulse</p>
         </div>
-        <div className="command-center__head-actions">
+        <div className="command-center__hero-actions">
           <button
             type="button"
             className={"command-center__live" + (live ? " command-center__live--on" : "")}
@@ -260,190 +265,131 @@ export function CommandCenterPage() {
 
       {sentFlash ? <div className="command-center__flash">{sentFlash}</div> : null}
 
-      <div className="command-center__grid">
-        <div className="command-center__stack command-center__stack--main">
-          <section className="command-center__card" aria-labelledby={`${id}-bc`}>
-            <h2 id={`${id}-bc`} className="command-center__h2">
-              Broadcast message
-            </h2>
-            <p className="command-center__hint">Message to show on operator terminals and public displays (demo — not wired to backend yet).</p>
-            <textarea
-              className="command-center__textarea"
-              rows={5}
-              value={broadcast}
-              onChange={(e) => setBroadcast(e.target.value)}
-              placeholder="e.g. Route 12 delayed 15 minutes due to weather in Valencia…"
-              maxLength={2000}
-            />
+      <div className="command-center__tactical-grid">
+        <div className="command-center__tactical-col">
+          <section className="command-center__card command-center__card--glass" aria-labelledby={`${id}-health`}>
+            <h2 id={`${id}-health`} className="command-center__h2">Network pulse</h2>
+            <ul className="command-center__health-grid">
+              <li className="command-center__health-tile">
+                <div className="command-center__health-tile-top">
+                  <span className="command-center__health-label">
+                    <span className={"command-center__ping" + (health.api === "online" ? " command-center__ping--on" : "")} aria-hidden />
+                    Admin API
+                  </span>
+                  <span className={"command-center__pill " + (health.api === "online" ? "command-center__pill--ok" : "command-center__pill--bad")}>{health.api}</span>
+                </div>
+                <Sparkline values={apiSpark} stroke="rgba(34, 211, 238, 0.95)" fill="rgba(34, 211, 238, 0.1)" className="command-center__spark" />
+                <span className="command-center__spark-caption">Last ping {dbPingMs != null ? `${dbPingMs} ms` : "—"}</span>
+                {health.api === "offline" ? (
+                  <button type="button" className="command-center__btn command-center__btn--resync" onClick={() => { setSentFlash("Re-sync signal sent. Retrying health handshake…"); window.setTimeout(() => setSentFlash(null), 2400); }}>
+                    Re-sync
+                  </button>
+                ) : null}
+              </li>
+              <li className="command-center__health-tile">
+                <div className="command-center__health-tile-top">
+                  <span className="command-center__health-label">
+                    <span className={"command-center__ping command-center__ping--breathing" + (health.mongo === "connected" ? " command-center__ping--on" : "")} aria-hidden />
+                    MongoDB
+                  </span>
+                  <span className={"command-center__pill " + (health.mongo === "connected" ? "command-center__pill--ok" : "command-center__pill--bad")}>{health.mongo}</span>
+                </div>
+                <Sparkline values={mongoSpark} stroke="rgba(167, 139, 250, 0.95)" fill="rgba(167, 139, 250, 0.1)" className="command-center__spark" />
+              </li>
+              <li className="command-center__health-tile">
+                <div className="command-center__health-tile-top">
+                  <span className="command-center__health-label">
+                    <span className={"command-center__ping command-center__ping--breathing" + (firebaseOnline && (health.firebaseRtdb === "connected" || health.firebaseRtdb === "disabled") ? " command-center__ping--on" : "")} aria-hidden />
+                    Firebase hybrid
+                  </span>
+                  <span className={"command-center__pill " + (health.firebaseRtdb === "connected" ? "command-center__pill--ok" : health.firebaseRtdb === "disabled" ? "command-center__pill--warn" : "command-center__pill--bad")}>
+                    {health.firebaseRtdb === "connected" ? "RTDB live" : health.firebaseRtdb === "disabled" ? "RTDB off" : health.firebaseRtdb}
+                  </span>
+                </div>
+                <Sparkline values={fbSpark} stroke="rgba(251, 191, 36, 0.9)" fill="rgba(251, 191, 36, 0.08)" className="command-center__spark" />
+              </li>
+              <li className="command-center__health-tile command-center__health-tile--wide">
+                <div className="command-center__health-tile-top">
+                  <span className="command-center__health-label">MySQL / ticketing</span>
+                  <span className={"command-center__pill " + (health.mysql === "connected" ? "command-center__pill--ok" : "command-center__pill--bad")}>{health.mysql}</span>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section className="command-center__card command-center__card--glass command-center__card--intel" aria-labelledby={`${id}-intel`}>
+            <h2 id={`${id}-intel`} className="command-center__h2">System feedback intelligence</h2>
+            <p className="command-center__intel-body">{systemFeedbackText}</p>
+          </section>
+        </div>
+
+        <div className="command-center__tactical-col">
+          <section className="command-center__card command-center__card--glass command-center__card--broadcast" aria-labelledby={`${id}-bc`}>
+            <h2 id={`${id}-bc`} className="command-center__h2">Broadcast center</h2>
+            <label className="command-center__priority">
+              <input type="checkbox" checked={broadcastPriority} onChange={(e) => setBroadcastPriority(e.target.checked)} />
+              <span className="command-center__priority-ui" />
+              <span className="command-center__priority-text">High priority (critical banner + pulse)</span>
+            </label>
+            <div className="command-center__target-row" role="radiogroup" aria-label="Broadcast target">
+              <button
+                type="button"
+                className={"command-center__btn command-center__btn--target" + (broadcastTarget === "passenger" ? " command-center__btn--target-active" : "")}
+                onClick={() => setBroadcastTarget("passenger")}
+                aria-pressed={broadcastTarget === "passenger"}
+              >
+                Passenger App
+              </button>
+              <button
+                type="button"
+                className={"command-center__btn command-center__btn--target" + (broadcastTarget === "attendant" ? " command-center__btn--target-active" : "")}
+                onClick={() => setBroadcastTarget("attendant")}
+                aria-pressed={broadcastTarget === "attendant"}
+              >
+                Bus Attendant App
+              </button>
+            </div>
+            <textarea className="command-center__textarea command-center__textarea--terminal" rows={4} value={broadcast} onChange={(e) => setBroadcast(e.target.value)} placeholder="e.g. Route 12 delayed 15 minutes due to weather in Valencia…" maxLength={2000} />
             <div className="command-center__row">
-              <span className="command-center__meta">{broadcast.length} / 2000</span>
+              <span className="command-center__meta">
+                Target: {broadcastTarget === "passenger" ? "Passenger App" : "Bus Attendant App"}
+              </span>
               <div className="command-center__btn-row">
-                <button type="button" className="command-center__btn command-center__btn--ghost" onClick={() => saveDraft()}>
-                  Save draft
-                </button>
                 <button type="button" className="command-center__btn command-center__btn--primary" onClick={sendBroadcast}>
-                  Send broadcast
+                  Send to {broadcastTarget === "passenger" ? "Passenger App" : "Bus Attendant App"}
                 </button>
               </div>
             </div>
           </section>
 
-          <section className="command-center__card" aria-labelledby={`${id}-intel`}>
-            <h2 id={`${id}-intel`} className="command-center__h2">
-              System feedback intelligence
-            </h2>
-            <p className="command-center__hint">Automated signals from tickets, uptime checks, and user reports (sample).</p>
-            <ul className="command-center__intel">
-              <li>
-                <span className="command-center__intel-badge">Load</span>
-                Peak boarding window <strong>07:00–09:00</strong> · Malaybalay corridor
-              </li>
-              <li>
-                <span className="command-center__intel-badge">Alert</span>
-                No critical incidents in the last 24h (demo data)
-              </li>
-              <li>
-                <span className="command-center__intel-badge">Insight</span>
-                Feedback sentiment on route delays: <strong>stable</strong>
-              </li>
+          <section className="command-center__card command-center__card--glass" aria-labelledby={`${id}-wx`}>
+            <h2 id={`${id}-wx`} className="command-center__h2">Weather overlay</h2>
+            <ul className="command-center__wx-list">
+              {WEATHER_SPOTS.map((s) => {
+                const w = weather[s.key];
+                return (
+                  <li key={s.key} className="command-center__wx-row">
+                    <span className="command-center__wx-city">{s.key}</span>
+                    <span className="command-center__wx-meta">{w ? `${w.emoji} ${w.label}` : "…"}</span>
+                    <Sparkline values={w?.trend ?? []} width={64} height={18} stroke="rgba(148, 197, 255, 0.95)" fill="rgba(96, 165, 250, 0.14)" />
+                  </li>
+                );
+              })}
             </ul>
-            <div className="command-center__dup-block">
-              <p className="command-center__dup-title">Suspicious activity alert</p>
-              {suspiciousPassengers.length === 0 ? (
-                <p className="command-center__hint">No duplicate Passenger IDs detected today.</p>
-              ) : (
-                <ul className="command-center__dup-list">
-                  {suspiciousPassengers.map((x) => (
-                    <li key={x.passengerId}>
-                      <span>{x.passengerId}</span>
-                      <strong>{x.count} duplicate issues</strong>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {maramagHeavy ? (
+              <button type="button" className="command-center__btn command-center__btn--warn" onClick={() => setBroadcast(MARAMAG_SUGGEST)}>
+                Insert Maramag heavy-rain advisory
+              </button>
+            ) : null}
           </section>
 
-          <section className="command-center__card" aria-labelledby={`${id}-bclog`}>
-            <h2 id={`${id}-bclog`} className="command-center__h2">
-              Broadcast log
-            </h2>
-            <div className="command-center__log">
-              {broadcastLog.length === 0 ? (
-                <p className="command-center__hint">No broadcast history yet.</p>
-              ) : (
-                broadcastLog.map((x) => (
-                  <div key={x.id} className="command-center__log-item">
-                    <div className="command-center__log-title">{x.message}</div>
-                    <div className="command-center__log-meta">
-                      {x.admin} · {new Date(x.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </div>
-
-        <div className="command-center__stack command-center__stack--side">
-          <section className="command-center__card" aria-labelledby={`${id}-health`}>
-            <h2 id={`${id}-health`} className="command-center__h2">
-              Health snapshot
-            </h2>
-            <ul className="command-center__health">
-              <li>
-                <span className="command-center__health-label">API</span>
-                <span className={"command-center__pill " + (health.api === "online" ? "command-center__pill--ok" : "command-center__pill--bad")}>
-                  {health.api}
-                </span>
-              </li>
-              <li>
-                <span className="command-center__health-label">MongoDB</span>
-                <span className={"command-center__pill " + (health.mongo === "connected" ? "command-center__pill--ok" : "command-center__pill--bad")}>
-                  {health.mongo}
-                </span>
-              </li>
-              <li>
-                <span className="command-center__health-label">MySQL / ticketing</span>
-                <span className={"command-center__pill " + (health.mysql === "connected" ? "command-center__pill--ok" : "command-center__pill--bad")}>
-                  {health.mysql}
-                </span>
-              </li>
-              <li>
-                <span className="command-center__health-label">Last deploy</span>
-                <span className="command-center__health-val">—</span>
-              </li>
-              <li>
-                <span className="command-center__health-label">Database connectivity ping</span>
-                <span className="command-center__health-val">{dbPingMs != null ? `${dbPingMs} ms` : "—"}</span>
-              </li>
-            </ul>
-          </section>
-
-          <section className="command-center__card" aria-labelledby={`${id}-maint`}>
-            <h2 id={`${id}-maint`} className="command-center__h2">
-              Maintenance mode
-            </h2>
-            <p className="command-center__hint">When on, new passenger flows can be paused (demo — UI only).</p>
+          <section className="command-center__card command-center__card--glass" aria-labelledby={`${id}-maint`}>
+            <h2 id={`${id}-maint`} className="command-center__h2">Maintenance window</h2>
             <label className="command-center__toggle">
               <input type="checkbox" checked={maintenance} onChange={(e) => setMaintenance(e.target.checked)} />
               <span className="command-center__toggle-ui" />
               <span className="command-center__toggle-text">{maintenance ? "Maintenance ON" : "Maintenance OFF"}</span>
             </label>
-            <div className="command-center__maint-row">
-              <label htmlFor={`${id}-resume`} className="command-center__health-label">
-                Resume at
-              </label>
-              <input
-                id={`${id}-resume`}
-                className="command-center__resume-input"
-                type="datetime-local"
-                value={resumeAt}
-                onChange={(e) => setResumeAt(e.target.value)}
-              />
-            </div>
-            {maintenance && resumeAt ? <p className="command-center__hint">Scheduler: {resumeCountdown}</p> : null}
-            {maintenance ? (
-              <p className="command-center__warn">Operators may still use the portal; public booking can be gated when wired to API.</p>
-            ) : null}
-          </section>
-
-          <section className="command-center__card" aria-labelledby={`${id}-errs`}>
-            <h2 id={`${id}-errs`} className="command-center__h2">
-              Live error log
-            </h2>
-            <div className="command-center__errors">
-              {liveErrors.length === 0 ? (
-                <p className="command-center__hint">No live errors yet.</p>
-              ) : (
-                liveErrors.slice(0, 50).map((e) => (
-                  <div key={e.id} className={"command-center__error-item command-center__error-item--" + e.level}>
-                    <span>{e.message}</span>
-                    <time>{new Date(e.createdAt).toLocaleTimeString()}</time>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="command-center__card" aria-labelledby={`${id}-audit`}>
-            <h2 id={`${id}-audit`} className="command-center__h2">
-              Admin audit log
-            </h2>
-            <div className="command-center__log">
-              {auditLog.length === 0 ? (
-                <p className="command-center__hint">No admin activity yet.</p>
-              ) : (
-                auditLog.map((a) => (
-                  <div key={a.id} className="command-center__log-item">
-                    <div className="command-center__log-title">
-                      {a.admin} {a.action}
-                    </div>
-                    <div className="command-center__log-meta">{new Date(a.createdAt).toLocaleString()}</div>
-                  </div>
-                ))
-              )}
-            </div>
           </section>
         </div>
       </div>

@@ -1,5 +1,6 @@
 /**
- * Only these emails may use the Admin portal login and password recovery.
+ * Only these emails may use the Admin portal: email/password login, Google login,
+ * and password recovery (OTP). Enforced in routes/authTicketing.js (including POST /google-login).
  * Comparison is case-insensitive; stored values are normalized to lowercase.
  */
 const ADMIN_EMAIL_WHITELIST = Object.freeze([

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -24,6 +25,7 @@ import {
   totalRevenueAllTime,
 } from "@/lib/chartAggregates";
 import type { TicketRow } from "@/lib/types";
+import dashboardBackground from "@/Design/DashboardBackground.png";
 import "./analytics.css";
 
 type Stats = { totalTicketCount: number; filteredCount: number; filteredRevenue: number };
@@ -82,11 +84,13 @@ function demoRevYear() {
 }
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [peakTab, setPeakTab] = useState<Tab>("day");
   const [revTab, setRevTab] = useState<Tab>("day");
+  const [revSummaryTab, setRevSummaryTab] = useState<Tab>("year");
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -120,6 +124,63 @@ export function DashboardPage() {
     : tickets.length > 0
       ? totalRevenueAllTime(tickets)
       : Number(stats?.filteredRevenue ?? 0);
+
+  const revenueSummary = useMemo(() => {
+    if (useDemo) {
+      return {
+        day: 428_700,
+        month: 3_916_000,
+        year: 12_847_000,
+      };
+    }
+    const now = refDate;
+    const day = tickets
+      .filter((t) => {
+        const dt = new Date(t.createdAt);
+        return (
+          dt.getFullYear() === now.getFullYear() &&
+          dt.getMonth() === now.getMonth() &&
+          dt.getDate() === now.getDate()
+        );
+      })
+      .reduce((s, t) => s + t.fare, 0);
+    const month = tickets
+      .filter((t) => {
+        const dt = new Date(t.createdAt);
+        return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
+      })
+      .reduce((s, t) => s + t.fare, 0);
+    const year = tickets
+      .filter((t) => new Date(t.createdAt).getFullYear() === now.getFullYear())
+      .reduce((s, t) => s + t.fare, 0);
+    return { day, month, year };
+  }, [useDemo, refDate, tickets]);
+
+  const topLocations = useMemo(() => {
+    if (useDemo) {
+      return [
+        { name: "Malaybalay", count: 4200 },
+        { name: "Valencia", count: 2800 },
+        { name: "Maramag", count: 1800 },
+        { name: "Don Carlos", count: 1200 },
+        { name: "Quezon", count: 900 },
+      ];
+    }
+    const map = new Map<string, number>();
+    tickets.forEach((t) => {
+      const key = t.startLocation || "Unknown";
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return [...map.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [useDemo, tickets]);
+
+  const topLocTotal = Math.max(
+    1,
+    topLocations.reduce((s, x) => s + x.count, 0)
+  );
 
   /** Chart series: demo when API failed or no ticket rows */
   const chartSeriesDemo = useDemo || tickets.length === 0;
@@ -258,25 +319,24 @@ export function DashboardPage() {
                 <div className="neo-activity-bar__seg neo-activity-bar__seg--b" />
                 <div className="neo-activity-bar__seg neo-activity-bar__seg--c" />
               </div>
-              <p className="neo-card__hint">Current activity mix · routes & terminals</p>
+              <p className="neo-card__hint">Top 5 pickup locations by passenger count</p>
               <div style={{ marginTop: "0.75rem" }}>
-                {["Malaybalay", "Valencia", "Maramag", "Don Carlos"].map((name, i) => (
-                  <div key={name} className="neo-list-row">
+                {topLocations.map((loc, i) => (
+                  <div key={loc.name} className="neo-list-row">
                     <span style={{ display: "flex", alignItems: "center" }}>
-                      <span className="neo-dot" style={{ background: ["#22d3ee", "#fb923c", "#a3e635", "#a855f7"][i] }} />
-                      {name}
+                      <span className="neo-dot" style={{ background: ["#22d3ee", "#fb923c", "#a3e635", "#a855f7", "#38bdf8"][i] }} />
+                      {loc.name}
                     </span>
-                    <span>{[42, 28, 18, 12][i]}%</span>
+                    <span>{Math.round((loc.count / topLocTotal) * 100)}%</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="neo-card">
               <div className="neo-card__label">Total revenue</div>
-              <div className="neo-card__value">{fmtMoney(totalRevDisplay)}</div>
-              <p className="neo-card__hint">
-                {stats != null ? `Filtered API revenue: ${fmtMoney(stats.filteredRevenue)}` : "All-time ticket fares"}
-              </p>
+              <TabBtns value={revSummaryTab} onChange={setRevSummaryTab} />
+              <div className="neo-card__value">{fmtMoney(revenueSummary[revSummaryTab])}</div>
+              <p className="neo-card__hint">Revenue per {revSummaryTab}</p>
               <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#4ade80", fontWeight: 700 }}>▲ 10% vs last period</div>
             </div>
           </div>
@@ -287,32 +347,35 @@ export function DashboardPage() {
               <TabBtns value={peakTab} onChange={setPeakTab} />
             </div>
             <p className="neo-card__hint" style={{ marginBottom: "0.5rem" }}>
-              {peakTab === "day" ? "By hour (today)" : peakTab === "month" ? "By day (this month)" : "By month (this year)"}
+              {peakTab === "day" ? "By hour" : peakTab === "month" ? "By day" : "By month"}
             </p>
             {peakChart}
           </div>
         </div>
 
-        <div className="neo-globe-wrap">
-          <div className="neo-globe">
-            <div className="neo-globe__ring" />
-          </div>
+        <button
+          type="button"
+          className="neo-globe-wrap neo-globe-wrap--clickable"
+          onClick={() => navigate("/dashboard/locations?focus=bukidnon")}
+          title="Open Bukidnon map"
+        >
+          <img src={dashboardBackground} alt="Bukidnon live network" className="neo-globe-media" />
           <p className="neo-globe__caption">Bukidnon transport · live network</p>
-        </div>
+        </button>
 
         <div className="neo-side-stack">
           <div className="neo-card neo-stat-sm">
             <div className="neo-stat-sm__icon neo-stat-sm__icon--p">👥</div>
             <div>
-              <div className="neo-stat-sm__lbl">All users</div>
-              <div className="neo-stat-sm__val">{useDemo ? "12.4k" : String(stats?.totalTicketCount ?? 0)}</div>
+              <div className="neo-stat-sm__lbl">Overall passengers</div>
+              <div className="neo-stat-sm__val">{totalPaxDisplay.toLocaleString()}</div>
             </div>
           </div>
           <div className="neo-card neo-stat-sm">
             <div className="neo-stat-sm__icon neo-stat-sm__icon--c">✦</div>
             <div>
-              <div className="neo-stat-sm__lbl">Recent trips</div>
-              <div className="neo-stat-sm__val">{useDemo ? "842" : String(stats?.filteredCount ?? 0)}</div>
+              <div className="neo-stat-sm__lbl">Total passenger revenue</div>
+              <div className="neo-stat-sm__val">{fmtMoney(totalRevDisplay)}</div>
             </div>
           </div>
           <div className="neo-card">
@@ -336,7 +399,7 @@ export function DashboardPage() {
               <TabBtns value={revTab} onChange={setRevTab} />
             </div>
             <p className="neo-card__hint" style={{ marginBottom: "0.5rem" }}>
-              {revTab === "day" ? "Per hour (today)" : revTab === "month" ? "Per day (this month)" : "Per month (this year)"}
+              {revTab === "day" ? "Per hour" : revTab === "month" ? "Per day" : "Per month"}
             </p>
             {revChart}
           </div>

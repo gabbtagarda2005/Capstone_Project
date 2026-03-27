@@ -1,0 +1,191 @@
+.app-toast-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+}
+
+.app-toast-stack > * {
+  pointer-events: auto;
+}
+
+/* Hyper Charts — glass charcoal base (all variants) */
+.app-toast {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  width: min(320px, calc(100vw - 32px));
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  border-radius: 12px;
+  border-left: 4px solid transparent;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(139, 92, 246, 0.1);
+  animation: app-toast-slide-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    background 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+@keyframes app-toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Variant outer glow (subtle accent behind glass) */
+.app-toast--info {
+  background: rgba(30, 58, 138, 0.34);
+  color: #dbeafe;
+  border-left-color: #3b82f6;
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.7),
+    0 0 28px rgba(59, 130, 246, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-toast--error {
+  background: rgba(127, 29, 29, 0.32);
+  color: #fee2e2;
+  border-left-color: #ef4444;
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.7),
+    0 0 28px rgba(239, 68, 68, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-toast--success {
+  background: rgba(20, 83, 45, 0.34);
+  color: #dcfce7;
+  border-left-color: #22c55e;
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.7),
+    0 0 28px rgba(34, 197, 94, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-toast:hover {
+  transform: scale(1.03);
+}
+
+.app-toast--info:hover {
+  background: rgba(30, 64, 175, 0.42);
+}
+
+.app-toast--error:hover {
+  background: rgba(153, 27, 27, 0.42);
+}
+
+.app-toast--success:hover {
+  background: rgba(22, 101, 52, 0.42);
+}
+
+/* Neon icons — electric purple (info), aligned accents for error / success */
+.app-toast--info .app-toast__icon {
+  color: #60a5fa;
+  filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.6));
+}
+
+.app-toast--error .app-toast__icon {
+  color: #f87171;
+  filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.55));
+}
+
+.app-toast--success .app-toast__icon {
+  color: #4ade80;
+  filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.55));
+}
+
+.app-toast__icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  transform: translateY(-1px);
+  margin-right: 10px;
+}
+
+.app-toast__icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.app-toast__title {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.98);
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.app-toast__close {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 4px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.72);
+  opacity: 0.88;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.app-toast__close:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  color: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-toast__close:active {
+  transform: scale(1.05);
+}
+
+.app-toast__close svg {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-toast {
+    animation: none;
+  }
+
+  .app-toast__close {
+    transition: none;
+  }
+
+  .app-toast__close:hover {
+    transform: none;
+  }
+}

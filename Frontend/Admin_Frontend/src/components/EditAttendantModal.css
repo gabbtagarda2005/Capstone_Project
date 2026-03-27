@@ -1,0 +1,117 @@
+.edit-att-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.edit-att-modal {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.35rem 1.4rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: linear-gradient(160deg, rgba(22, 18, 40, 0.96), rgba(15, 23, 42, 0.94));
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.55);
+}
+
+.edit-att-modal__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.edit-att-modal__email {
+  margin: 0 0 1rem;
+  font-size: 0.78rem;
+  color: rgba(148, 163, 184, 0.95);
+  word-break: break-all;
+}
+
+.edit-att-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.edit-att-modal__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.edit-att-modal__input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.edit-att-modal__input:focus {
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.edit-att-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.edit-att-modal__btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+
+.edit-att-modal__btn--ghost {
+  background: transparent;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.edit-att-modal__btn--primary {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+}
+
+.edit-att-modal__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-shell--light .edit-att-modal {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.admin-shell--light .edit-att-modal__title {
+  color: #0f172a;
+}
+
+.admin-shell--light .edit-att-modal__email {
+  color: rgba(51, 65, 85, 0.9);
+}
+
+.admin-shell--light .edit-att-modal__input {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}

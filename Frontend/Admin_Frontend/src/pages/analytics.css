@@ -1,22 +1,20 @@
 /* Bukidnon analytics dashboard — neo glass + charts */
 
 .dash-analytics {
-  --card: rgba(16, 22, 36, 0.65);
+  --card: rgba(255, 255, 255, 0.05);
   --border: rgba(100, 120, 200, 0.2);
   --glow-cyan: rgba(34, 211, 238, 0.35);
   --glow-mag: rgba(232, 121, 249, 0.3);
   --dash-overlay: linear-gradient(180deg, rgba(5, 8, 16, 0.55) 0%, rgba(5, 8, 18, 0.78) 45%, rgba(5, 8, 22, 0.88) 100%);
   position: relative;
   isolation: isolate;
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 1rem 1rem 1.5rem;
-  margin-left: -1.5rem;
-  margin-right: -1.5rem;
-  margin-top: -0.5rem;
-  border-radius: 0 0 20px 20px;
-  background-color: #050810;
-  background-image: var(--dash-overlay), url("../Design/DashboardBackground.jpg");
+  max-width: none;
+  width: auto;
+  margin: -1rem -1.5rem -2rem;
+  padding: 1rem 1.5rem 2rem;
+  border-radius: 0;
+  background-color: #0b0e14;
+  background-image: var(--dash-overlay), url("../Design/MainBackgroundDashboard.jpg");
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
@@ -36,8 +34,8 @@
 
 @media (max-width: 900px) {
   .dash-analytics {
-    margin-left: -1rem;
-    margin-right: -1rem;
+    margin: -1rem -1rem -2rem;
+    padding: 1rem 1rem 2rem;
   }
 }
 
@@ -105,12 +103,15 @@
 
 .neo-card {
   border-radius: 18px;
-  border: 1px solid var(--border);
-  background: var(--card);
+  border: none;
+  background: transparent;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   padding: 1.1rem 1.2rem;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 14px 44px rgba(2, 6, 23, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -18px 28px rgba(15, 23, 42, 0.24);
 }
 
 [data-theme="light"] .neo-card {
@@ -133,8 +134,7 @@
 
 [data-theme="light"] .neo-globe-wrap {
   border-color: rgba(51, 65, 85, 0.15);
-  background: radial-gradient(ellipse at 50% 30%, rgba(34, 211, 238, 0.08), transparent 55%),
-    radial-gradient(ellipse at 70% 70%, rgba(168, 85, 247, 0.1), transparent 45%), rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 [data-theme="light"] .neo-globe__caption {
@@ -242,9 +242,64 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid var(--border);
-  background: radial-gradient(ellipse at 50% 30%, rgba(34, 211, 238, 0.12), transparent 55%),
-    radial-gradient(ellipse at 70% 70%, rgba(168, 85, 247, 0.15), transparent 45%), rgba(8, 12, 22, 0.9);
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.neo-globe-wrap--clickable {
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.neo-globe-wrap--clickable:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+@keyframes neo-globe-spin {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+  to {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes neo-globe-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 22px rgba(34, 211, 238, 0.22));
+  }
+  50% {
+    filter: drop-shadow(0 0 34px rgba(168, 85, 247, 0.28));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo-globe-media {
+    animation: none;
+  }
+}
+
+.neo-globe-media {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  object-fit: contain;
+  object-position: center center;
+  display: block;
+  opacity: 0.96;
+  filter: drop-shadow(0 0 24px rgba(34, 211, 238, 0.28));
+  animation: neo-globe-spin 26s linear infinite, neo-globe-breathe 3.8s ease-in-out infinite;
+  transform-origin: 50% 50%;
+  mix-blend-mode: screen;
+}
+
+.neo-globe-3d {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
 }
 
 .neo-globe {
@@ -299,8 +354,9 @@
   gap: 0.35rem;
   padding: 0.25rem;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.08);
   margin-bottom: 0.75rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .neo-tab {
@@ -397,8 +453,9 @@
 .neo-forecast__box {
   padding: 0.75rem;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  border: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .neo-forecast__box strong {

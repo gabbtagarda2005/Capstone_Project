@@ -7,6 +7,8 @@ node_modules/
 .env.local
 .env.*.local
 *.pem
+**/firebase-adminsdk*.json
+Backend/Admin_Backend/secrets/
 
 # Logs & OS
 logs/

@@ -1,0 +1,207 @@
+.map-control-panel {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: stretch;
+  max-width: min(220px, 42vw);
+  pointer-events: none;
+}
+
+.map-control-panel > * {
+  pointer-events: auto;
+}
+
+.map-control-panel__glass {
+  background: rgba(11, 14, 20, 0.62);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.25rem;
+  padding: 1rem;
+  box-shadow:
+    0 12px 40px -12px rgba(0, 0, 0, 0.75),
+    0 0 24px rgba(139, 92, 246, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.map-control-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+  padding: 0 0.2rem;
+}
+
+.map-control-panel__head .map-control-panel__svg {
+  width: 16px;
+  height: 16px;
+  color: #c4b5fd;
+  flex-shrink: 0;
+}
+
+.map-control-panel__head-text {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.map-control-panel__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.map-control-panel__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+  color: inherit;
+  font: inherit;
+}
+
+.map-control-panel__row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.map-control-panel__row--active {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.map-control-panel__row-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.map-control-panel__row-left .map-control-panel__svg {
+  width: 16px;
+  height: 16px;
+}
+
+.map-control-panel__accent--emerald {
+  color: #64748b;
+}
+.map-control-panel__accent--emerald.map-control-panel__accent--on {
+  color: #34d399;
+}
+
+.map-control-panel__accent--amber {
+  color: #64748b;
+}
+.map-control-panel__accent--amber.map-control-panel__accent--on {
+  color: #fbbf24;
+}
+
+.map-control-panel__accent--cyan {
+  color: #64748b;
+}
+.map-control-panel__accent--cyan.map-control-panel__accent--on {
+  color: #22d3ee;
+}
+
+.map-control-panel__accent--violet {
+  color: #64748b;
+}
+.map-control-panel__accent--violet.map-control-panel__accent--on {
+  color: #a78bfa;
+}
+
+.map-control-panel__row-label {
+  flex: 1;
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.95);
+  font-weight: 500;
+}
+
+.map-control-panel__row-label--active {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.map-control-panel__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #1e293b;
+  flex-shrink: 0;
+}
+
+.map-control-panel__dot--pulse {
+  animation: map-control-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes map-control-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.15);
+  }
+}
+
+.map-control-panel__stat {
+  background: rgba(139, 92, 246, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+}
+
+.map-control-panel__stat-label {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+}
+
+.map-control-panel__stat-value {
+  margin: 0.2rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.map-control-panel__stat-suffix {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #a78bfa;
+}
+
+.map-control-panel__note {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: rgba(148, 163, 184, 0.75);
+  padding: 0 0.15rem;
+}
+
+.map-control-panel__svg {
+  display: block;
+}

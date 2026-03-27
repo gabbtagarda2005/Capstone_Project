@@ -12,12 +12,14 @@ class TripListScreen extends StatefulWidget {
     required this.from,
     required this.to,
     required this.date,
+    this.ticketType = 'Regular',
   });
 
   final String authToken;
   final String from;
   final String to;
   final DateTime date;
+  final String ticketType;
 
   @override
   State<TripListScreen> createState() => _TripListScreenState();
@@ -35,6 +37,7 @@ class _TripListScreenState extends State<TripListScreen> {
       to: widget.to,
       dateIso: widget.date.toIso8601String().split('T').first,
       token: widget.authToken,
+      ticketType: widget.ticketType,
     );
   }
 

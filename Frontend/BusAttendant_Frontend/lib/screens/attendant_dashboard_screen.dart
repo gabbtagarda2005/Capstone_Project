@@ -58,6 +58,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
           from: _from.text.trim().isEmpty ? 'From' : _from.text.trim(),
           to: _to.text.trim().isEmpty ? 'To' : _to.text.trim(),
           date: _date,
+          ticketType: _ticketType,
         ),
       ),
     );
@@ -189,6 +190,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                           items: const [
                             DropdownMenuItem(value: 'Regular', child: Text('Regular')),
                             DropdownMenuItem(value: 'Student', child: Text('Student')),
+                            DropdownMenuItem(value: 'PWD', child: Text('PWD')),
                             DropdownMenuItem(value: 'Senior', child: Text('Senior')),
                           ],
                           onChanged: (v) {

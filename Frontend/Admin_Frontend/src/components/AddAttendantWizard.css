@@ -1,0 +1,445 @@
+@keyframes add-att-wiz-otp-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.35),
+      0 0 18px rgba(139, 92, 246, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(167, 139, 250, 0.55),
+      0 0 28px rgba(139, 92, 246, 0.45);
+  }
+}
+
+.add-att-wiz__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(2, 6, 23, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.add-att-wiz {
+  position: relative;
+  width: 100%;
+  max-width: 36rem;
+  min-width: 0;
+  max-height: min(92vh, 720px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 1.6rem 1.5rem 1.4rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-left: 3px solid rgba(167, 139, 250, 0.45);
+  background: linear-gradient(160deg, rgba(22, 18, 40, 0.94), rgba(15, 23, 42, 0.88));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 0 48px rgba(88, 28, 135, 0.12),
+    0 28px 72px rgba(2, 6, 23, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.add-att-wiz__glow {
+  position: absolute;
+  pointer-events: none;
+  inset: -35% -15% auto;
+  height: 50%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.2), transparent 65%);
+  opacity: 0.95;
+}
+
+.add-att-wiz__head {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.add-att-wiz__head-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.add-att-wiz__head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.add-att-wiz__back-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-top: 0.1rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(196, 181, 253, 0.95);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.add-att-wiz__back-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e9d5ff;
+}
+
+.add-att-wiz__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.add-att-wiz__steps {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.add-att-wiz__step--on {
+  color: #c4b5fd;
+  text-shadow: 0 0 12px rgba(167, 139, 250, 0.4);
+}
+
+.add-att-wiz__step-sep {
+  color: rgba(100, 116, 139, 0.7);
+  font-weight: 500;
+}
+
+.add-att-wiz__form {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.add-att-wiz__form--bento {
+  gap: 1rem;
+}
+
+.add-att-wiz__lead {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+.add-att-wiz__em {
+  color: #e9d5ff;
+  font-weight: 600;
+}
+
+.add-att-wiz__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.add-att-wiz__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.88);
+}
+
+.add-att-wiz__input,
+.add-att-wiz__select {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.add-att-wiz__input:focus,
+.add-att-wiz__select:focus {
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+
+.add-att-wiz__select {
+  cursor: pointer;
+  appearance: none;
+}
+
+.add-att-wiz__otp-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.add-att-wiz__otp-cell {
+  width: 2.65rem;
+  height: 2.65rem;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.add-att-wiz__otp-cell:focus {
+  border-color: rgba(167, 139, 250, 0.85);
+  animation: add-att-wiz-otp-pulse 1.6s ease-in-out infinite;
+}
+
+.add-att-wiz__resend {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+.add-att-wiz__resend-timer {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.add-att-wiz__link {
+  background: none;
+  border: none;
+  color: #c4b5fd;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.add-att-wiz__link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.add-att-wiz__bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .add-att-wiz__bento {
+    grid-template-columns: 1fr;
+  }
+}
+
+.add-att-wiz__bento-card {
+  border-radius: 2rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.add-att-wiz__bento-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(196, 181, 253, 0.95);
+}
+
+.add-att-wiz__avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.add-att-wiz__avatar-hit {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 1.25rem;
+}
+
+.add-att-wiz__avatar-hit:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.add-att-wiz__avatar-preview {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.35);
+}
+
+.add-att-wiz__avatar-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(196, 181, 253, 0.9);
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: add-att-wiz-spin 0.9s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.55));
+}
+
+@keyframes add-att-wiz-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.add-att-wiz__upload-btn {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #c4b5fd;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.add-att-wiz__upload-btn:hover:not(:disabled) {
+  color: #e9d5ff;
+}
+
+.add-att-wiz__upload-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.add-att-wiz__file-input {
+  display: none;
+}
+
+.add-att-wiz__grid2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .add-att-wiz__grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.add-att-wiz__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.add-att-wiz__btn {
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.9rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s ease;
+}
+
+.add-att-wiz__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.add-att-wiz__btn--ghost {
+  background: transparent;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.add-att-wiz__btn--primary {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(124, 58, 237, 0.35);
+}
+
+.admin-shell--light .add-att-wiz {
+  border-color: rgba(99, 102, 241, 0.28);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.92));
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+}
+
+.admin-shell--light .add-att-wiz__title {
+  color: #0f172a;
+}
+
+.admin-shell--light .add-att-wiz__lead,
+.admin-shell--light .add-att-wiz__resend-timer {
+  color: rgba(51, 65, 85, 0.92);
+}
+
+.admin-shell--light .add-att-wiz__input,
+.admin-shell--light .add-att-wiz__select,
+.admin-shell--light .add-att-wiz__otp-cell {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+.admin-shell--light .add-att-wiz__bento-card {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.admin-shell--light .add-att-wiz__back-icon {
+  background: rgba(15, 23, 42, 0.06);
+  color: #5b21b6;
+}
+
+.admin-shell--light .add-att-wiz__back-icon:hover {
+  background: rgba(15, 23, 42, 0.1);
+  color: #4c1d95;
+}

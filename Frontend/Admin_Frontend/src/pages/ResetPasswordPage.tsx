@@ -1,19 +1,21 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useToast } from "@/context/ToastContext";
 
 export function ResetPasswordPage() {
+  const { showError } = useToast();
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [tokenState, setTokenState] = useState<"checking" | "valid" | "invalid">(
     token ? "checking" : "invalid"
   );
+  const invalidToastShown = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -36,15 +38,20 @@ export function ResetPasswordPage() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (tokenState !== "invalid" || invalidToastShown.current || !token) return;
+    invalidToastShown.current = true;
+    showError("This reset link is invalid or has expired. Request a new one from the forgot password page.");
+  }, [tokenState, token, showError]);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      showError("Password must be at least 8 characters.");
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      showError("Passwords do not match.");
       return;
     }
     setBusy(true);
@@ -55,7 +62,7 @@ export function ResetPasswordPage() {
       });
       setOkMsg(res.message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Reset failed");
+      showError(err instanceof Error ? err.message : "Reset failed");
     } finally {
       setBusy(false);
     }
@@ -77,9 +84,6 @@ export function ResetPasswordPage() {
 
         {tokenState === "invalid" && (
           <div>
-            <p className="auth-error" role="alert">
-              This reset link is invalid or has expired. Request a new one from the forgot password page.
-            </p>
             <Link to="/forgot-password" className="auth-link-button auth-link-button--secondary">
               Request new link
             </Link>
@@ -113,11 +117,6 @@ export function ResetPasswordPage() {
                 minLength={8}
               />
             </label>
-            {error && (
-              <p className="auth-error" role="alert">
-                {error}
-              </p>
-            )}
             <button type="submit" className="auth-submit" disabled={busy}>
               {busy ? "Updating…" : "Update password"}
             </button>

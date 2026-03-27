@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   fare DECIMAL(10, 2) NOT NULL DEFAULT 15.00,
   issued_by_operator_id INT UNSIGNED NOT NULL,
   issued_by_name VARCHAR(255) NOT NULL,
+  bus_number VARCHAR(32) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_tickets_operator
     FOREIGN KEY (issued_by_operator_id) REFERENCES bus_operators (operator_id)

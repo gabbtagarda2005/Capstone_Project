@@ -42,18 +42,26 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final r = await _api.login(email: email, password: pass);
-    if (!mounted) return;
-    if (r.ok && r.token != null && r.displayName != null) {
-      await _session.saveSession(token: r.token!, displayName: r.displayName!);
+    try {
+      final r = await _api.login(email: email, password: pass);
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => MainShell(displayName: r.displayName!)),
-      );
-    } else {
+      if (r.ok && r.token != null && r.displayName != null) {
+        await _session.saveSession(token: r.token!, displayName: r.displayName!);
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(builder: (_) => MainShell(displayName: r.displayName!)),
+        );
+        return;
+      }
       setState(() {
         _busy = false;
         _error = r.message ?? 'Login failed';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Could not reach server. Check API URL and backend status.';
       });
     }
   }

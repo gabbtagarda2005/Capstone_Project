@@ -2,7 +2,9 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const { getMysqlPool } = require("../db/mysqlPool");
 const { requireAdminJwt } = require("../middleware/requireAdminJwt");
+const { requireSuperAdmin } = require("../middleware/requireSuperAdmin");
 const { mapOperatorRow } = require("./authTicketing");
+const AttendantRegistry = require("../models/AttendantRegistry");
 
 function nameExpr(alias = "o") {
   return `TRIM(CONCAT_WS(' ', ${alias}.first_name, NULLIF(TRIM(${alias}.middle_name), ''), ${alias}.last_name))`;
@@ -20,7 +22,18 @@ function createOperatorsTicketingRouter() {
         `SELECT operator_id, first_name, last_name, middle_name, email, phone, role
          FROM bus_operators ORDER BY operator_id DESC`
       );
-      res.json({ items: rows.map((r) => mapOperatorRow(r)) });
+      const emails = rows.map((r) => String(r.email || "").toLowerCase()).filter(Boolean);
+      const regs =
+        emails.length > 0
+          ? await AttendantRegistry.find({ email: { $in: emails } }).select("email").lean()
+          : [];
+      const verifiedEmails = new Set(regs.map((r) => r.email));
+      res.json({
+        items: rows.map((r) => ({
+          ...mapOperatorRow(r),
+          otpVerified: verifiedEmails.has(String(r.email || "").toLowerCase()),
+        })),
+      });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -210,7 +223,7 @@ function createOperatorsTicketingRouter() {
     }
   });
 
-  router.delete("/:id", async (req, res) => {
+  router.delete("/:id", requireSuperAdmin, async (req, res) => {
     const pool = getMysqlPool();
     if (!pool) return res.status(503).json({ error: "MySQL not configured" });
     const id = Number(req.params.id);

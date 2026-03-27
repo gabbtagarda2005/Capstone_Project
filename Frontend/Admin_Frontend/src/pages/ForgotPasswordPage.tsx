@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useToast } from "@/context/ToastContext";
 
 type ForgotResponse = {
   message: string;
@@ -10,14 +11,13 @@ type ForgotResponse = {
 };
 
 export function ForgotPasswordPage() {
+  const { showError } = useToast();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<ForgotResponse | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     setBusy(true);
     try {
       const res = await api<ForgotResponse>("/api/auth/forgot-password", {
@@ -26,7 +26,7 @@ export function ForgotPasswordPage() {
       });
       setDone(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      showError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setBusy(false);
     }
@@ -75,11 +75,6 @@ export function ForgotPasswordPage() {
                 required
               />
             </label>
-            {error && (
-              <p className="auth-error" role="alert">
-                {error}
-              </p>
-            )}
             <button type="submit" className="auth-submit" disabled={busy}>
               {busy ? "Sending…" : "Send reset link"}
             </button>

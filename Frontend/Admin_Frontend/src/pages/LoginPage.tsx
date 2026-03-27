@@ -1,50 +1,78 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useAdminBranding } from "@/context/AdminBrandingContext";
+import { useToast } from "@/context/ToastContext";
+import { ALLOWED_ADMIN_GOOGLE_EMAILS } from "@/lib/adminAllowlist";
+import { api } from "@/lib/api";
+import { getFirebaseAuth, getGoogleAuthProvider, isFirebaseAuthConfigured } from "@/lib/firebase";
+import { FirebaseError } from "firebase/app";
+import { signInWithPopup, signOut } from "firebase/auth";
 import "./LoginPage.css";
 
-function GlassLogo() {
+function HomeIcon() {
   return (
-    <div className="glass-login__logo" aria-hidden>
-      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" />
-        <line
-          x1="14"
-          y1="32"
-          x2="34"
-          y2="16"
-          stroke="url(#gl-g1)"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
-        <line
-          x1="16"
-          y1="34"
-          x2="36"
-          y2="18"
-          stroke="url(#gl-g1)"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
-        <defs>
-          <linearGradient id="gl-g1" x1="14" y1="32" x2="36" y2="16" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#e9d5ff" />
-            <stop offset="1" stopColor="#8b5cf6" />
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden>
+      <path d="M3 10.5L12 3l9 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.5 9.5V20h13V9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M5 7l7 5 7-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
+      <rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M8 10V7.8a4 4 0 118 0V10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
   );
 }
 
 export function LoginPage() {
-  const { login, token, loading } = useAuth();
+  const { login, loginWithGoogle, token, loading } = useAuth();
+  const { branding } = useAdminBranding();
+  const { showError, showSuccess, showToast, showInfo } = useToast();
   const navigate = useNavigate();
+  const [imgFailed, setImgFailed] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [shake, setShake] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpResetToken, setOtpResetToken] = useState("");
+  const [otpPass, setOtpPass] = useState("");
+  const [otpConfirm, setOtpConfirm] = useState("");
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpStep, setOtpStep] = useState<"email" | "verify" | "reset">("email");
+  const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
+  const [otpServerHint, setOtpServerHint] = useState<string | null>(null);
+  const companyName = branding.companyName.trim() || "BUKIDNON";
+  const showLogoImg = Boolean(branding.logoUrl && !imgFailed);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [branding.logoUrl]);
+
+  useEffect(() => {
+    if (loading || token) return;
+    const key = "admin_notice_session_expired";
+    if (sessionStorage.getItem(key) === "1") {
+      sessionStorage.removeItem(key);
+      showInfo("Session expired due to inactivity.");
+    }
+  }, [loading, token, showInfo]);
 
   if (loading) {
     return (
@@ -65,17 +93,150 @@ export function LoginPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     setBusy(true);
     try {
       await login(email.trim(), password);
       navigate("/dashboard", { replace: true });
     } catch (err) {
       triggerShake();
-      setError(err instanceof Error ? err.message : "Login failed");
+      showError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onGoogleLogin() {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      showToast("Google sign-in is not configured. Add VITE_FIREBASE_* keys to your .env file.", { variant: "info" });
+      return;
+    }
+    setGoogleBusy(true);
+    try {
+      const cred = await signInWithPopup(auth, getGoogleAuthProvider());
+      try {
+        const idToken = await cred.user.getIdToken();
+        await loginWithGoogle(idToken);
+        navigate("/dashboard", { replace: true });
+      } catch (apiErr) {
+        await signOut(auth).catch(() => {});
+        triggerShake();
+        const msg = apiErr instanceof Error ? apiErr.message : "";
+        if (/not authorized|whitelisted|Access Denied/i.test(msg)) {
+          showError(`This Google account is not allowed. Only ${ALLOWED_ADMIN_GOOGLE_EMAILS.join(" and ")} can sign in.`);
+        } else {
+          showError(msg || "Could not complete admin login.");
+        }
+      }
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+          return;
+        }
+        if (err.code === "auth/configuration-not-found") {
+          triggerShake();
+          showToast(
+            "Firebase Auth is not enabled for this project (or the API key is blocked). In Firebase Console: Authentication → Get started → Sign-in method → turn on Google. In Google Cloud Console: APIs → enable “Identity Toolkit API”. If the API key has restrictions, allow Identity Toolkit API (or use an unrestricted key for dev).",
+            { variant: "info", durationMs: 12000 }
+          );
+          return;
+        }
+      }
+      triggerShake();
+      showError(err instanceof Error ? err.message : "Google login failed");
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
+  async function sendOtp() {
+    const em = otpEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+      showError("Please enter a valid email address.");
+      return;
+    }
+    setOtpBusy(true);
+    try {
+      const r = await api<{
+        message: string;
+        simulatedEmail?: boolean;
+        devOtp?: string;
+        hint?: string;
+      }>("/api/auth/forgot-password-otp", {
+        method: "POST",
+        json: { email: em },
+      });
+      setOtpDevCode(r.devOtp ?? null);
+      setOtpServerHint(r.hint ?? null);
+      if (r.simulatedEmail) {
+        showToast(r.message, { variant: "info" });
+      } else {
+        showSuccess("OTP sent. Check your inbox (and spam).");
+      }
+      setOtpStep("verify");
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Failed to send OTP");
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  async function verifyOtp() {
+    setOtpBusy(true);
+    try {
+      const r = await api<{ resetToken: string; message: string }>("/api/auth/verify-otp", {
+        method: "POST",
+        json: { email: otpEmail.trim().toLowerCase(), otp: otpCode.trim() },
+      });
+      setOtpResetToken(r.resetToken);
+      showSuccess("Code verified. Enter your new password below.");
+      setOtpDevCode(null);
+      setOtpServerHint(null);
+      setOtpStep("reset");
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "OTP verification failed");
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  async function resetWithOtp() {
+    if (otpPass.length < 8) {
+      showError("Password must be at least 8 characters.");
+      return;
+    }
+    if (otpPass !== otpConfirm) {
+      showError("Passwords do not match.");
+      return;
+    }
+    setOtpBusy(true);
+    try {
+      const r = await api<{ message: string }>("/api/auth/reset-password", {
+        method: "POST",
+        json: { token: otpResetToken, password: otpPass, confirmPassword: otpConfirm },
+      });
+      showSuccess(r.message);
+      setOtpOpen(false);
+      setOtpStep("email");
+      setOtpCode("");
+      setOtpPass("");
+      setOtpConfirm("");
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Password reset failed");
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  function closeOtp() {
+    setOtpOpen(false);
+    setOtpDevCode(null);
+    setOtpServerHint(null);
+    setOtpBusy(false);
+    setOtpStep("email");
+    setOtpCode("");
+    setOtpPass("");
+    setOtpConfirm("");
   }
 
   return (
@@ -87,54 +248,74 @@ export function LoginPage() {
       </div>
 
       <div className={`glass-login__card ${shake ? "glass-login__card--shake" : ""}`}>
-        <Link to="/" className="glass-login__home-inline">
-          ← Home
+        <Link to="/" className="glass-login__home-inline" aria-label="Home">
+          <HomeIcon />
         </Link>
         <div className="glass-login__logo-wrap">
-          <GlassLogo />
+          <div className="glass-login__logo" aria-hidden>
+            {showLogoImg ? (
+              <img src={branding.logoUrl!} alt="" className="glass-login__logo-img" onError={() => setImgFailed(true)} />
+            ) : (
+              <span className="glass-login__logo-fallback">{companyName.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
         </div>
-        <h1 className="glass-login__brand">BUKIDNON</h1>
+        <h1 className="glass-login__brand">{companyName.toUpperCase()}</h1>
         <p className="glass-login__welcome">Welcome back, Admin</p>
 
-        <form onSubmit={onSubmit} noValidate>
+        <form onSubmit={onSubmit} noValidate autoComplete="off">
           <label className="glass-login__field">
             <span className="glass-login__label">Email address</span>
-            <input
-              className="glass-login__input"
-              type="email"
-              autoComplete="username"
-              inputMode="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@organization.com"
-              required
-            />
+            <div className="glass-login__input-wrap">
+              <span className="glass-login__input-icon" aria-hidden>
+                <MailIcon />
+              </span>
+              <input
+                className="glass-login__input"
+                type="email"
+                autoComplete="off"
+                inputMode="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
           </label>
 
           <label className="glass-login__field">
             <span className="glass-login__label">Password</span>
-            <input
-              className="glass-login__input"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="glass-login__input-wrap">
+              <span className="glass-login__input-icon" aria-hidden>
+                <LockIcon />
+              </span>
+              <input
+                className="glass-login__input"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
           </label>
 
-          {error ? (
-            <p className="glass-login__error" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <button type="submit" className="glass-login__submit" disabled={busy}>
-            {busy ? "Signing in…" : "Login"}
+          <button type="submit" className="glass-login__submit" disabled={busy || googleBusy}>
+            {busy ? <span className="glass-login__spinner" aria-hidden /> : null}
+            {busy ? "Logging in..." : "Login"}
           </button>
 
-          <button type="button" className="glass-login__google" disabled={busy}>
+          <button
+            type="button"
+            className="glass-login__google"
+            disabled={busy || googleBusy || !isFirebaseAuthConfigured()}
+            title={
+              !isFirebaseAuthConfigured()
+                ? "Set VITE_FIREBASE_API_KEY, PROJECT_ID, and APP_ID in .env (auth domain defaults to PROJECT_ID.firebaseapp.com)"
+                : undefined
+            }
+            onClick={() => void onGoogleLogin()}
+          >
+            {googleBusy ? <span className="glass-login__spinner" aria-hidden /> : null}
             <span className="glass-login__google-icon" aria-hidden>
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path
@@ -155,16 +336,81 @@ export function LoginPage() {
                 />
               </svg>
             </span>
-            Login with Google
+            {googleBusy ? "Signing in..." : "Login with Google"}
           </button>
+          {!isFirebaseAuthConfigured() ? (
+            <p className="glass-login__hint" role="note">
+              Google login needs <code>VITE_FIREBASE_*</code> in <code>.env</code>. Email/password login still works.
+            </p>
+          ) : null}
         </form>
 
         <p className="glass-login__footer">
-          <Link to="/forgot-password" className="glass-login__forgot">
+          <button type="button" className="glass-login__forgot-btn" onClick={() => setOtpOpen(true)}>
             Forget Password ?
-          </Link>
+          </button>
         </p>
       </div>
+
+      {otpOpen ? (
+        <div className="glass-login__otp-overlay" role="dialog" aria-modal="true">
+          <div className="glass-login__otp-modal">
+            <h2 className="glass-login__otp-title">Password Recovery</h2>
+            {otpStep === "email" ? (
+              <>
+                <p className="glass-login__otp-sub">Enter your registered admin email to receive a 6-digit OTP.</p>
+                <input className="glass-login__input" type="email" value={otpEmail} onChange={(e) => setOtpEmail(e.target.value)} autoComplete="email" />
+                <button type="button" className="glass-login__submit" disabled={otpBusy} onClick={() => void sendOtp()}>
+                  {otpBusy ? <span className="glass-login__spinner" aria-hidden /> : null}
+                  {otpBusy ? "Sending OTP..." : "Send OTP"}
+                </button>
+              </>
+            ) : null}
+
+            {otpStep === "verify" ? (
+              <>
+                <p className="glass-login__otp-sub">Enter the 6-digit code from your email (or below if shown for local testing).</p>
+                {otpServerHint ? <p className="glass-login__otp-hint">{otpServerHint}</p> : null}
+                {otpDevCode ? (
+                  <p className="glass-login__otp-dev" role="status" aria-live="polite">
+                    Code for this session: <strong className="glass-login__otp-dev-digits">{otpDevCode}</strong>
+                  </p>
+                ) : null}
+                <input
+                  className="glass-login__input glass-login__input--otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                />
+                <button type="button" className="glass-login__submit" disabled={otpBusy} onClick={() => void verifyOtp()}>
+                  {otpBusy ? <span className="glass-login__spinner" aria-hidden /> : null}
+                  {otpBusy ? "Verifying..." : "Verify OTP"}
+                </button>
+              </>
+            ) : null}
+
+            {otpStep === "reset" ? (
+              <>
+                <p className="glass-login__otp-sub">Set your new password.</p>
+                <input className="glass-login__input" type="password" placeholder="New password" value={otpPass} onChange={(e) => setOtpPass(e.target.value)} />
+                <input className="glass-login__input" type="password" placeholder="Confirm password" value={otpConfirm} onChange={(e) => setOtpConfirm(e.target.value)} />
+                <button type="button" className="glass-login__submit" disabled={otpBusy} onClick={() => void resetWithOtp()}>
+                  {otpBusy ? <span className="glass-login__spinner" aria-hidden /> : null}
+                  {otpBusy ? "Updating..." : "Update Password"}
+                </button>
+              </>
+            ) : null}
+
+            <button type="button" className="glass-login__otp-close" onClick={closeOtp}>
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

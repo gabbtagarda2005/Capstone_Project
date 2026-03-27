@@ -1,286 +1,291 @@
-import { useEffect, useMemo, useState } from "react";
-import { CartesianGrid, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { api } from "@/lib/api";
-import type { TicketRow } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchReportsAnalytics, postAdminAuditEvent } from "@/lib/api";
+import { downloadOperationsReportPdf } from "@/lib/generateOperationsReportPdf";
+import { downloadReportsCsv, type ReportExportSectionKey } from "@/lib/reportsCsvExport";
+import { ReportsExecutiveMetrics } from "@/components/ReportsExecutiveMetrics";
+import { ReportsIntelligenceHub, type HubTab } from "@/components/ReportsIntelligenceHub";
+import { ReportsExportModal } from "@/components/ReportsExportModal";
+import { useAdminBranding } from "@/context/AdminBrandingContext";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
+import type { ReportsAnalyticsDto } from "@/lib/types";
 import "./ReportsPage.css";
 
-function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const GOAL_STREAK_STORAGE_KEY = "admin_reports_rev_below_goal_streak";
+
+function dayKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function daysBetweenUtc(a: string, b: string): number {
+  const t0 = Date.parse(`${a}T12:00:00Z`);
+  const t1 = Date.parse(`${b}T12:00:00Z`);
+  return Math.round((t1 - t0) / 86400000);
+}
+
+function revenueBelowGoalSignal(d: ReportsAnalyticsDto): boolean {
+  const { todayRevenue, avgDailyLast7Days, goalProgressPct } = d.executive;
+  if (avgDailyLast7Days <= 0) return goalProgressPct < 18;
+  return goalProgressPct < 34 && todayRevenue < avgDailyLast7Days * 0.42;
+}
+
+function buildPredictiveInsight(d: ReportsAnalyticsDto | null): string {
+  if (!d) {
+    return "Connect ticketing to unlock fleet recommendations and live corridor insights.";
+  }
+  const parts: string[] = [];
+  const { startHour, endHour } = d.insights.peakBoardingWindow;
+  const a = String(startHour).padStart(2, "0");
+  const b = String(endHour).padStart(2, "0");
+  const corridor = d.insights.peakCorridorHint || "primary corridors";
+  const extra = d.insights.suggestedExtraBuses;
+  if (extra > 0) {
+    parts.push(
+      `High passenger density expected near ${corridor}. Consider dispatching ${extra} standby unit${extra > 1 ? "s" : ""} for the ${b}:00 return window.`
+    );
+  } else {
+    parts.push(
+      `Peak boarding window ${a}:00–${b}:00 (${corridor}). Route delay sentiment reads ${d.insights.routeDelaySentiment ?? "stable"} — align capacity to historical load.`
+    );
+  }
+  if (d.refunds.length > 0) {
+    parts.push(`${d.refunds.length} refund-flagged ticket(s) need finance review before close of day.`);
+  }
+  return parts.join(" ");
+}
+
+function emptyReportsAnalytics(): ReportsAnalyticsDto {
+  return {
+    generatedAt: new Date().toISOString(),
+    constants: { monthlyProfitGoalPesos: 100_000, tomorrowGrowthRate: 0.08 },
+    executive: {
+      totalRevenue: 0,
+      totalTickets: 0,
+      todayRevenue: 0,
+      todayTickets: 0,
+      monthlyRevenue: 0,
+      monthlyProfitGoalPesos: 100_000,
+      goalProgressPct: 0,
+      tomorrowProjection: 0,
+      avgDailyLast7Days: 0,
+      ytdRevenue: 0,
+      ytdTickets: 0,
+      todayHourlyRevenueTotal: 0,
+    },
+    topPickupLocations: [],
+    topRoutes: [],
+    hourlyToday: Array.from({ length: 24 }, (_, hour) => ({ hour, tickets: 0, revenue: 0 })),
+    dailyLast14: [],
+    monthlyThisYear: [],
+    yearlyAll: [],
+    operatorsAllTime: [],
+    operatorsToday: [],
+    refunds: [],
+    insights: {
+      peakBoardingWindow: { startHour: 6, endHour: 19 },
+      peakCorridorHint: "",
+      routeDelaySentiment: "—",
+      suggestedExtraBuses: 0,
+    },
+  };
 }
 
 export function ReportsPage() {
-  const [tickets, setTickets] = useState<TicketRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { branding } = useAdminBranding();
+  const { showError, showSuccess } = useToast();
+  const [data, setData] = useState<ReportsAnalyticsDto | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [hubTab, setHubTab] = useState<HubTab>("passenger");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [goalAnomalyPulse, setGoalAnomalyPulse] = useState(false);
+  const exportRampRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function isSilentTicketingFailure(message: string): boolean {
+    const m = message.toLowerCase();
+    return (
+      m.includes("mysql not configured") ||
+      m.includes("ticketing data unavailable") ||
+      (m.includes("/api/reports/analytics") && (m.includes("received html") || m.includes("non-json response"))) ||
+      m.includes("received html instead of json") ||
+      m.includes("unexpected token '<'") ||
+      m.includes("invalid json")
+    );
+  }
+
+  const refresh = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const r = await fetchReportsAnalytics();
+      setData(r);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to load analytics";
+      if (isSilentTicketingFailure(msg)) {
+        setLoadError(null);
+        setData(null);
+        return;
+      }
+      setLoadError(msg);
+      setData(null);
+      showError(msg);
+    }
+  }, [showError]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await api<{ items: TicketRow[] }>("/api/tickets");
-        if (!cancelled) setTickets(res.items);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load reports");
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const d = data;
+    if (!d) {
+      setGoalAnomalyPulse(false);
+      return;
+    }
+    const low = revenueBelowGoalSignal(d);
+    const todayStr = dayKey(new Date());
+    try {
+      const raw = localStorage.getItem(GOAL_STREAK_STORAGE_KEY);
+      const prev = raw ? (JSON.parse(raw) as { last?: string; streak: number }) : null;
+      let streak = 0;
+      if (!low) {
+        streak = 0;
+        localStorage.setItem(GOAL_STREAK_STORAGE_KEY, JSON.stringify({ last: todayStr, streak: 0 }));
+      } else if (!prev?.last) {
+        streak = 1;
+        localStorage.setItem(GOAL_STREAK_STORAGE_KEY, JSON.stringify({ last: todayStr, streak: 1 }));
+      } else if (prev.last === todayStr) {
+        streak = Math.max(1, prev.streak || 1);
+      } else {
+        const gap = daysBetweenUtc(prev.last, todayStr);
+        if (gap === 1) {
+          streak = Math.min((prev.streak || 0) + 1, 30);
+        } else {
+          streak = 1;
+        }
+        localStorage.setItem(GOAL_STREAK_STORAGE_KEY, JSON.stringify({ last: todayStr, streak }));
       }
-    })();
+      setGoalAnomalyPulse(low && streak >= 3);
+    } catch {
+      setGoalAnomalyPulse(low);
+    }
+  }, [data]);
+
+  useEffect(() => {
     return () => {
-      cancelled = true;
+      if (exportRampRef.current) clearInterval(exportRampRef.current);
     };
   }, []);
 
-  const today = useMemo(() => new Date(), []);
+  const hubData = data ?? emptyReportsAnalytics();
+  const predictiveInsight = useMemo(() => buildPredictiveInsight(data), [data]);
+  const refundAlert = (data?.refunds?.length ?? 0) > 0;
+  const monthlyRev = hubData.executive.monthlyRevenue ?? 0;
 
-  const hourly = useMemo(() => {
-    const base = Array.from({ length: 24 }, (_, h) => ({ hour: h, tickets: 0, revenue: 0 }));
-    tickets.forEach((t) => {
-      const dt = new Date(t.createdAt);
-      if (!sameDay(dt, today)) return;
-      const row = base[dt.getHours()];
-      if (!row) return;
-      row.tickets += 1;
-      row.revenue += t.fare;
-    });
-    return base;
-  }, [tickets, today]);
+  const peakSubtitle = useMemo(() => {
+    if (!data) return "Connect ticketing to see peak windows.";
+    const { startHour, endHour } = data.insights.peakBoardingWindow;
+    const a = String(startHour).padStart(2, "0");
+    const b = String(endHour).padStart(2, "0");
+    return `Peak periods: ${a}:00–${b}:00 (${data.insights.peakCorridorHint})`;
+  }, [data]);
 
-  const routeRevenue = useMemo(() => {
-    const map = new Map<string, number>();
-    tickets.forEach((t) => {
-      const route = `${t.startLocation} → ${t.destination}`;
-      map.set(route, (map.get(route) ?? 0) + t.fare);
-    });
-    return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([route, revenue]) => ({ route, revenue }));
-  }, [tickets]);
+  const sentimentLabel = (hubData.insights.routeDelaySentiment ?? "—").toUpperCase();
 
-  const operatorLeaderboard = useMemo(() => {
-    const map = new Map<string, { operator: string; tickets: number; revenue: number }>();
-    tickets.forEach((t) => {
-      const key = t.busOperatorName || `Operator ${t.issuedByOperatorId}`;
-      const cur = map.get(key) ?? { operator: key, tickets: 0, revenue: 0 };
-      cur.tickets += 1;
-      cur.revenue += t.fare;
-      map.set(key, cur);
-    });
-    return [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
-  }, [tickets]);
+  async function runPdfExport(sections: Set<string>) {
+    if (!data) {
+      showError("Load analytics before exporting.");
+      return;
+    }
+    if (exportRampRef.current) clearInterval(exportRampRef.current);
+    setPdfBusy(true);
+    setExportProgress(6);
+    exportRampRef.current = setInterval(() => {
+      setExportProgress((p) => (p >= 88 ? p : p + 5 + Math.random() * 4));
+    }, 140);
+    try {
+      await downloadOperationsReportPdf(data, user?.email ?? "admin", {
+        companyName: branding.companyName,
+        reportFooter: branding.reportFooter,
+        sections,
+      });
+      setExportProgress(100);
+      showSuccess("Report downloaded.");
+      try {
+        await postAdminAuditEvent({
+          action: "VIEW",
+          module: "Reports & Analytics",
+          details: "Downloaded operations PDF report (selected sections)",
+        });
+      } catch {
+        /* optional */
+      }
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "PDF export failed");
+    } finally {
+      if (exportRampRef.current) {
+        clearInterval(exportRampRef.current);
+        exportRampRef.current = null;
+      }
+      setPdfBusy(false);
+      window.setTimeout(() => setExportProgress(0), 420);
+    }
+  }
 
-  const projection = useMemo(() => {
-    const byDay = new Map<string, number>();
-    tickets.forEach((t) => {
-      const d = new Date(t.createdAt);
-      const k = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-      byDay.set(k, (byDay.get(k) ?? 0) + t.fare);
-    });
-    const values = [...byDay.values()].slice(0, 7);
-    if (values.length === 0) return 0;
-    return values.reduce((s, n) => s + n, 0) / values.length;
-  }, [tickets]);
-
-  const totalRevenue = tickets.reduce((s, t) => s + t.fare, 0);
-  const monthlyGoal = 100000;
-  const goalPct = Math.max(0, Math.min(100, (totalRevenue / monthlyGoal) * 100));
-
-  const cashOut = useMemo(() => {
-    const today = new Date();
-    const same = (d: Date) => d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-    const map = new Map<string, { operator: string; tickets: number; total: number }>();
-    tickets.forEach((t) => {
-      const dt = new Date(t.createdAt);
-      if (!same(dt)) return;
-      const operator = t.busOperatorName || `Operator ${t.issuedByOperatorId}`;
-      const cur = map.get(operator) ?? { operator, tickets: 0, total: 0 };
-      cur.tickets += 1;
-      cur.total += t.fare;
-      map.set(operator, cur);
-    });
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [tickets]);
-
-  const refundTracker = useMemo(() => {
-    return tickets
-      .filter((t) => t.passengerId.toUpperCase().includes("REFUND"))
-      .slice(0, 20)
-      .map((t) => ({
-        id: t.id,
-        passengerId: t.passengerId,
-        route: `${t.startLocation} → ${t.destination}`,
-        amount: t.fare,
-        at: new Date(t.createdAt).toLocaleString(),
-      }));
-  }, [tickets]);
+  function handleExportCsv(sections: Set<ReportExportSectionKey>) {
+    if (!data) {
+      showError("Load analytics before exporting.");
+      return;
+    }
+    downloadReportsCsv(data, sections);
+    showSuccess("CSV downloaded.");
+    void postAdminAuditEvent({
+      action: "VIEW",
+      module: "Reports & Analytics",
+      details: "Downloaded reports CSV export",
+    }).catch(() => {});
+  }
 
   return (
     <div className="reports-page admin-mgmt">
-      <header className="reports-page__head">
-        <h1 className="reports-page__title">Reports</h1>
-        <p className="reports-page__lead">Leaderboard, daily trends, and revenue projection.</p>
+      <header className="reports-page__head reports-page__toolbar">
+        <div>
+          <h1 className="reports-page__title">Reports &amp; data analytics</h1>
+        </div>
       </header>
 
-      {error ? <p className="dash-error-banner">{error}</p> : null}
+      {loadError ? <p className="reports-page__banner">{loadError}</p> : null}
 
-      <div className="reports-page__summary">
-        <article className="reports-page__stat">
-          <div>Total revenue</div>
-          <strong>₱{totalRevenue.toFixed(2)}</strong>
-        </article>
-        <article className="reports-page__stat">
-          <div>Total tickets</div>
-          <strong>{tickets.length}</strong>
-        </article>
-        <article className="reports-page__stat">
-          <div>Tomorrow projection</div>
-          <strong>₱{projection.toFixed(2)}</strong>
-        </article>
-      </div>
+      <ReportsExecutiveMetrics analytics={hubData} isLive={!!data} goalAnomalyPulse={goalAnomalyPulse} />
 
-      <div className="reports-page__grid">
-        <section className="reports-page__card">
-          <h2>Daily trends (hourly)</h2>
-          <div className="reports-page__chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={hourly}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis />
-                <Tooltip formatter={(v, n) => [n === "revenue" ? `₱${Number(v ?? 0).toFixed(2)}` : Number(v ?? 0), n]} />
-                <Line type="monotone" dataKey="tickets" stroke="#22d3ee" strokeWidth={2.5} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
+      <ReportsIntelligenceHub
+        data={hubData}
+        hubTab={hubTab}
+        onHubTab={setHubTab}
+        exportProgress={exportProgress}
+        refundAlert={refundAlert}
+        onOpenExport={() => setExportOpen(true)}
+        exportDisabled={pdfBusy || !data}
+        exportBusy={pdfBusy}
+        sentimentLabel={sentimentLabel}
+        predictiveInsight={predictiveInsight}
+        peakSubtitle={peakSubtitle}
+        monthlyRev={monthlyRev}
+      />
 
-        <section className="reports-page__card">
-          <h2>Revenue by route</h2>
-          <div className="reports-page__chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={routeRevenue}
-                  dataKey="revenue"
-                  nameKey="route"
-                  innerRadius={45}
-                  outerRadius={85}
-                  fill="#a855f7"
-                  label
-                />
-                <Tooltip formatter={(v) => `₱${Number(v ?? 0).toFixed(2)}`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-      </div>
-
-      <section className="reports-page__card">
-        <h2>Top performing operators</h2>
-        <div className="reports-page__table-wrap">
-          <table className="reports-page__table">
-            <thead>
-              <tr>
-                <th>Operator</th>
-                <th>Tickets</th>
-                <th>Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {operatorLeaderboard.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="reports-page__muted">
-                    No ticket data yet.
-                  </td>
-                </tr>
-              ) : (
-                operatorLeaderboard.map((r) => (
-                  <tr key={r.operator}>
-                    <td>{r.operator}</td>
-                    <td>{r.tickets}</td>
-                    <td>₱{r.revenue.toFixed(2)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="reports-page__card">
-        <h2>Operator cash-out report (today)</h2>
-        <div className="reports-page__table-wrap">
-          <table className="reports-page__table">
-            <thead>
-              <tr>
-                <th>Operator</th>
-                <th>Tickets</th>
-                <th>Calculated Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cashOut.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="reports-page__muted">
-                    No tickets issued today.
-                  </td>
-                </tr>
-              ) : (
-                cashOut.map((r) => (
-                  <tr key={r.operator}>
-                    <td>{r.operator}</td>
-                    <td>{r.tickets}</td>
-                    <td>₱{r.total.toFixed(2)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="reports-page__card">
-        <h2>Monthly profit goal</h2>
-        <div className="reports-page__goal-bar">
-          <div className="reports-page__goal-fill" style={{ width: `${goalPct}%` }} />
-        </div>
-        <p className="reports-page__goal-meta">
-          ₱{totalRevenue.toFixed(2)} of ₱{monthlyGoal.toFixed(2)} target · {goalPct.toFixed(1)}%
-        </p>
-      </section>
-
-      <section className="reports-page__card">
-        <h2>Refund tracker</h2>
-        <div className="reports-page__table-wrap">
-          <table className="reports-page__table">
-            <thead>
-              <tr>
-                <th>Ticket ID</th>
-                <th>Passenger ID</th>
-                <th>Route</th>
-                <th>Amount</th>
-                <th>Timestamp</th>
-              </tr>
-            </thead>
-            <tbody>
-              {refundTracker.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="reports-page__muted">
-                    No refund/cancelled tickets detected (IDs containing REFUND).
-                  </td>
-                </tr>
-              ) : (
-                refundTracker.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.id}</td>
-                    <td>{r.passengerId}</td>
-                    <td>{r.route}</td>
-                    <td>₱{r.amount.toFixed(2)}</td>
-                    <td>{r.at}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <ReportsExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onExportPdf={(sections) => {
+          setExportOpen(false);
+          void runPdfExport(sections);
+        }}
+        onExportCsv={(sections) => {
+          setExportOpen(false);
+          handleExportCsv(sections);
+        }}
+      />
     </div>
   );
 }

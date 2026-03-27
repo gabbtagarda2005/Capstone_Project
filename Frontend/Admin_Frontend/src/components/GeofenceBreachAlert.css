@@ -1,0 +1,214 @@
+.geofence-breach-alert {
+  position: fixed;
+  bottom: 1.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: min(520px, calc(100vw - 1.5rem));
+  animation: geofence-breach-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes geofence-breach-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(24px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.geofence-breach-alert__glow {
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.35) 0%, transparent 65%);
+  filter: blur(24px);
+  pointer-events: none;
+  animation: geofence-breach-pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes geofence-breach-pulse-glow {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.geofence-breach-alert__card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem 1rem 1.25rem 1.25rem;
+  border-radius: 1.75rem;
+  border: 2px solid rgba(248, 113, 113, 0.85);
+  background: rgba(69, 10, 10, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 0 48px rgba(239, 68, 68, 0.45), 0 20px 50px rgba(0, 0, 0, 0.5);
+  animation: geofence-breach-border-flash 1.4s ease-in-out infinite;
+}
+
+@keyframes geofence-breach-border-flash {
+  0%,
+  100% {
+    border-color: rgba(248, 113, 113, 0.85);
+    box-shadow: 0 0 48px rgba(239, 68, 68, 0.45), 0 20px 50px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    border-color: rgba(254, 202, 202, 0.95);
+    box-shadow: 0 0 64px rgba(239, 68, 68, 0.65), 0 20px 50px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.geofence-breach-alert__icon-wrap {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 29, 29, 0.6);
+  color: #f87171;
+  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.2);
+  animation: geofence-breach-icon-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes geofence-breach-icon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.88;
+  }
+}
+
+.geofence-breach-alert__icon {
+  width: 1.85rem;
+  height: 1.85rem;
+}
+
+.geofence-breach-alert__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.geofence-breach-alert__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.geofence-breach-alert__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.geofence-breach-alert__pill {
+  font-size: 0.62rem;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.2);
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+}
+
+.geofence-breach-alert__text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.geofence-breach-alert__bus {
+  color: #fff;
+}
+
+.geofence-breach-alert__coords {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+  font-size: 0.72rem;
+  color: #fecaca;
+}
+
+.geofence-breach-alert__pin {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+}
+
+.geofence-breach-alert__mono {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  color: #fff;
+}
+
+.geofence-breach-alert__off {
+  color: rgba(252, 165, 165, 0.9);
+  font-weight: 600;
+}
+
+.geofence-breach-alert__queue {
+  margin: 0.5rem 0 0;
+  font-size: 0.68rem;
+  color: rgba(254, 202, 202, 0.85);
+}
+
+.geofence-breach-alert__ack {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(148, 163, 184, 0.85);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.geofence-breach-alert__ack:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.geofence-breach-alert__ack svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+[data-theme="light"] .geofence-breach-alert__card {
+  background: rgba(254, 242, 242, 0.95);
+}
+
+[data-theme="light"] .geofence-breach-alert__title {
+  color: #450a0a;
+}
+
+[data-theme="light"] .geofence-breach-alert__text {
+  color: #334155;
+}
+
+[data-theme="light"] .geofence-breach-alert__mono {
+  color: #0f172a;
+}

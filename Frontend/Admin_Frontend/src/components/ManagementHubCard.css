@@ -1,0 +1,267 @@
+/* Management hub card — neon command-center style */
+
+.mgmt-uverse-link {
+  display: block;
+  width: 100%;
+  max-width: 330px;
+  text-decoration: none;
+  color: inherit;
+  justify-self: center;
+}
+
+.mgmt-uverse {
+  width: 100%;
+}
+
+.mgmt-uverse__parent {
+  width: 100%;
+  max-width: 330px;
+  height: 252px;
+  margin: 0 auto;
+}
+
+.mgmt-uverse__card {
+  position: relative;
+  height: 100%;
+  border-radius: 26px;
+  border: 1px solid rgba(112, 128, 160, 0.26);
+  background: radial-gradient(130% 90% at 50% 110%, #101a2d 0%, #0b1222 45%, #070d19 100%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.3s ease;
+}
+
+.mgmt-uverse__card::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: -6px;
+  height: 58px;
+  border-radius: 20px;
+  filter: blur(9px);
+  opacity: 0.96;
+  pointer-events: none;
+}
+
+.mgmt-uverse__content {
+  padding: 64px 1.15rem 0;
+}
+
+.mgmt-uverse__title {
+  display: block;
+  color: #f8fafc;
+  font-weight: 800;
+  font-size: 1.04rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.mgmt-uverse__text {
+  display: block;
+  color: rgba(195, 210, 232, 0.76);
+  font-size: 0.78rem;
+  margin-top: 0.4rem;
+  line-height: 1.35;
+}
+
+.mgmt-uverse__bottom {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.mgmt-uverse__metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mgmt-uverse__metric {
+  font-size: 0.67rem;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: rgba(203, 213, 225, 0.88);
+  line-height: 1.2;
+}
+
+.mgmt-uverse__metric--a {
+  font-size: 0.96rem;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.mgmt-uverse__open-label {
+  color: rgba(236, 245, 255, 0.95);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.mgmt-uverse__icon-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  font-size: 1rem;
+}
+
+.mgmt-uverse__card:hover {
+  transform: translateY(-3px) scale(1.01);
+}
+
+[data-theme="light"] .mgmt-uverse__title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .mgmt-uverse__text {
+  color: rgba(30, 41, 59, 0.8);
+}
+
+.mgmt-uverse__card--1 {
+  --hub-accent: #f97316;
+  --hub-accent-2: #fb7185;
+}
+.mgmt-uverse__card--2 {
+  --hub-accent: #38bdf8;
+  --hub-accent-2: #6366f1;
+}
+.mgmt-uverse__card--3 {
+  --hub-accent: #22c55e;
+  --hub-accent-2: #14b8a6;
+}
+.mgmt-uverse__card--4 {
+  --hub-accent: #a855f7;
+  --hub-accent-2: #f472b6;
+}
+.mgmt-uverse__card--5 {
+  --hub-accent: #f472b6;
+  --hub-accent-2: #fb7185;
+}
+.mgmt-uverse__card--6 {
+  --hub-accent: #2dd4bf;
+  --hub-accent-2: #0891b2;
+}
+
+.mgmt-uverse__card--1::before {
+  background: linear-gradient(180deg, rgba(10, 38, 71, 0.18), rgba(44, 116, 179, 0.75));
+}
+.mgmt-uverse__card--2::before {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.08), rgba(99, 102, 241, 0.92));
+}
+.mgmt-uverse__card--3::before {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.08), rgba(20, 184, 166, 0.92));
+}
+.mgmt-uverse__card--4::before {
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.08), rgba(244, 114, 182, 0.92));
+}
+.mgmt-uverse__card--5::before {
+  background: linear-gradient(180deg, rgba(244, 114, 182, 0.08), rgba(251, 113, 133, 0.92));
+}
+.mgmt-uverse__card--6::before {
+  background: linear-gradient(180deg, rgba(45, 212, 191, 0.08), rgba(8, 145, 178, 0.92));
+}
+
+.mgmt-uverse__card--1 .mgmt-uverse__open-label,
+.mgmt-uverse__card--2 .mgmt-uverse__open-label,
+.mgmt-uverse__card--3 .mgmt-uverse__open-label,
+.mgmt-uverse__card--4 .mgmt-uverse__open-label,
+.mgmt-uverse__card--5 .mgmt-uverse__open-label,
+.mgmt-uverse__card--6 .mgmt-uverse__open-label {
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2), 0 0 26px rgba(255, 255, 255, 0.06);
+}
+
+.mgmt-uverse__card--1 .mgmt-uverse__open-label {
+  color: rgba(207, 250, 254, 0.98);
+  border-color: rgba(44, 116, 179, 0.55);
+  box-shadow: 0 0 18px rgba(44, 116, 179, 0.25);
+}
+.mgmt-uverse__card--2 .mgmt-uverse__open-label {
+  color: rgba(219, 234, 254, 0.98);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.22);
+}
+.mgmt-uverse__card--3 .mgmt-uverse__open-label {
+  color: rgba(220, 252, 231, 0.98);
+  border-color: rgba(34, 197, 94, 0.52);
+  box-shadow: 0 0 18px rgba(20, 184, 166, 0.22);
+}
+.mgmt-uverse__card--4 .mgmt-uverse__open-label {
+  color: rgba(240, 232, 255, 0.98);
+  border-color: rgba(168, 85, 247, 0.55);
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.22);
+}
+.mgmt-uverse__card--5 .mgmt-uverse__open-label {
+  color: rgba(255, 228, 246, 0.98);
+  border-color: rgba(244, 114, 182, 0.52);
+  box-shadow: 0 0 18px rgba(244, 114, 182, 0.22);
+}
+.mgmt-uverse__card--6 .mgmt-uverse__open-label {
+  color: rgba(207, 250, 254, 0.98);
+  border-color: rgba(45, 212, 191, 0.52);
+  box-shadow: 0 0 18px rgba(8, 145, 178, 0.22);
+}
+
+.mgmt-uverse__card--1 .mgmt-uverse__metric {
+  color: rgba(255, 255, 255, 0.98);
+  text-shadow: 0 0 22px rgba(44, 116, 179, 0.18);
+}
+.mgmt-uverse__card--2 .mgmt-uverse__metric {
+  color: rgba(56, 189, 248, 0.86);
+  text-shadow: 0 0 22px rgba(99, 102, 241, 0.18);
+}
+.mgmt-uverse__card--3 .mgmt-uverse__metric {
+  color: rgba(34, 197, 94, 0.86);
+  text-shadow: 0 0 22px rgba(20, 184, 166, 0.18);
+}
+.mgmt-uverse__card--4 .mgmt-uverse__metric {
+  color: rgba(168, 85, 247, 0.86);
+  text-shadow: 0 0 22px rgba(244, 114, 182, 0.14);
+}
+.mgmt-uverse__card--5 .mgmt-uverse__metric {
+  color: rgba(244, 114, 182, 0.86);
+  text-shadow: 0 0 22px rgba(251, 113, 133, 0.14);
+}
+.mgmt-uverse__card--6 .mgmt-uverse__metric {
+  color: rgba(45, 212, 191, 0.86);
+  text-shadow: 0 0 22px rgba(8, 145, 178, 0.14);
+}
+
+.mgmt-uverse__card--1 .mgmt-uverse__metric--a {
+  text-shadow: 0 0 26px rgba(44, 116, 179, 0.22);
+}
+.mgmt-uverse__card--2 .mgmt-uverse__metric--a {
+  text-shadow: 0 0 26px rgba(99, 102, 241, 0.22);
+}
+.mgmt-uverse__card--3 .mgmt-uverse__metric--a {
+  text-shadow: 0 0 26px rgba(20, 184, 166, 0.2);
+}
+.mgmt-uverse__card--4 .mgmt-uverse__metric--a {
+  text-shadow: 0 0 26px rgba(168, 85, 247, 0.24);
+}
+.mgmt-uverse__card--5 .mgmt-uverse__metric--a {
+  text-shadow: 0 0 26px rgba(244, 114, 182, 0.22);
+}
+.mgmt-uverse__card--6 .mgmt-uverse__metric--a {
+  text-shadow: 0 0 26px rgba(8, 145, 178, 0.2);
+}

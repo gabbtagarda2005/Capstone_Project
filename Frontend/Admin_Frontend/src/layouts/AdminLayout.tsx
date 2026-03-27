@@ -1,25 +1,28 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState, type MouseEvent, type MouseEventHandler } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { GeofenceBreachAlert } from "@/components/GeofenceBreachAlert";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useAuth } from "@/context/AuthContext";
+import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import "./AdminLayout.css";
 
 function SidebarBrandMark() {
   const { branding } = useAdminBranding();
   const [imgFailed, setImgFailed] = useState(false);
-  const { companyName, logoUrl } = branding;
+  const { companyName, logoUrl, sidebarLogoUrl } = branding;
+  const markSrc = sidebarLogoUrl?.trim() || logoUrl?.trim() || "";
   const letter = (companyName.trim().charAt(0) || "B").toUpperCase();
 
   useEffect(() => {
     setImgFailed(false);
-  }, [logoUrl]);
+  }, [markSrc]);
 
-  const showImg = Boolean(logoUrl && !imgFailed);
+  const showImg = Boolean(markSrc && !imgFailed);
 
   return (
     <div className="admin-sidebar__logo">
       {showImg ? (
-        <img src={logoUrl!} alt="" className="admin-sidebar__logo-img" onError={() => setImgFailed(true)} />
+        <img src={markSrc} alt="" className="admin-sidebar__logo-img" onError={() => setImgFailed(true)} />
       ) : (
         <span className="admin-sidebar__logo-fallback">{letter}</span>
       )}
@@ -27,18 +30,20 @@ function SidebarBrandMark() {
   );
 }
 
-function SidebarBrand() {
+function SidebarBrand({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { branding } = useAdminBranding();
   return (
-    <Link
-      to="/dashboard"
+    <button
+      type="button"
       className="admin-sidebar__brand"
+      onClick={onToggle}
       title={branding.companyName}
-      aria-label={`${branding.companyName} — go to dashboard`}
+      aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+      aria-expanded={open}
     >
       <SidebarBrandMark />
       <span className="admin-sidebar__brand-text">{branding.companyName}</span>
-    </Link>
+    </button>
   );
 }
 
@@ -92,10 +97,8 @@ function IconMap() {
 function IconCommand() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 6h16v2H4V6zm0 5h10v2H4v-2zm0 5h16v2H4v-2z"
-        fill="currentColor"
-      />
+      <rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 10l2 2-2 2M11.5 15h5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -141,6 +144,20 @@ function IconLogout() {
   );
 }
 
+function IconBell() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M15 17h5l-1.4-1.4c-.39-.39-.6-.9-.6-1.45V11a6 6 0 10-12 0v3.15c0 .55-.21 1.06-.6 1.45L4 17h5m6 0H9m6 0a3 3 0 11-6 0"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: IconDashboard, end: true },
   { to: "/dashboard/locations", label: "View Location", icon: IconMap, end: false },
@@ -150,17 +167,70 @@ const NAV = [
   { to: "/dashboard/settings", label: "Settings", icon: IconSettings, end: false },
 ] as const;
 
+function getTopbarTitle(pathname: string) {
+  if (pathname === "/dashboard" || pathname === "/dashboard/") return "Dashboard";
+  const matched = NAV.find((x) => x.to !== "/dashboard" && pathname.startsWith(x.to));
+  return matched?.label ?? "Dashboard";
+}
+
 export function AdminLayout() {
   const { logout, user } = useAuth();
+  const { branding } = useAdminBranding();
+  useSessionTimeout(branding.sessionTimeoutMinutes);
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const toggleSidebar = () => setSidebarOpen((v) => !v);
+
+  useEffect(() => {
+    const href = branding.faviconUrl?.trim();
+    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    if (!href) {
+      return;
+    }
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = href;
+  }, [branding.faviconUrl]);
+
+  const onSidebarClick: MouseEventHandler<HTMLElement> = (e) => {
+    const target = e.target as HTMLElement;
+    // Keep normal nav/logout clicks; toggle when clicking other sidebar areas.
+    if (target.closest(".admin-nav-link") || target.closest(".admin-sidebar__logout")) return;
+    toggleSidebar();
+  };
+
+  const onNavClick = (e: MouseEvent<HTMLAnchorElement>, to: string) => {
+    // If sidebar is hidden, first click only expands it.
+    if (!sidebarOpen) {
+      e.preventDefault();
+      setSidebarOpen(true);
+      return;
+    }
+    // Hide sidebar when clicking the same active button again.
+    if (location.pathname === to) {
+      e.preventDefault();
+      setSidebarOpen(false);
+    }
+  };
 
   return (
     <div className="admin-shell">
       <div className="admin-shell__bg" aria-hidden />
-      <aside className="admin-sidebar">
-        <SidebarBrand />
+      <aside className={"admin-sidebar" + (sidebarOpen ? " admin-sidebar--open" : "")} onClick={onSidebarClick}>
+        <SidebarBrand open={sidebarOpen} onToggle={toggleSidebar} />
+        <div className="admin-sidebar__divider" aria-hidden />
         <nav className="admin-sidebar__nav" aria-label="Main">
           {NAV.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) => "admin-nav-link" + (isActive ? " admin-nav-link--active" : "")}>
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={(e) => onNavClick(e, to)}
+              className={({ isActive }) => "admin-nav-link" + (isActive ? " admin-nav-link--active" : "")}
+            >
               <span className="admin-nav-link__icon">
                 <Icon />
               </span>
@@ -169,13 +239,14 @@ export function AdminLayout() {
           ))}
         </nav>
         <div className="admin-sidebar__footer">
-          {user && (
-            <div className="admin-sidebar__user" title={user.email}>
-              <span className="admin-sidebar__avatar">{user.email?.charAt(0).toUpperCase() ?? "?"}</span>
-              <span className="admin-sidebar__email">{user.email}</span>
-            </div>
-          )}
-          <button type="button" className="admin-sidebar__logout" onClick={() => logout()}>
+          <button
+            type="button"
+            className="admin-sidebar__logout"
+            onClick={() => {
+              toggleSidebar();
+              void logout();
+            }}
+          >
             <IconLogout />
             <span>Logout</span>
           </button>
@@ -183,13 +254,38 @@ export function AdminLayout() {
       </aside>
       <main className="admin-main">
         <header className="admin-topbar">
-          <div className="admin-topbar__title">Admin Console</div>
-          <div className="admin-topbar__meta">{user?.email ?? "Admin"}</div>
+          <div className="admin-topbar__title">{getTopbarTitle(location.pathname)}</div>
+          <div className="admin-topbar__right">
+            <button type="button" className="admin-topbar__bell" aria-label="Notifications">
+              <IconBell />
+              <span className="admin-topbar__bell-dot" />
+            </button>
+            <div className="admin-topbar__identity">
+              <div className="admin-topbar__meta-label">
+                {user?.rbacRole === "super_admin"
+                  ? "Super Admin"
+                  : user?.rbacRole === "fleet_manager"
+                    ? "Fleet Manager"
+                    : user?.rbacRole === "auditor"
+                      ? "Auditor"
+                      : "Administrator"}
+              </div>
+              <div className="admin-topbar__meta">{user?.email ?? "Admin"}</div>
+            </div>
+            <div className="admin-topbar__avatar-wrap" aria-hidden>
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="" className="admin-topbar__avatar" />
+              ) : (
+                <span className="admin-topbar__avatar-fallback">{(user?.email?.charAt(0) || "A").toUpperCase()}</span>
+              )}
+            </div>
+          </div>
         </header>
         <div className="admin-content">
           <Outlet />
         </div>
       </main>
+      <GeofenceBreachAlert />
     </div>
   );
 }

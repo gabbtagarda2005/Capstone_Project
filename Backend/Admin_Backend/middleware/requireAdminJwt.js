@@ -1,7 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { isAuthorizedAdminEmail, normalizeEmail } = require("../config/adminWhitelist");
+const { getAdminTier } = require("../config/adminRoles");
+const { getRbacRoleForEmail } = require("../services/adminRbac");
 
-function requireAdminJwt(req, res, next) {
+async function requireAdminJwt(req, res, next) {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     return res.status(503).json({ error: "JWT_SECRET not configured" });
@@ -21,7 +23,14 @@ function requireAdminJwt(req, res, next) {
     if (!isAuthorizedAdminEmail(email)) {
       return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
     }
-    req.admin = { operatorId: payload.sub, role: payload.role, email };
+    const rbacRole = await getRbacRoleForEmail(email);
+    req.admin = {
+      operatorId: payload.sub,
+      role: payload.role,
+      email,
+      tier: getAdminTier(email),
+      rbacRole,
+    };
     next();
   } catch {
     return res.status(401).json({ error: "Invalid or expired token" });

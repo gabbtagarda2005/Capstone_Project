@@ -1,0 +1,395 @@
+/* Passenger Management — glass bento, neon accents */
+
+.passenger-bento {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 1.15rem;
+  margin-bottom: 1.35rem;
+}
+
+.passenger-bento__card {
+  position: relative;
+  padding: 1.35rem 1.4rem 1.25rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(155deg, rgba(30, 27, 55, 0.72), rgba(15, 23, 42, 0.5));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 20px 50px rgba(2, 6, 23, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.passenger-bento__card::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20% auto;
+  height: 70%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(56, 189, 248, 0.18), transparent 65%);
+  pointer-events: none;
+}
+
+.passenger-bento__card--revenue::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(34, 197, 94, 0.22), transparent 65%);
+}
+
+.passenger-bento__card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  position: relative;
+  z-index: 1;
+}
+
+.passenger-bento__card--volume .passenger-bento__card-head {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.passenger-bento__icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: #38bdf8;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.55));
+}
+
+.passenger-bento__icon--green {
+  color: #4ade80;
+  filter: drop-shadow(0 0 10px rgba(74, 222, 128, 0.45));
+}
+
+.passenger-bento__card-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.passenger-bento__card-label--green {
+  color: rgba(187, 247, 208, 0.92);
+}
+
+.passenger-bento__value {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(1.85rem, 4vw, 2.45rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.passenger-bento__value--white {
+  color: #fff;
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.35), 0 0 80px rgba(56, 189, 248, 0.2);
+}
+
+.passenger-bento__value--green {
+  color: #86efac;
+  text-shadow: 0 0 36px rgba(74, 222, 128, 0.45), 0 0 64px rgba(34, 197, 94, 0.25);
+}
+
+.passenger-bento__card-sub {
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(148, 163, 184, 0.85);
+  position: relative;
+  z-index: 1;
+}
+
+/* Glass filter strip */
+.dg-filter--passenger-glass {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1rem;
+  align-items: flex-end;
+  margin-bottom: 1.35rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, rgba(24, 22, 45, 0.65), rgba(15, 23, 42, 0.45));
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 16px 44px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.dg-filter--passenger-glass .dg-filter__label {
+  color: rgba(203, 213, 225, 0.92);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dg-filter--passenger-glass .dg-filter__input,
+.dg-filter--passenger-glass .dg-filter__select {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 12px;
+  color: #f1f5f9;
+}
+
+.dg-filter--passenger-glass .dg-filter__input:focus {
+  border-color: rgba(168, 85, 247, 0.65);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28);
+}
+
+.dg-filter__search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.dg-filter__search-wrap .dg-filter__input {
+  width: 100%;
+  padding-left: 2.35rem;
+}
+
+.dg-filter__search-icon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: rgba(148, 163, 184, 0.85);
+  pointer-events: none;
+}
+
+.dg-filter__date-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.dg-filter__date-icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  color: rgba(148, 163, 184, 0.8);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dg-filter--passenger-glass .dg-filter__input--date {
+  padding-left: 2.25rem;
+  min-height: 2.35rem;
+}
+
+.dg-filter__select--pulse {
+  background: linear-gradient(120deg, rgba(124, 58, 237, 0.55), rgba(168, 85, 247, 0.45), rgba(34, 211, 238, 0.25));
+  background-size: 200% 100%;
+  animation: passenger-filter-select-pulse 4s ease-in-out infinite;
+  border-color: rgba(192, 132, 252, 0.55);
+  color: #fff;
+  font-weight: 700;
+}
+
+@keyframes passenger-filter-select-pulse {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.dg-filter--passenger-glass .dg-filter__hint {
+  flex: 1 1 100%;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 0.25rem;
+  color: rgba(148, 163, 184, 0.88);
+}
+
+/* Section titles */
+.passenger-section__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.passenger-section__sub {
+  margin: 0 0 1rem;
+  font-size: 0.86rem;
+  color: rgba(148, 163, 184, 0.95);
+  line-height: 1.45;
+}
+
+.passenger-section--spaced {
+  margin-top: 2rem;
+}
+
+/* Frequent travelers glass table */
+.passenger-freq {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(165deg, rgba(22, 20, 42, 0.55), rgba(15, 23, 42, 0.42));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  overflow: hidden;
+  box-shadow: 0 18px 48px rgba(2, 6, 23, 0.4);
+}
+
+.passenger-freq__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.passenger-freq__table thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.passenger-freq__table tbody td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  vertical-align: middle;
+}
+
+.passenger-freq__table tbody tr:hover {
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.passenger-freq__rank {
+  font-weight: 800;
+  color: rgba(148, 163, 184, 0.95);
+  width: 2.5rem;
+}
+
+.passenger-freq__person {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.passenger-freq__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #fff;
+  flex-shrink: 0;
+  background: linear-gradient(140deg, #6366f1, #a855f7);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+}
+
+.passenger-freq__name-wrap {
+  min-width: 0;
+}
+
+.passenger-freq__name {
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.passenger-freq__id {
+  display: block;
+  font-size: 0.68rem;
+  font-family: ui-monospace, monospace;
+  color: rgba(148, 163, 184, 0.9);
+  margin-top: 0.12rem;
+}
+
+.passenger-freq__trips {
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.passenger-freq__tier {
+  display: inline-flex;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.passenger-freq__tier--gold {
+  color: #fde047;
+  background: rgba(234, 179, 8, 0.2);
+  border: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+.passenger-freq__tier--silver {
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(203, 213, 225, 0.35);
+}
+
+.passenger-freq__tier--bronze {
+  color: #fdba74;
+  background: rgba(234, 88, 12, 0.18);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+}
+
+.passenger-freq__tier--standard {
+  color: rgba(148, 163, 184, 0.95);
+  background: rgba(51, 65, 85, 0.35);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+}
+
+.passenger-freq__fare {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #86efac;
+}
+
+[data-theme="light"] .passenger-bento__card {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.88));
+  border-color: rgba(51, 65, 85, 0.12);
+}
+
+[data-theme="light"] .passenger-bento__value--white {
+  color: #0f172a;
+  text-shadow: none;
+}
+
+[data-theme="light"] .passenger-bento__value--green {
+  color: #15803d;
+  text-shadow: none;
+}
+
+[data-theme="light"] .dg-filter--passenger-glass {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(51, 65, 85, 0.12);
+}
+
+[data-theme="light"] .passenger-section__title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .passenger-freq {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(51, 65, 85, 0.1);
+}

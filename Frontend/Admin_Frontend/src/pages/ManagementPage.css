@@ -1,31 +1,38 @@
-/* Module entry cards (management hub) */
+/* Module entry cards (management hub) — classic layout */
 
 .mgmt-module-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
   margin-bottom: 1.75rem;
 }
 
+.mgmt-module-grid--uverse {
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 1.35rem;
+  justify-items: center;
+}
+
 .mgmt-module-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   text-align: left;
   text-decoration: none;
-  padding: 1.05rem 1.1rem;
-  border-radius: 16px;
-  border: 1px solid var(--dg-border, rgba(255, 255, 255, 0.2));
-  background: var(--dg-glass, rgba(255, 255, 255, 0.08));
+  padding: 0.35rem;
+  border-radius: 20px;
+  border: none;
+  background: #1b233d;
   color: var(--dg-text, #fff);
   cursor: pointer;
   transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
   font-family: inherit;
+  overflow: hidden;
 }
 
 .mgmt-module-card:hover {
-  border-color: rgba(196, 113, 237, 0.45);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.45), 0 0 20px rgba(34, 211, 238, 0.16);
 }
 
 .mgmt-module-card:focus-visible {
@@ -33,19 +40,81 @@
   outline-offset: 2px;
 }
 
+.mgmt-module-card__top {
+  min-height: 78px;
+  border-radius: 16px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: linear-gradient(135deg, rgb(4, 159, 187) 0%, rgb(80, 246, 255) 100%);
+}
+
+.mgmt-module-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  font-size: 1.1rem;
+}
+
+.mgmt-module-card__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  color: #1b233d;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.mgmt-module-card__bottom {
+  padding: 0.8rem 0.75rem 0.7rem;
+}
+
 .mgmt-module-card__label {
   display: block;
-  font-size: 0.92rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--dg-text, #fff);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-transform: uppercase;
 }
 
 .mgmt-module-card__hint {
   display: block;
-  margin: 0.4rem 0 0;
-  font-size: 0.72rem;
+  margin: 0.45rem 0 0;
+  font-size: 0.71rem;
   font-weight: 500;
-  color: var(--dg-muted, rgba(255, 255, 255, 0.65));
+  color: rgba(170, 222, 243, 0.8);
   line-height: 1.35;
+}
+
+.mgmt-module-card__stats {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mgmt-module-card__stats span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  font-size: 0.65rem;
+  color: rgba(170, 222, 243, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mgmt-module-card__stats span + span {
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
