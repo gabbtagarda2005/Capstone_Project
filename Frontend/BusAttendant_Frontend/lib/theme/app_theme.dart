@@ -7,9 +7,9 @@ ThemeData buildAppTheme() {
     useMaterial3: true,
     brightness: Brightness.light,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.tealTop,
-      primary: AppColors.tealDeep,
-      secondary: AppColors.purple,
+      seedColor: AppColors.textDark,
+      primary: AppColors.textDark,
+      secondary: AppColors.tealTop,
     ),
     scaffoldBackgroundColor: AppColors.offWhite,
   );
@@ -25,16 +25,16 @@ ThemeData buildAppTheme() {
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
       border: UnderlineInputBorder(
-        borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.6)),
+        borderSide: BorderSide(color: AppColors.white.withOpacity(0.6)),
       ),
       enabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.5)),
+        borderSide: BorderSide(color: AppColors.white.withOpacity(0.5)),
       ),
       focusedBorder: const UnderlineInputBorder(
         borderSide: BorderSide(color: AppColors.white, width: 1.5),
       ),
       labelStyle: const TextStyle(color: AppColors.white),
-      hintStyle: TextStyle(color: AppColors.white.withValues(alpha: 0.75)),
+      hintStyle: TextStyle(color: AppColors.white.withOpacity(0.75)),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(

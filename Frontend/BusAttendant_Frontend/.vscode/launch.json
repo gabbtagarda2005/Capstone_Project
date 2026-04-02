@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Bus Attendant (Edge :50015)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "edge",
+      "toolArgs": [
+        "--web-port=50015",
+        "--dart-define=API_BASE_URL=http://localhost:4011"
+      ]
+    },
+    {
+      "name": "Bus Attendant (Chrome :50015)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "toolArgs": [
+        "--web-port=50015",
+        "--dart-define=API_BASE_URL=http://localhost:4011"
+      ]
+    }
+  ]
+}

@@ -21,6 +21,38 @@ class _ProfilePageState extends State<ProfilePage> {
   final _api = ApiClient();
   late Future<ApiProfileMe> _future;
 
+  void _showProfileInfo(ApiProfileMe p) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Profile Information',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              _info('Name', '${p.firstName} ${p.lastName}', Icons.person_rounded),
+              _info('Email', p.email, Icons.mail_rounded),
+              _info('Bus Number', p.busNumber, Icons.directions_bus_filled_rounded),
+              _info('Phone', p.phone, Icons.call_rounded),
+              _info('Role', p.role, Icons.badge_rounded),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +75,11 @@ class _ProfilePageState extends State<ProfilePage> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
             children: [
+              const Text(
+                'Settings',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -62,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('${p.firstName} ${p.lastName}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 18)),
-                          Text(p.role, style: TextStyle(color: AppColors.white.withValues(alpha: 0.9))),
+                          Text(p.role, style: TextStyle(color: AppColors.white.withOpacity(0.9))),
                         ],
                       ),
                     ),
@@ -70,9 +107,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 12),
-              _info('Email', p.email, Icons.mail_rounded),
-              _info('Bus Number', p.busNumber, Icons.directions_bus_filled_rounded),
-              _info('Phone', p.phone, Icons.call_rounded),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showProfileInfo(p),
+                  icon: const Icon(Icons.person_outline_rounded),
+                  label: const Text('Profile'),
+                ),
+              ),
+              const SizedBox(height: 12),
               const SizedBox(height: 10),
               OutlinedButton.icon(
                 onPressed: widget.onSignOut,

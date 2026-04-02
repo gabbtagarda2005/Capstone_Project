@@ -88,7 +88,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                     ),
                     const Spacer(),
                     CircleAvatar(
-                      backgroundColor: AppColors.white.withValues(alpha: 0.25),
+                      backgroundColor: AppColors.white.withOpacity(0.25),
                       child: const Icon(Icons.person_rounded, color: AppColors.white),
                     ),
                   ],
@@ -108,7 +108,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                   padding: const EdgeInsets.only(left: 8),
                   child: Text(
                     'Manage my trip',
-                    style: TextStyle(color: AppColors.white.withValues(alpha: 0.9), fontSize: 14),
+                    style: TextStyle(color: AppColors.white.withOpacity(0.9), fontSize: 14),
                   ),
                 ),
               ],
@@ -142,7 +142,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                             child: IconButton.filledTonal(
                               onPressed: _swap,
                               style: IconButton.styleFrom(
-                                backgroundColor: AppColors.tealTop.withValues(alpha: 0.15),
+                                backgroundColor: AppColors.tealTop.withOpacity(0.15),
                                 foregroundColor: AppColors.tealDeep,
                               ),
                               icon: const Icon(Icons.swap_vert_rounded),

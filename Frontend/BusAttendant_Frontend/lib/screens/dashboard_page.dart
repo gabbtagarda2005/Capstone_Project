@@ -43,33 +43,6 @@ class _DashboardPageState extends State<DashboardPage> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
             children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: AppColors.tealHeaderGradient,
-                  borderRadius: BorderRadius.circular(26),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Color(0x33FFFFFF),
-                      child: Icon(Icons.directions_bus_filled_rounded, color: AppColors.white, size: 30),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Hi ${widget.displayName.split(' ').first}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
-                          Text('Bus ${d.busNumber}', style: TextStyle(color: Colors.white.withValues(alpha: 0.92))),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
               _cardMetric('Today tickets', '${d.todayTickets}', Icons.confirmation_number_rounded),
               _cardMetric('Today revenue', '₱${d.todayRevenue.toStringAsFixed(2)}', Icons.payments_rounded),
               _cardMetric('Active passengers', '${d.activePassengers}', Icons.groups_rounded),
@@ -94,7 +67,7 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: AppColors.tealTop.withValues(alpha: 0.14),
+            backgroundColor: AppColors.tealTop.withOpacity(0.14),
             child: Icon(icon, color: AppColors.tealDeep),
           ),
           const SizedBox(width: 12),

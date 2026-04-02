@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -8,11 +9,30 @@ class ApiClient {
       : baseUrl = (baseUrl ??
                 const String.fromEnvironment(
                   'API_BASE_URL',
-                  defaultValue: 'http://10.0.2.2:4011',
+                  defaultValue: 'http://127.0.0.1:4011',
                 ))
             .replaceAll(RegExp(r'/+$'), '');
 
   final String baseUrl;
+
+  /// Human-readable cause when the HTTP client fails before a response (offline, wrong URL, CORS, etc.).
+  String mapRequestFailure(String whatFailed, Object error) {
+    if (error is TimeoutException) {
+      return '$whatFailed timed out. Check that the API is running at $baseUrl.';
+    }
+    final s = error.toString().toLowerCase();
+    if (s.contains('socketexception') || s.contains('connection reset')) {
+      return 'No connection to $baseUrl — start BusAttendant_Backend (port 4011).';
+    }
+    if (s.contains('connection refused') ||
+        s.contains('failed host lookup') ||
+        s.contains('failed to fetch') ||
+        s.contains('networkerror') ||
+        s.contains('xmlhttprequest')) {
+      return 'Cannot reach $baseUrl. Run BusAttendant_Backend (4011). For login, Admin_Backend (4001) must also be running.';
+    }
+    return '$whatFailed: $error';
+  }
 
   Future<ApiAuthResult> login({required String email, required String password}) async {
     final uri = Uri.parse('$baseUrl/api/auth/operator-login');
@@ -25,8 +45,8 @@ class ApiClient {
             body: jsonEncode({'email': email.trim(), 'password': password}),
           )
           .timeout(const Duration(seconds: 12));
-    } catch (_) {
-      return ApiAuthResult.failure('Network timeout. Please try again.');
+    } catch (e) {
+      return ApiAuthResult.failure(mapRequestFailure('Login', e));
     }
     if (res.statusCode == 200) {
       final map = jsonDecode(res.body) as Map<String, dynamic>;
@@ -50,9 +70,14 @@ class ApiClient {
 
   Future<ApiDashboardSummary> fetchDashboardSummary({required String token}) async {
     final uri = Uri.parse('$baseUrl/api/dashboard/summary');
-    final res = await http.get(uri, headers: {
-      'Authorization': 'Bearer $token',
-    });
+    http.Response res;
+    try {
+      res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+      }).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      throw Exception('Network timeout while loading dashboard');
+    }
     if (res.statusCode != 200) {
       throw Exception('Could not load dashboard (${res.statusCode})');
     }
@@ -71,12 +96,19 @@ class ApiClient {
     String query = '',
   }) async {
     final uri = Uri.parse('$baseUrl/api/passengers?q=${Uri.encodeQueryComponent(query)}');
-    final res = await http.get(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
+    http.Response res;
+    try {
+      res = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      throw Exception('Network timeout while loading passengers');
+    }
     if (res.statusCode != 200) {
       throw Exception('Could not load passengers (${res.statusCode})');
     }
@@ -95,11 +127,38 @@ class ApiClient {
     return items;
   }
 
+  /// Route coverage from Admin (Location Management): one row per town/area with terminal + bus stops.
+  Future<List<ApiRouteCoverage>> fetchRouteCoverages({required String token}) async {
+    final uri = Uri.parse('$baseUrl/api/meta/deployed-points');
+    http.Response res;
+    try {
+      res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+      }).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      throw Exception('Network timeout while loading route coverage');
+    }
+    if (res.statusCode != 200) {
+      throw Exception('Could not load route coverage (${res.statusCode})');
+    }
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    return (map['items'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(ApiRouteCoverage.fromJson)
+        .where((c) => c.locationName.trim().isNotEmpty)
+        .toList();
+  }
+
   Future<List<ApiIssuedTicket>> fetchRecentTickets({required String token}) async {
     final uri = Uri.parse('$baseUrl/api/tickets/recent');
-    final res = await http.get(uri, headers: {
-      'Authorization': 'Bearer $token',
-    });
+    http.Response res;
+    try {
+      res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+      }).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      throw Exception('Network timeout while loading tickets');
+    }
     if (res.statusCode != 200) {
       throw Exception('Could not load tickets (${res.statusCode})');
     }
@@ -109,6 +168,7 @@ class ApiClient {
         .map(
           (x) => ApiIssuedTicket(
             id: (x['id'] ?? '').toString(),
+            ticketCode: (x['ticketCode'] ?? '').toString(),
             passengerId: (x['passengerId'] ?? '').toString(),
             passengerName: (x['passengerName'] ?? '').toString(),
             from: (x['from'] ?? '').toString(),
@@ -140,19 +200,27 @@ class ApiClient {
       'category': category.trim().toLowerCase(),
       'fare': fare,
     };
-    final res = await http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(body),
-    );
+    http.Response res;
+    try {
+      res = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      return ApiIssueTicketResult.failure('Network timeout. Please try again.');
+    }
     if (res.statusCode == 201) {
       final map = jsonDecode(res.body) as Map<String, dynamic>;
       return ApiIssueTicketResult.ok(
         ApiIssuedTicket(
           id: (map['id'] ?? '').toString(),
+          ticketCode: (map['ticketCode'] ?? '').toString(),
           passengerId: (map['passengerId'] ?? '').toString(),
           passengerName: (map['passengerName'] ?? '').toString(),
           from: (map['from'] ?? '').toString(),
@@ -175,9 +243,14 @@ class ApiClient {
     required String token,
   }) async {
     final uri = Uri.parse('$baseUrl/api/profile/me');
-    final res = await http.get(uri, headers: {
-      'Authorization': 'Bearer $token',
-    });
+    http.Response res;
+    try {
+      res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $token',
+      }).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      throw Exception('Network timeout while loading profile');
+    }
     if (res.statusCode != 200) {
       throw Exception('Could not load profile (${res.statusCode})');
     }
@@ -269,6 +342,7 @@ class ApiIssueTicketResult {
 class ApiIssuedTicket {
   const ApiIssuedTicket({
     required this.id,
+    required this.ticketCode,
     required this.passengerId,
     required this.passengerName,
     required this.from,
@@ -279,6 +353,7 @@ class ApiIssuedTicket {
   });
 
   final String id;
+  final String ticketCode;
   final String passengerId;
   final String passengerName;
   final String from;
@@ -300,6 +375,134 @@ class ApiPassenger {
   final String name;
   final String category;
   final String lastTrip;
+}
+
+class ApiRouteStop {
+  const ApiRouteStop({
+    required this.name,
+    required this.sequence,
+    this.latitude,
+    this.longitude,
+    this.geofenceRadiusM,
+  });
+
+  factory ApiRouteStop.fromJson(Map<String, dynamic> x) {
+    return ApiRouteStop(
+      name: (x['name'] ?? '').toString().trim(),
+      sequence: (x['sequence'] as num?)?.toInt() ?? 0,
+      latitude: (x['latitude'] as num?)?.toDouble(),
+      longitude: (x['longitude'] as num?)?.toDouble(),
+      geofenceRadiusM: (x['geofenceRadiusM'] as num?)?.toDouble(),
+    );
+  }
+
+  final String name;
+  final int sequence;
+  final double? latitude;
+  final double? longitude;
+  final double? geofenceRadiusM;
+}
+
+class ApiTerminalPoint {
+  const ApiTerminalPoint({
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    this.geofenceRadiusM,
+  });
+
+  final String name;
+  final double latitude;
+  final double longitude;
+  final double? geofenceRadiusM;
+}
+
+class ApiRouteCoverage {
+  const ApiRouteCoverage({
+    required this.id,
+    required this.locationName,
+    required this.pointType,
+    required this.terminalName,
+    this.terminal,
+    required this.stops,
+  });
+
+  factory ApiRouteCoverage.fromJson(Map<String, dynamic> x) {
+    final termRaw = x['terminal'];
+    ApiTerminalPoint? terminal;
+    if (termRaw is Map<String, dynamic>) {
+      final name = (termRaw['name'] ?? '').toString().trim();
+      final lat = (termRaw['latitude'] as num?)?.toDouble();
+      final lng = (termRaw['longitude'] as num?)?.toDouble();
+      if (name.isNotEmpty && lat != null && lng != null) {
+        terminal = ApiTerminalPoint(
+          name: name,
+          latitude: lat,
+          longitude: lng,
+          geofenceRadiusM: (termRaw['geofenceRadiusM'] as num?)?.toDouble(),
+        );
+      }
+    }
+    final stopsRaw = x['stops'];
+    final stops = stopsRaw is List<dynamic>
+        ? stopsRaw
+            .whereType<Map<String, dynamic>>()
+            .map(ApiRouteStop.fromJson)
+            .where((s) => s.name.isNotEmpty)
+            .toList()
+          : <ApiRouteStop>[];
+    stops.sort((a, b) => a.sequence.compareTo(b.sequence));
+    return ApiRouteCoverage(
+      id: (x['id'] ?? '').toString(),
+      locationName: (x['locationName'] ?? '').toString().trim(),
+      pointType: (x['pointType'] ?? 'terminal').toString(),
+      terminalName: (x['terminalName'] ?? '').toString().trim(),
+      terminal: terminal,
+      stops: stops,
+    );
+  }
+
+  final String id;
+  final String locationName;
+  final String pointType;
+  final String terminalName;
+  final ApiTerminalPoint? terminal;
+  final List<ApiRouteStop> stops;
+
+  /// Labels shown on tickets: terminal first, then each stop (admin-configured names + area).
+  List<String> pickableStopLabels() {
+    final out = <String>[];
+    final area = locationName;
+    if (terminal != null && terminal!.name.isNotEmpty) {
+      out.add('${terminal!.name} ($area)');
+    }
+    for (final s in stops) {
+      out.add('${s.name} ($area)');
+    }
+    if (out.isEmpty && area.isNotEmpty) {
+      out.add(area);
+    }
+    return out;
+  }
+
+  /// UI: short name (CMU, Dulogon); ticket: full `Name (Maramag)` using [hubDisplayName].
+  List<({String ticketLabel, String displayLabel})> pickableStopChoices(String hubDisplayName) {
+    final hub = hubDisplayName.trim();
+    final out = <({String ticketLabel, String displayLabel})>[];
+    if (terminal != null && terminal!.name.isNotEmpty) {
+      final d = terminal!.name.trim();
+      out.add((ticketLabel: '$d ($hub)', displayLabel: d));
+    }
+    for (final s in stops) {
+      final d = s.name.trim();
+      if (d.isEmpty) continue;
+      out.add((ticketLabel: '$d ($hub)', displayLabel: d));
+    }
+    if (out.isEmpty && hub.isNotEmpty) {
+      out.add((ticketLabel: hub, displayLabel: hub));
+    }
+    return out;
+  }
 }
 
 class ApiProfileMe {

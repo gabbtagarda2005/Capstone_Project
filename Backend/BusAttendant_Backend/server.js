@@ -7,7 +7,22 @@ const JWT_SECRET = String(process.env.BUS_ATTENDANT_JWT_SECRET || "change-this-s
 const ADMIN_BACKEND_URL = String(process.env.ADMIN_BACKEND_URL || "http://127.0.0.1:4001").replace(/\/+$/, "");
 
 const app = express();
-app.use(cors());
+
+// Chrome/Edge: page at http://localhost:50015 calling http://127.0.0.1:4011 triggers
+// Private Network Access preflight; without this header the browser blocks login (failed fetch).
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
+  next();
+});
+
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    optionsSuccessStatus: 204,
+  })
+);
 app.use(express.json());
 
 const passengers = [
@@ -19,6 +34,7 @@ const passengers = [
 const issuedTickets = [
   {
     id: "T-9001",
+    ticketCode: "BT-9001",
     passengerId: "PAX-1001",
     passengerName: "Ana Lopez",
     from: "Malaybalay",
@@ -137,6 +153,77 @@ app.get("/api/passengers", auth, (req, res) => {
   res.json({ items: filtered });
 });
 
+app.get("/api/meta/deployed-points", auth, (req, res) => {
+  (async () => {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 10_000);
+      const upstream = await fetch(`${ADMIN_BACKEND_URL}/api/public/deployed-points`, {
+        method: "GET",
+        signal: ctrl.signal,
+      });
+      clearTimeout(to);
+      const payload = await upstream.json().catch(() => ({}));
+      if (!upstream.ok) {
+        return res.status(upstream.status || 502).json({
+          error: payload?.error || "Could not load deployed points",
+        });
+      }
+      const rawItems = Array.isArray(payload?.items) ? payload.items : [];
+      const items = rawItems
+        .map((x) => {
+          const locationName = String(x.locationName || "").trim();
+          const terminalName = String(x.terminalName || "").trim();
+          const name = terminalName || locationName;
+          if (!name && !locationName) return null;
+          const stops = Array.isArray(x.stops)
+            ? x.stops
+                .map((s) => ({
+                  name: String(s?.name || "").trim(),
+                  sequence: Number.isFinite(Number(s?.sequence)) ? Number(s.sequence) : 0,
+                  latitude: Number(s?.latitude),
+                  longitude: Number(s?.longitude),
+                  geofenceRadiusM: Number.isFinite(Number(s?.geofenceRadiusM)) ? Number(s.geofenceRadiusM) : 100,
+                }))
+                .filter((s) => s.name && Number.isFinite(s.latitude) && Number.isFinite(s.longitude))
+                .sort((a, b) => a.sequence - b.sequence)
+            : [];
+          const t = x.terminal;
+          let terminal = null;
+          if (t && String(t.name || "").trim()) {
+            const lat = Number(t.latitude);
+            const lng = Number(t.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              terminal = {
+                name: String(t.name || "").trim(),
+                latitude: lat,
+                longitude: lng,
+                geofenceRadiusM: Number.isFinite(Number(t.geofenceRadiusM)) ? Number(t.geofenceRadiusM) : 500,
+              };
+            }
+          }
+          return {
+            id: String(x.id || name || locationName),
+            name: name || locationName,
+            locationName,
+            terminalName,
+            pointType: String(x.pointType || "terminal"),
+            updatedAt: x.updatedAt || null,
+            terminal,
+            stops,
+          };
+        })
+        .filter(Boolean);
+      return res.json({ items });
+    } catch (e) {
+      return res.status(502).json({
+        error: `Could not load deployed points from admin backend (${ADMIN_BACKEND_URL})`,
+        detail: e.message || "upstream request failed",
+      });
+    }
+  })();
+});
+
 app.get("/api/tickets/recent", auth, (req, res) => {
   const mine = issuedTickets
     .filter((t) => t.issuedBy === req.user.sub)
@@ -154,8 +241,10 @@ app.post("/api/tickets/issue", auth, (req, res) => {
   if (!passengerId || !passengerName || !from || !to || !Number.isFinite(fare) || fare < 0) {
     return res.status(400).json({ error: "passengerId, passengerName, from, to and valid fare are required" });
   }
+  const ticketCode = `BT-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 10)}`;
   const row = {
     id: `T-${Date.now()}`,
+    ticketCode,
     passengerId,
     passengerName,
     from,
