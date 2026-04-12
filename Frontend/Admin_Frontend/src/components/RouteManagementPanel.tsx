@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState, type ComponentProps } from "react";
+import { useNavigate } from "react-router-dom";
 import { AddRouteForm } from "@/components/AddRouteForm";
 import { CorridorRouteGlassCard } from "@/components/CorridorRouteGlassCard";
-import { ViewDetailsModal, ViewDetailsDl, ViewDetailsRow } from "@/components/ViewDetailsModal";
 import {
   createCorridorRoute,
   deleteCorridorRoute,
   fetchCorridorBuilderContext,
   fetchCorridorRoutes,
+  patchCorridorRoute,
+  type CorridorRouteWritePayload,
 } from "@/lib/api";
 import type { CorridorRouteRow } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { swalConfirm } from "@/lib/swal";
 
 function routeInitials(originLabel: string, destLabel: string): string {
   const a = firstSegChar(originLabel);
@@ -24,9 +27,10 @@ function firstSegChar(label: string): string {
 }
 
 export function RouteManagementPanel() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isSuper = user?.role === "Admin" && user?.adminTier === "super";
-  const { showError, showSuccess, showInfo } = useToast();
+  const { showError, showSuccess } = useToast();
   const [terminals, setTerminals] = useState<Awaited<ReturnType<typeof fetchCorridorBuilderContext>>["terminals"]>(
     []
   );
@@ -34,8 +38,7 @@ export function RouteManagementPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [viewRoute, setViewRoute] = useState<CorridorRouteRow | null>(null);
-
+  const [editingRoute, setEditingRoute] = useState<CorridorRouteRow | null>(null);
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -71,12 +74,26 @@ export function RouteManagementPanel() {
     }
   }
 
+  async function handleUpdateRoute(routeId: string, payload: CorridorRouteWritePayload) {
+    setSaving(true);
+    try {
+      await patchCorridorRoute(routeId, payload);
+      showSuccess("Corridor updated.");
+      setEditingRoute(null);
+      await refresh();
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Could not update route");
+      throw e;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDelete(id: string) {
     setDeletingId(id);
     try {
       await deleteCorridorRoute(id);
       showSuccess("Route removed.");
-      setViewRoute((v) => (v && v._id === id ? null : v));
       await refresh();
     } catch (e) {
       showError(e instanceof Error ? e.message : "Delete failed");
@@ -85,15 +102,20 @@ export function RouteManagementPanel() {
     }
   }
 
-  const vr = viewRoute;
-
   if (loading) {
     return <p className="mgmt-mod__unknown">Loading corridor builder…</p>;
   }
 
   return (
     <div className="route-mgmt-panel">
-      <AddRouteForm terminals={terminals} saving={saving} onSave={handleSave} />
+      <AddRouteForm
+        terminals={terminals}
+        saving={saving}
+        onSave={handleSave}
+        editingRoute={editingRoute}
+        onCancelEdit={() => setEditingRoute(null)}
+        onUpdateRoute={(id, p) => handleUpdateRoute(id, p)}
+      />
 
       {routes.length === 0 ? null : (
         <section className="route-mgmt-panel__cards-section">
@@ -105,15 +127,21 @@ export function RouteManagementPanel() {
                 initials={routeInitials(r.originLabel, r.destLabel)}
                 busy={deletingId === r._id}
                 canDelete={isSuper}
-                onView={() => setViewRoute(r)}
-                onEdit={() =>
-                  showInfo(
-                    "To change start, destination, or via locations, remove this corridor and create a new one."
-                  )
-                }
+                onView={() => navigate(`/dashboard/management/routes/${encodeURIComponent(r._id)}`)}
+                onEdit={() => setEditingRoute(r)}
                 onDelete={() => {
-                  if (!window.confirm("Remove this corridor from the network?")) return;
-                  void handleDelete(r._id);
+                  void (async () => {
+                    if (
+                      !(await swalConfirm({
+                        title: "Remove corridor?",
+                        text: "Remove this corridor from the network?",
+                        icon: "warning",
+                        confirmButtonText: "Remove",
+                      }))
+                    )
+                      return;
+                    void handleDelete(r._id);
+                  })();
                 }}
               />
             ))}
@@ -121,20 +149,6 @@ export function RouteManagementPanel() {
         </section>
       )}
 
-      <ViewDetailsModal open={Boolean(vr)} title={vr ? vr.displayName || "Corridor route" : ""} onClose={() => setViewRoute(null)}>
-        {vr ? (
-          <ViewDetailsDl>
-            <ViewDetailsRow label="Display name" value={vr.displayName || "—"} />
-            <ViewDetailsRow label="Origin" value={vr.originLabel} />
-            <ViewDetailsRow label="Destination" value={vr.destLabel} />
-            <ViewDetailsRow
-              label="Via"
-              value={vr.viaLabels && vr.viaLabels.length > 0 ? vr.viaLabels.join(" · ") : "—"}
-            />
-            <ViewDetailsRow label="Status" value="Active" />
-          </ViewDetailsDl>
-        ) : null}
-      </ViewDetailsModal>
     </div>
   );
 }

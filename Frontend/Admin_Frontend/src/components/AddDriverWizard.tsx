@@ -259,7 +259,7 @@ export function AddDriverWizard({ isOpen, onClose, onSaved }: Props) {
     }
     setSaving(true);
     try {
-      await api("/api/driver-signup/save-driver", {
+      const saved = await api<{ driverId?: string }>("/api/driver-signup/save-driver", {
         method: "POST",
         authToken: signupToken,
         json: {
@@ -280,7 +280,11 @@ export function AddDriverWizard({ isOpen, onClose, onSaved }: Props) {
         action: `[SECURITY]: Driver ${display} verified via OTP and registered in fleet.`,
         level: "CRITICAL",
       });
-      showSuccess("Driver registered.");
+      showSuccess(
+        saved.driverId
+          ? `Driver registered. Personnel ID ${saved.driverId} (unique 6-digit).`
+          : "Driver registered."
+      );
       onSaved();
       onClose();
     } catch (err) {

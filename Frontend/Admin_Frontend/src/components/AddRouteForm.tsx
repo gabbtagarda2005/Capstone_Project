@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { compactOptionLabel } from "@/lib/selectLabel";
-import type { CorridorBuilderTerminal } from "@/lib/types";
+import type { CorridorBuilderTerminal, CorridorRouteRow } from "@/lib/types";
+import type { CorridorRouteWritePayload } from "@/lib/api";
 import "./AddRouteForm.css";
 
 function IconRoute({ className }: { className?: string }) {
@@ -36,13 +37,11 @@ function IconLocationTiny() {
 export type AddRouteFormProps = {
   terminals: CorridorBuilderTerminal[];
   saving: boolean;
-  onSave: (payload: {
-    displayName?: string;
-    originCoverageId: string;
-    destinationCoverageId: string;
-    viaCoverageIds?: string[];
-    authorizedStops: { coverageId: string; sequence: number }[];
-  }) => Promise<void>;
+  onSave: (payload: CorridorRouteWritePayload) => Promise<void>;
+  /** When set, form updates this corridor instead of creating a new one. */
+  editingRoute?: CorridorRouteRow | null;
+  onCancelEdit?: () => void;
+  onUpdateRoute?: (routeId: string, payload: CorridorRouteWritePayload) => Promise<void>;
 };
 
 function hubDisplayLabel(t: CorridorBuilderTerminal): string {
@@ -58,13 +57,29 @@ function hubShortLabel(t: CorridorBuilderTerminal): string {
   return head || full;
 }
 
-export function AddRouteForm({ terminals, saving, onSave }: AddRouteFormProps) {
+export function AddRouteForm({
+  terminals,
+  saving,
+  onSave,
+  editingRoute = null,
+  onCancelEdit,
+  onUpdateRoute,
+}: AddRouteFormProps) {
   const [originId, setOriginId] = useState("");
   const [destId, setDestId] = useState("");
   /** Intermediate hub ids in the order the admin selected them (between start and end). */
   const [viaOrder, setViaOrder] = useState<string[]>([]);
   const [routeName, setRouteName] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingRoute) return;
+    setOriginId(editingRoute.originCoverageId);
+    setDestId(editingRoute.destinationCoverageId);
+    setViaOrder([...(editingRoute.viaCoverageIds || [])]);
+    setRouteName(editingRoute.displayName?.trim() ? editingRoute.displayName : "");
+    setLocalError(null);
+  }, [editingRoute]);
 
   const betweenTerminals = useMemo(() => {
     if (!originId || !destId || originId === destId) return [];
@@ -104,18 +119,33 @@ export function AddRouteForm({ terminals, saving, onSave }: AddRouteFormProps) {
     const allowed = new Set(betweenTerminals.map((t) => t._id));
     const viaCoverageIds = viaOrder.filter((id) => allowed.has(id));
 
+    const authorizedStops: CorridorRouteWritePayload["authorizedStops"] =
+      editingRoute?.authorizedStops?.length
+        ? editingRoute.authorizedStops.map((s) => ({
+            coverageId: String(s.coverageId),
+            sequence: Number(s.sequence),
+          }))
+        : [];
+
+    const payload: CorridorRouteWritePayload = {
+      displayName,
+      originCoverageId: originId,
+      destinationCoverageId: destId,
+      viaCoverageIds,
+      authorizedStops,
+    };
+
     try {
-      await onSave({
-        displayName,
-        originCoverageId: originId,
-        destinationCoverageId: destId,
-        viaCoverageIds,
-        authorizedStops: [],
-      });
-      setOriginId("");
-      setDestId("");
-      setViaOrder([]);
-      setRouteName("");
+      if (editingRoute && onUpdateRoute) {
+        await onUpdateRoute(editingRoute._id, payload);
+        onCancelEdit?.();
+      } else {
+        await onSave(payload);
+        setOriginId("");
+        setDestId("");
+        setViaOrder([]);
+        setRouteName("");
+      }
     } catch {
       /* toast from parent */
     }
@@ -124,8 +154,20 @@ export function AddRouteForm({ terminals, saving, onSave }: AddRouteFormProps) {
   return (
     <form className="add-route-form" onSubmit={handleSubmit}>
       <h2 className="add-route-form__title">
-        <IconRoute /> Create Route
+        <IconRoute /> {editingRoute ? "Edit corridor" : "Create Route"}
       </h2>
+      {editingRoute && onCancelEdit ? (
+        <p className="add-route-form__hint add-route-form__hint--muted" style={{ marginTop: 0 }}>
+          Updating{" "}
+          <span className="add-route-form__mono add-route-form__mono--strong">
+            {editingRoute.displayName || `${editingRoute.originLabel} → ${editingRoute.destLabel}`}
+          </span>
+          .{" "}
+          <button type="button" className="add-route-form__linkish" onClick={onCancelEdit}>
+            Cancel edit
+          </button>
+        </p>
+      ) : null}
 
       <div className="add-route-form__field" style={{ marginBottom: "1.05rem" }}>
         <label className="add-route-form__label" htmlFor="add-route-name">
@@ -133,7 +175,7 @@ export function AddRouteForm({ terminals, saving, onSave }: AddRouteFormProps) {
         </label>
         <input
           id="add-route-name"
-          className="add-route-form__select"
+          className="add-route-form__control add-route-form__input"
           value={routeName}
           onChange={(e) => setRouteName(e.target.value)}
           placeholder="e.g. Malaybalay ↔ Valencia"
@@ -151,7 +193,7 @@ export function AddRouteForm({ terminals, saving, onSave }: AddRouteFormProps) {
             <span className="add-route-form__select-icon" aria-hidden><IconLocationTiny /></span>
             <select
               id="add-route-origin"
-              className="add-route-form__select"
+              className="add-route-form__control add-route-form__select"
               value={originId}
               onChange={(e) => {
                 const v = e.target.value;
@@ -181,7 +223,7 @@ export function AddRouteForm({ terminals, saving, onSave }: AddRouteFormProps) {
             <span className="add-route-form__select-icon" aria-hidden><IconLocationTiny /></span>
             <select
               id="add-route-dest"
-              className="add-route-form__select"
+              className="add-route-form__control add-route-form__select"
               value={destId}
               onChange={(e) => {
                 const v = e.target.value;
@@ -257,7 +299,7 @@ export function AddRouteForm({ terminals, saving, onSave }: AddRouteFormProps) {
         className="add-route-form__submit"
         disabled={saving || terminals.length < 2 || !originId || !destId}
       >
-        {saving ? "Saving…" : "Save Route"}
+        {saving ? "Saving…" : editingRoute ? "Update corridor" : "Save Route"}
       </button>
     </form>
   );

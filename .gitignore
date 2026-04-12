@@ -9,6 +9,8 @@ node_modules/
 *.pem
 **/firebase-adminsdk*.json
 Backend/Admin_Backend/secrets/
+# Automated daily ops report JSON snapshots (set DAILY_OPS_REPORT_SNAPSHOT_DIR)
+Backend/Admin_Backend/data/daily-ops-snapshots/
 
 # Logs & OS
 logs/
@@ -27,6 +29,9 @@ coverage/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# LilyGO / firmware local secrets (copy from config.h.example)
+hardware/**/config.h
 
 # Misc
 *.swp

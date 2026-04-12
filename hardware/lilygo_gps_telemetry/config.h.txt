@@ -1,0 +1,49 @@
+#ifndef LILYGO_GPS_CONFIG_H
+#define LILYGO_GPS_CONFIG_H
+
+// -----------------------------------------------------------------------------
+// Cellular — set to your SIM / carrier (Philippines examples: "internet", "smartlte")
+// -----------------------------------------------------------------------------
+#define CELL_APN "internet"
+#define CELL_APN_USER ""
+#define CELL_APN_PASS ""
+
+// -----------------------------------------------------------------------------
+// Admin API — must match Backend/Admin_Backend (see .env DEVICE_INGEST_SECRET)
+// Use HTTP on port 80, or terminate TLS on a reverse proxy and point the device at HTTP.
+// -----------------------------------------------------------------------------
+#define SERVER_HOST "your-server.com"
+#define SERVER_PORT 80
+#define SERVER_PATH "/api/hardware-telemetry"
+/** Leave empty only if DEVICE_INGEST_SECRET is unset on the server (dev only). */
+#define DEVICE_INGEST_SECRET ""
+
+// -----------------------------------------------------------------------------
+// LilyGO T-SIM7000G (common UART; verify against your board silkscreen)
+// -----------------------------------------------------------------------------
+#define MODEM_UART_RX 27
+#define MODEM_UART_TX 26
+#define MODEM_UART_BAUD 115200
+
+/** TinyGsm modem type — match your module (SIM7000 / SIM7600 / SIM800 …). */
+#define TINY_GSM_MODEM_SIM7000
+
+// -----------------------------------------------------------------------------
+// Behaviour
+// -----------------------------------------------------------------------------
+#define POST_INTERVAL_MS 5000
+#define GPS_WARMUP_MS 30000
+#define MAX_GPS_WAIT_MS 180000
+
+/** Average this many consecutive fixes before upload (1 = off). Reduces jitter on the map. */
+#define GPS_SMOOTH_SAMPLES 4
+
+/**
+ * For AT+CGNSINF lat/lon fields:
+ * 0 = decimal degrees (e.g. 8.1477).
+ * 1 = NMEA-style DDMM.MMMM / DDDMM.MMMM — convert before sending.
+ * ~1–5+ km error → try toggling 0 ↔ 1; test outside and compare to Google Maps at the same spot.
+ */
+#define GNSS_COORDS_DDMM_FORMAT 1
+
+#endif

@@ -149,6 +149,11 @@ export function LoginPage() {
     }
   }
 
+  function openOtpRecovery() {
+    setOtpEmail((prev) => (prev.trim() ? prev : email.trim()));
+    setOtpOpen(true);
+  }
+
   async function sendOtp() {
     const em = otpEmail.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
@@ -346,7 +351,7 @@ export function LoginPage() {
         </form>
 
         <p className="glass-login__footer">
-          <button type="button" className="glass-login__forgot-btn" onClick={() => setOtpOpen(true)}>
+          <button type="button" className="glass-login__forgot-btn" onClick={openOtpRecovery}>
             Forget Password ?
           </button>
         </p>
@@ -359,7 +364,13 @@ export function LoginPage() {
             {otpStep === "email" ? (
               <>
                 <p className="glass-login__otp-sub">Enter your registered admin email to receive a 6-digit OTP.</p>
-                <input className="glass-login__input" type="email" value={otpEmail} onChange={(e) => setOtpEmail(e.target.value)} autoComplete="email" />
+                <input
+                  className="glass-login__input"
+                  type="email"
+                  value={otpEmail}
+                  onChange={(e) => setOtpEmail(e.target.value)}
+                  autoComplete="email"
+                />
                 <button type="button" className="glass-login__submit" disabled={otpBusy} onClick={() => void sendOtp()}>
                   {otpBusy ? <span className="glass-login__spinner" aria-hidden /> : null}
                   {otpBusy ? "Sending OTP..." : "Send OTP"}
@@ -369,7 +380,9 @@ export function LoginPage() {
 
             {otpStep === "verify" ? (
               <>
-                <p className="glass-login__otp-sub">Enter the 6-digit code from your email (or below if shown for local testing).</p>
+                <p className="glass-login__otp-sub">
+                  Enter the 6-digit code from your email (or below if shown for local testing).
+                </p>
                 {otpServerHint ? <p className="glass-login__otp-hint">{otpServerHint}</p> : null}
                 {otpDevCode ? (
                   <p className="glass-login__otp-dev" role="status" aria-live="polite">
@@ -396,8 +409,20 @@ export function LoginPage() {
             {otpStep === "reset" ? (
               <>
                 <p className="glass-login__otp-sub">Set your new password.</p>
-                <input className="glass-login__input" type="password" placeholder="New password" value={otpPass} onChange={(e) => setOtpPass(e.target.value)} />
-                <input className="glass-login__input" type="password" placeholder="Confirm password" value={otpConfirm} onChange={(e) => setOtpConfirm(e.target.value)} />
+                <input
+                  className="glass-login__input"
+                  type="password"
+                  placeholder="New password"
+                  value={otpPass}
+                  onChange={(e) => setOtpPass(e.target.value)}
+                />
+                <input
+                  className="glass-login__input"
+                  type="password"
+                  placeholder="Confirm password"
+                  value={otpConfirm}
+                  onChange={(e) => setOtpConfirm(e.target.value)}
+                />
                 <button type="button" className="glass-login__submit" disabled={otpBusy} onClick={() => void resetWithOtp()}>
                   {otpBusy ? <span className="glass-login__spinner" aria-hidden /> : null}
                   {otpBusy ? "Updating..." : "Update Password"}

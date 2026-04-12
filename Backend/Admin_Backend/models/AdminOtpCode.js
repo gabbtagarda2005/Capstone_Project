@@ -4,7 +4,7 @@ const adminOtpCodeSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, lowercase: true, index: true },
     otpHash: { type: String, required: true },
-    expiresAt: { type: Date, required: true, index: true },
+    expiresAt: { type: Date, required: true },
     consumed: { type: Boolean, default: false, index: true },
     attempts: { type: Number, default: 0 },
   },

@@ -8,12 +8,11 @@ const FareMatrixEntry = require("../models/FareMatrixEntry");
 const FareChangeLog = require("../models/FareChangeLog");
 const {
   getGlobalSettingsLean,
-  discountPctForCategory,
-  applyDiscount,
   findMatrixEntryByLabels,
   resolveEndpointToken,
   listFareLocationOptions,
   listFareLocationEndpointPairs,
+  computeTicketFare,
 } = require("../services/farePricing");
 
 function isOid(id) {
@@ -44,10 +43,15 @@ function createFaresRouter() {
   router.get("/settings", requireAdminJwt, async (_req, res) => {
     try {
       const doc = await getGlobalSettingsLean();
+      const farePerKmPesos = Number(doc.farePerKmPesos);
       res.json({
         studentDiscountPct: doc.studentDiscountPct,
         pwdDiscountPct: doc.pwdDiscountPct,
         seniorDiscountPct: doc.seniorDiscountPct,
+        farePerKmPesos: Number.isFinite(farePerKmPesos) ? farePerKmPesos : 0,
+        hubChainCoverageIds: Array.isArray(doc.hubChainCoverageIds)
+          ? doc.hubChainCoverageIds.map((id) => String(id))
+          : [],
         updatedAt: doc.updatedAt,
       });
     } catch (e) {
@@ -61,11 +65,26 @@ function createFaresRouter() {
       const student = Number(body.studentDiscountPct);
       const pwd = Number(body.pwdDiscountPct);
       const senior = Number(body.seniorDiscountPct);
+      const farePerKmPesos = Number(body.farePerKmPesos);
       if (![student, pwd, senior].every((n) => Number.isFinite(n) && n >= 0 && n <= 100)) {
         return res.status(400).json({ error: "Each discount must be a number from 0 to 100" });
       }
+      if (!Number.isFinite(farePerKmPesos) || farePerKmPesos < 0) {
+        return res.status(400).json({ error: "farePerKmPesos must be a non-negative number" });
+      }
 
+      const roundedFarePerKm = Math.round(farePerKmPesos * 100) / 100;
       const prev = await getGlobalSettingsLean();
+
+      let hubChainCoverageIds = Array.isArray(prev.hubChainCoverageIds) ? prev.hubChainCoverageIds : [];
+      if (body.hubChainCoverageIds !== undefined) {
+        const raw = Array.isArray(body.hubChainCoverageIds) ? body.hubChainCoverageIds : [];
+        hubChainCoverageIds = raw
+          .map((id) => String(id || "").trim())
+          .filter((id) => isOid(id))
+          .map((id) => new mongoose.Types.ObjectId(id));
+      }
+
       const doc = await FareGlobalSettings.findOneAndUpdate(
         { singletonKey: "global" },
         {
@@ -74,6 +93,8 @@ function createFaresRouter() {
             studentDiscountPct: student,
             pwdDiscountPct: pwd,
             seniorDiscountPct: senior,
+            farePerKmPesos: roundedFarePerKm,
+            hubChainCoverageIds,
           },
         },
         { upsert: true, new: true }
@@ -82,21 +103,33 @@ function createFaresRouter() {
       await FareChangeLog.create({
         kind: "discounts",
         actorEmail: req.admin?.email || "",
-        summary: `Global discounts updated (Student ${student}%, PWD ${pwd}%, Senior ${senior}%)`,
+        summary: `Global fare settings updated (₱${roundedFarePerKm}/km; Student ${student}%, PWD ${pwd}%, Senior ${senior}%)`,
         meta: {
           before: {
             studentDiscountPct: prev.studentDiscountPct,
             pwdDiscountPct: prev.pwdDiscountPct,
             seniorDiscountPct: prev.seniorDiscountPct,
+            farePerKmPesos: prev.farePerKmPesos,
           },
-          after: { studentDiscountPct: student, pwdDiscountPct: pwd, seniorDiscountPct: senior },
+          after: {
+            studentDiscountPct: student,
+            pwdDiscountPct: pwd,
+            seniorDiscountPct: senior,
+            farePerKmPesos: roundedFarePerKm,
+            hubChainCoverageIds: (hubChainCoverageIds || []).map(String),
+          },
         },
       });
 
+      const outFarePerKm = Number(doc?.farePerKmPesos);
       res.json({
         studentDiscountPct: doc.studentDiscountPct,
         pwdDiscountPct: doc.pwdDiscountPct,
         seniorDiscountPct: doc.seniorDiscountPct,
+        farePerKmPesos: Number.isFinite(outFarePerKm) ? outFarePerKm : roundedFarePerKm,
+        hubChainCoverageIds: Array.isArray(doc.hubChainCoverageIds)
+          ? doc.hubChainCoverageIds.map((id) => String(id))
+          : [],
         updatedAt: doc.updatedAt,
       });
     } catch (e) {
@@ -145,6 +178,13 @@ function createFaresRouter() {
         return res.status(400).json({ error: "Start and destination must be different points" });
       }
 
+      if (a.kind !== "terminal" || b.kind !== "terminal") {
+        return res.status(400).json({
+          error:
+            "Matrix base fares must be between hub terminals only. Configure bus stops under Location management (optional km from start) and Fare per km — sub-stop surcharges are computed automatically.",
+        });
+      }
+
       const doc = await FareMatrixEntry.findOneAndUpdate(
         {
           startCoverageId: a.coverageId,
@@ -188,6 +228,42 @@ function createFaresRouter() {
       if (e.code === 11000) {
         return res.status(409).json({ error: "A matrix row for this route already exists" });
       }
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  router.patch("/matrix/:id", requireAdminJwt, async (req, res) => {
+    const id = String(req.params.id || "");
+    if (!isOid(id)) return res.status(400).json({ error: "Invalid id" });
+    const base = Number((req.body || {}).baseFarePesos);
+    if (!Number.isFinite(base) || base < 0) {
+      return res.status(400).json({ error: "baseFarePesos must be a non-negative number" });
+    }
+    const rounded = Math.round(base * 100) / 100;
+    try {
+      const prev = await FareMatrixEntry.findById(id).lean();
+      if (!prev) return res.status(404).json({ error: "Not found" });
+      const doc = await FareMatrixEntry.findByIdAndUpdate(id, { $set: { baseFarePesos: rounded } }, { new: true }).lean();
+      await FareChangeLog.create({
+        kind: "matrix_patch",
+        actorEmail: req.admin?.email || "",
+        summary: `Base fare ₱${doc.baseFarePesos.toFixed(2)}: ${doc.startLabel} → ${doc.endLabel}`,
+        meta: {
+          matrixId: String(doc._id),
+          before: prev.baseFarePesos,
+          after: doc.baseFarePesos,
+          startLabel: doc.startLabel,
+          endLabel: doc.endLabel,
+        },
+      });
+      res.json({
+        _id: String(doc._id),
+        startLabel: doc.startLabel,
+        endLabel: doc.endLabel,
+        baseFarePesos: doc.baseFarePesos,
+        updatedAt: doc.updatedAt,
+      });
+    } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
@@ -238,33 +314,80 @@ function createFaresRouter() {
         return res.status(400).json({ error: "startLocation and destination are required" });
       }
 
-      const entry = await findMatrixEntryByLabels(start, dest);
-      const settings = await getGlobalSettingsLean();
+      const cat =
+        category === "regular" ? "adult" : ["student", "pwd", "senior"].includes(category) ? category : "adult";
+      const pricing = await computeTicketFare({
+        startLocation: start,
+        destination: dest,
+        category: cat,
+        clientFare: null,
+      });
 
-      if (!entry) {
+      if (!pricing.matched) {
+        const custom =
+          typeof pricing.message === "string" && pricing.message.trim() ? pricing.message.trim() : "";
         return res.json({
           matched: false,
           baseFarePesos: null,
           discountPct: null,
           fare: null,
-          passengerCategory: category === "regular" ? "adult" : category,
-          message: "No fare matrix row for this origin/destination pair",
+          passengerCategory: cat,
+          pricingMode: pricing.pricingMode || "unmatched",
+          message: custom
+            ? custom
+            : pricing.pricingMode === "pre_terminal_unpriced"
+              ? "Early drop-off fare needs Fare per Km in Admin (Fare Management)."
+              : "No priced path for this trip — add hub-to-hub matrix legs for each segment, and/or set the linear hub chain in Admin (Fare Management).",
         });
       }
 
-      const cat =
-        category === "regular" ? "adult" : ["student", "pwd", "senior"].includes(category) ? category : "adult";
-      const pct = discountPctForCategory(settings, cat);
-      const fare = applyDiscount(entry.baseFarePesos, pct);
+      const entry = await findMatrixEntryByLabels(start, dest);
+      const matrixLabels =
+        (pricing.pricingMode === "hub_matrix_plus_distance" ||
+          pricing.pricingMode === "hub_multi_segment_matrix" ||
+          pricing.pricingMode === "hub_linear_chain_matrix") &&
+        pricing.hubStartLabel &&
+        pricing.hubEndLabel
+          ? { startLabel: pricing.hubStartLabel, endLabel: pricing.hubEndLabel }
+          : pricing.pricingMode === "intra_hub_per_km"
+            ? { startLabel: start, endLabel: dest }
+            : entry
+              ? { startLabel: entry.startLabel, endLabel: entry.endLabel }
+              : { startLabel: start, endLabel: dest };
 
       res.json({
         matched: true,
-        baseFarePesos: entry.baseFarePesos,
-        discountPct: pct,
-        fare,
-        passengerCategory: cat,
-        startLabel: entry.startLabel,
-        endLabel: entry.endLabel,
+        baseFarePesos: pricing.baseFarePesos,
+        discountPct: pricing.discountPct,
+        fare: pricing.fare,
+        passengerCategory: pricing.categoryUsed,
+        startLabel: matrixLabels.startLabel,
+        endLabel: matrixLabels.endLabel,
+        pricingMode: pricing.pricingMode,
+        farePerKmPesos: pricing.farePerKmPesos,
+        extraDistanceKm: pricing.extraDistanceKm,
+        distanceChargePesos: pricing.distanceChargePesos,
+        subtotalRoundedHalfPeso: pricing.subtotalRoundedHalfPeso,
+        hubStartLabel: pricing.hubStartLabel,
+        hubEndLabel: pricing.hubEndLabel,
+        preTerminalDestination: pricing.preTerminalDestination,
+        originSpurKm: pricing.originSpurKm ?? null,
+        destinationSpurKm: pricing.destinationSpurKm ?? null,
+        pricingSummary:
+          typeof pricing.pricingSummary === "string" && pricing.pricingSummary.trim()
+            ? pricing.pricingSummary.trim()
+            : null,
+        fareBreakdownDisplay:
+          typeof pricing.fareBreakdownDisplay === "string" && pricing.fareBreakdownDisplay.trim()
+            ? pricing.fareBreakdownDisplay.trim()
+            : null,
+        segmentFares: Array.isArray(pricing.segmentFares)
+          ? pricing.segmentFares.map((s) => ({
+              fromLabel: s.fromLabel,
+              toLabel: s.toLabel,
+              basePesos: s.basePesos,
+            }))
+          : null,
       });
     } catch (e) {
       res.status(500).json({ error: e.message });

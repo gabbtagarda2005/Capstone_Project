@@ -2,7 +2,6 @@ const crypto = require("crypto");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { getMysqlPool } = require("../db/mysqlPool");
 const { normalizeEmail } = require("../config/adminWhitelist");
 const { requireAdminJwt } = require("../middleware/requireAdminJwt");
 const { requireDriverSignupJwt } = require("../middleware/requireDriverSignupJwt");
@@ -10,6 +9,7 @@ const DriverSignupOtp = require("../models/DriverSignupOtp");
 const Driver = require("../models/Driver");
 const PortalUser = require("../models/PortalUser");
 const { sendDriverSignupOtpEmail } = require("../services/mailer");
+const { allocateUniqueSixDigit } = require("../services/personnelSixDigit");
 
 const MAX_URL_LEN = 400_000;
 
@@ -33,16 +33,12 @@ function checkDriverEmailDomainWhitelist(email) {
 
 async function emailAvailableForDriverSignup(email) {
   const existing = await Driver.findOne({ email }).lean();
-  if (existing) return { ok: false, error: "This email is already registered to a driver" };
-
-  const pool = getMysqlPool();
-  if (pool) {
-    const [rows] = await pool.query(
-      "SELECT operator_id FROM bus_operators WHERE LOWER(email) = ? LIMIT 1",
-      [email]
-    );
-    if (rows[0]) {
-      return { ok: false, error: "This email is already used by a bus operator account" };
+  if (existing) {
+    // Soft-deleted drivers keep the document but must not block re-registration (unique index on email).
+    if (existing.active === false) {
+      await Driver.updateOne({ _id: existing._id }, { $set: { email: null } });
+    } else {
+      return { ok: false, error: "This email is already registered to a driver" };
     }
   }
 
@@ -60,16 +56,6 @@ function signDriverSignupToken(email, secret) {
     secret,
     { expiresIn: process.env.DRIVER_SIGNUP_JWT_EXPIRES_IN || "20m" }
   );
-}
-
-async function generateUniqueDriverId() {
-  for (let i = 0; i < 8; i += 1) {
-    const suffix = crypto.randomBytes(3).toString("hex").toUpperCase();
-    const id = `BKN-D-${Date.now().toString(36).toUpperCase()}-${suffix}`;
-    const exists = await Driver.findOne({ driverId: id }).select("_id").lean();
-    if (!exists) return id;
-  }
-  return `BKN-D-${crypto.randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase()}`;
 }
 
 function createDriversSignupRouter() {
@@ -228,6 +214,7 @@ function createDriversSignupRouter() {
 
     const licDup = await Driver.findOne({
       licenseNumber: new RegExp(`^${licenseNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      active: { $ne: false },
     })
       .select("_id")
       .lean();
@@ -236,7 +223,8 @@ function createDriversSignupRouter() {
     }
 
     try {
-      const driverId = await generateUniqueDriverId();
+      const driverId = await allocateUniqueSixDigit();
+      const ticketEditPinHash = await bcrypt.hash(driverId, 10);
       const doc = await Driver.create({
         driverId,
         firstName,
@@ -250,6 +238,7 @@ function createDriversSignupRouter() {
         licenseScanUrl,
         verifiedViaOtpAt: new Date(),
         active: true,
+        ticketEditPinHash,
       });
 
       return res.status(201).json({

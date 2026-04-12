@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { fetchAdminAuditLog } from "@/lib/api";
 import type { AdminAuditLogRowDto } from "@/lib/types";
 import "./AdminAuditLogPanel.css";
@@ -96,7 +97,11 @@ export function AdminAuditLogPanel() {
       ) : (
         <div className="admin-audit-panel__list">
           {logs.map((log) => (
-            <div key={log.id} className="admin-audit-panel__row">
+            <Link
+              key={log.id}
+              to={`/dashboard/management/admins/audit/${encodeURIComponent(log.id)}`}
+              className="admin-audit-panel__row admin-audit-panel__row--link"
+            >
               <div className={`admin-audit-panel__icon ${iconClass(log.action)}`}>
                 <ActionIcon action={log.action} />
               </div>
@@ -122,7 +127,7 @@ export function AdminAuditLogPanel() {
                   ) : null}
                 </p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

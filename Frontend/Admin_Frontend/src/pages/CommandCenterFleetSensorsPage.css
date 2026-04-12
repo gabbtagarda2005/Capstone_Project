@@ -1,0 +1,210 @@
+.fleet-sensors {
+  color: #e2e8f0;
+  background: linear-gradient(160deg, #011126 0%, #020817 100%);
+  border: 1px solid rgba(31, 88, 133, 0.6);
+  border-radius: 18px;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.fleet-sensors__hero h1 {
+  margin: 0.35rem 0 0.2rem;
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+}
+
+.fleet-sensors__hero p {
+  margin: 0;
+  color: rgba(191, 219, 254, 0.85);
+}
+
+.fleet-sensors__mgmt-back {
+  margin-bottom: 0.5rem;
+}
+
+.fleet-sensors__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.fleet-sensors__kpi {
+  border: 1px solid rgba(31, 88, 133, 0.5);
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.fleet-sensors__kpi span {
+  font-size: 0.75rem;
+  color: #93c5fd;
+}
+
+.fleet-sensors__kpi strong {
+  display: block;
+  font-size: 1.2rem;
+  margin-top: 0.25rem;
+}
+
+.fleet-sensors__kpi--alert {
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.5) inset, 0 0 16px rgba(239, 68, 68, 0.35);
+}
+
+.fleet-sensors__table-wrap {
+  margin-top: 0.95rem;
+  overflow-x: auto;
+}
+
+.fleet-sensors__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+
+.fleet-sensors__table th {
+  text-align: left;
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  color: #67e8f9;
+  padding: 0.3rem 0.4rem;
+  text-transform: uppercase;
+}
+
+.fleet-sensors__table td {
+  background: rgba(15, 23, 42, 0.9);
+  border-top: 1px solid rgba(31, 88, 133, 0.6);
+  border-bottom: 1px solid rgba(31, 88, 133, 0.6);
+  padding: 0.55rem 0.45rem;
+}
+
+.fleet-sensors__table td:first-child {
+  border-left: 1px solid rgba(31, 88, 133, 0.6);
+  border-radius: 10px 0 0 10px;
+}
+.fleet-sensors__table td:last-child {
+  border-right: 1px solid rgba(31, 88, 133, 0.6);
+  border-radius: 0 10px 10px 0;
+}
+
+.fleet-sensors__row--alert td {
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.5);
+  animation: fleet-sensors-red-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes fleet-sensors-red-pulse {
+  50% {
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.85), 0 0 16px rgba(239, 68, 68, 0.35);
+  }
+}
+
+.fleet-sensors__bus strong {
+  display: block;
+}
+.fleet-sensors__bus span {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.fleet-sensors__link {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.fleet-sensors__link--wifi {
+  color: #bfdbfe;
+  background: rgba(37, 99, 235, 0.35);
+}
+.fleet-sensors__link--lte {
+  color: #bbf7d0;
+  background: rgba(22, 163, 74, 0.35);
+}
+.fleet-sensors__link--down {
+  color: #fecaca;
+  background: rgba(185, 28, 28, 0.35);
+}
+
+.fleet-sensors__gauge-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.fleet-sensors__gauge {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+.fleet-sensors__gauge span {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #0f172a;
+  display: grid;
+  place-items: center;
+  font-size: 0.63rem;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.fleet-sensors__bars-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.fleet-sensors__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 32px;
+}
+.fleet-sensors__bars span {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(71, 85, 105, 0.8);
+}
+.fleet-sensors__bars span.on {
+  background: #22d3ee;
+}
+
+.fleet-sensors__badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid transparent;
+}
+.fleet-sensors__badge--safe,
+.fleet-sensors__badge--good {
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.45);
+}
+.fleet-sensors__badge--ok {
+  color: #d9f99d;
+  border-color: rgba(132, 204, 22, 0.45);
+}
+.fleet-sensors__badge--warn {
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+.fleet-sensors__badge--critical {
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.fleet-sensors__mono {
+  font-family: ui-monospace, Consolas, monospace;
+}
+.fleet-sensors__empty {
+  text-align: center;
+  color: #94a3b8;
+}
+.fleet-sensors__err {
+  color: #fecaca;
+  margin: 0.75rem 0 0;
+}
+

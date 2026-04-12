@@ -4,7 +4,7 @@ const fareChangeLogSchema = new mongoose.Schema(
   {
     kind: {
       type: String,
-      enum: ["matrix_upsert", "matrix_delete", "discounts"],
+      enum: ["matrix_upsert", "matrix_patch", "matrix_delete", "discounts"],
       required: true,
       index: true,
     },

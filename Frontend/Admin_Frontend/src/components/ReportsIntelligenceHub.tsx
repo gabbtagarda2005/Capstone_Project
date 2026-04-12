@@ -1,21 +1,26 @@
-import { useMemo, useState, type ComponentProps, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Label,
+  Line,
   Pie,
   PieChart,
+  ReferenceArea,
   ResponsiveContainer,
+  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import type { ReportsAnalyticsDto, ReportPickupRow } from "@/lib/types";
+import { REPORT_EXPORT_BUNDLES, type ReportExportBundleId } from "@/lib/reportExportBundles";
 import "@/pages/ReportsPage.css";
 
-export type HubTab = "passenger" | "attendants" | "bus" | "route";
+export type HubTab = "passenger" | "attendants" | "bus" | "route" | "export";
 
 type PassengerCongestionPeriod = "hour" | "day" | "month" | "year";
 
@@ -28,13 +33,21 @@ function truncateLabel(s: string, max: number): string {
 const SLATE_PRIMARY = "#4A6BBE";
 const SLATE_SECONDARY = "#1F5885";
 const SLATE_AXIS = "#87A8DA";
-const HUB_PIE_COLORS = [SLATE_PRIMARY, SLATE_SECONDARY, SLATE_AXIS, SLATE_PRIMARY, SLATE_SECONDARY, SLATE_AXIS];
+const PASSENGER_ORANGE = "#F97316";
+const PASSENGER_ORANGE_2 = "#FB923C";
+const FLEET_GREEN = "#10B981";
+const FLEET_GREEN_2 = "#34D399";
+
+const PIE_COLORS_FLEET = [FLEET_GREEN, FLEET_GREEN_2, SLATE_AXIS, FLEET_GREEN, FLEET_GREEN_2, SLATE_AXIS];
 const hubAxisTick = { fill: SLATE_AXIS, fontSize: 9 };
 const hubAxisStroke = SLATE_AXIS;
 const hubTooltipStyle = {
-  background: "rgba(4, 14, 35, 0.96)",
-  border: `1px solid ${SLATE_AXIS}55`,
+  background: "rgba(4, 14, 35, 0.92)",
+  border: `1px solid rgba(74, 107, 190, 0.35)`,
   borderRadius: 12,
+  backdropFilter: "blur(12px) saturate(1.2)",
+  WebkitBackdropFilter: "blur(12px) saturate(1.2)",
+  boxShadow: "0 16px 44px rgba(0, 0, 0, 0.35)",
 };
 const hubBarActive = {
   fill: SLATE_PRIMARY,
@@ -42,6 +55,32 @@ const hubBarActive = {
   strokeWidth: 2,
   style: { filter: "drop-shadow(0 0 14px rgba(74, 107, 190, 0.9))" },
 };
+
+function LeadingEdgeBarShape(props: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+}) {
+  const { x = 0, y = 0, width = 0, height = 0, fill = SLATE_PRIMARY } = props;
+  if (width <= 0 || height <= 0) return null;
+
+  const triH = Math.max(6, Math.min(14, height * 0.16));
+  const rectH = Math.max(0, height - triH);
+  const r = Math.max(2, Math.min(8, width * 0.18));
+  const xMid = x + width / 2;
+
+  return (
+    <g style={{ filter: "drop-shadow(0 0 8px #00F2FF)" }}>
+      <rect x={x} y={y + triH} width={width} height={rectH} rx={r} fill={fill} />
+      <path
+        d={`M ${xMid - width * 0.18} ${y + triH} L ${xMid + width * 0.18} ${y + triH} L ${xMid} ${y} Z`}
+        fill="rgba(0,242,255,0.92)"
+      />
+    </g>
+  );
+}
 
 function hubSvgGlowDefs() {
   return (
@@ -107,54 +146,73 @@ function donutMtdCenterContent(monthlyRev: number) {
   };
 }
 
-function HourlyCongestionHeatmap({
+/** Bar + line chart for 24h ticket volume; peak boarding window as shaded band + brighter bars. */
+function HourlyTicketsVolumeChart({
   hourlyToday,
   peakStart,
   peakEnd,
+  barColor,
+  barColorPeak,
+  lineColor,
+  legend,
 }: {
   hourlyToday: ReportsAnalyticsDto["hourlyToday"];
   peakStart: number;
   peakEnd: number;
+  barColor: string;
+  barColorPeak: string;
+  lineColor: string;
+  legend: string;
 }) {
-  const byHour = useMemo(() => {
-    const m = new Map<number, { tickets: number; revenue: number }>();
-    hourlyToday.forEach((r) => m.set(r.hour, { tickets: r.tickets, revenue: r.revenue }));
-    return m;
-  }, [hourlyToday]);
-  const maxTickets = useMemo(() => Math.max(1, ...Array.from(byHour.values()).map((v) => v.tickets)), [byHour]);
-  const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
+  const data = useMemo(
+    () =>
+      hourlyToday.map((row) => ({
+        ...row,
+        hourLabel: `${String(row.hour).padStart(2, "0")}:00`,
+        inPeak: row.hour >= peakStart && row.hour <= peakEnd,
+      })),
+    [hourlyToday, peakStart, peakEnd]
+  );
+
+  const peakX1 = `${String(Math.min(peakStart, peakEnd)).padStart(2, "0")}:00`;
+  const peakX2 = `${String(Math.max(peakStart, peakEnd)).padStart(2, "0")}:00`;
+
   return (
-    <div className="reports-hub__heatmap-wrap">
-      <p className="reports-hub__heatmap-legend">Deeper blue = higher ticket volume · outlined = peak boarding window</p>
-      <div className="reports-hub__heatmap" role="img" aria-label="Hourly congestion heatmap">
-        {hours.map((h) => {
-          const cell = byHour.get(h) ?? { tickets: 0, revenue: 0 };
-          const intensity = cell.tickets / maxTickets;
-          const inPeak = h >= peakStart && h <= peakEnd;
-          const deep = 0.18 + intensity * 0.82;
-          const style: CSSProperties = {
-            background: `rgba(4, 12, 32, ${deep})`,
-            boxShadow: intensity > 0.65 ? `inset 0 0 12px rgba(74, 107, 190, ${0.25 + intensity * 0.45})` : undefined,
-          };
-          return (
-            <button
-              key={h}
-              type="button"
-              className={`reports-hub__heatmap-cell${inPeak ? " reports-hub__heatmap-cell--peak" : ""}`}
-              style={style}
-              title={`${String(h).padStart(2, "0")}:00 — ${cell.tickets} tickets · ₱${cell.revenue.toFixed(2)}`}
+    <div className="reports-hub__hourly-volume-chart">
+      <p className="reports-hub__hourly-volume-legend">{legend}</p>
+      <div className="reports-hub__hourly-volume-canvas" role="img" aria-label="Tickets by hour bar and line chart">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+            <XAxis dataKey="hourLabel" stroke={hubAxisStroke} tick={{ ...hubAxisTick, fontSize: 8 }} interval={3} />
+            <YAxis stroke={hubAxisStroke} tick={hubAxisTick} allowDecimals={false} />
+            <Tooltip
+              contentStyle={hubTooltipStyle}
+              formatter={(v) => [`${v ?? 0} tickets`, "Volume"]}
+              labelFormatter={(l) => `Hour ${l}`}
             />
-          );
-        })}
-      </div>
-      <div className="reports-hub__heatmap-axis">
-        {hours
-          .filter((h) => h % 4 === 0)
-          .map((h) => (
-            <span key={h} className="reports-hub__heatmap-tick">
-              {h}:00
-            </span>
-          ))}
+            <ReferenceArea
+              x1={peakX1}
+              x2={peakX2}
+              fill="rgba(255, 255, 255, 0.06)"
+              stroke="rgba(135, 168, 218, 0.35)"
+              strokeDasharray="4 4"
+            />
+            <Bar dataKey="tickets" maxBarSize={22} radius={[5, 5, 0, 0]}>
+              {data.map((entry, i) => (
+                <Cell key={i} fill={entry.inPeak ? barColorPeak : barColor} className={entry.inPeak ? "reports-hub__chart-glow" : undefined} />
+              ))}
+            </Bar>
+            <Line
+              type="monotone"
+              dataKey="tickets"
+              stroke={lineColor}
+              strokeWidth={2}
+              dot={{ r: 2.5, fill: lineColor, strokeWidth: 0 }}
+              activeDot={{ r: 5, stroke: lineColor, fill: "#fff" }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -183,7 +241,7 @@ function PeakPickupBlock({
       <h4 className="reports-hub__peak-block-title">{title}</h4>
       <p className="reports-hub__peak-block-sub">{subtitle}</p>
       {locations.length === 0 ? (
-        <p className="reports-hub__empty-table">No pickup data for this cycle.</p>
+        <p className="reports-hub__peak-empty">No pickup data for this cycle.</p>
       ) : (
         <ul className="reports-hub__pickup-rank">
           {locations.slice(0, 5).map((p, i) => {
@@ -213,13 +271,29 @@ function PeakPickupBlock({
   );
 }
 
+function localYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 type HubProps = {
   data: ReportsAnalyticsDto;
   hubTab: HubTab;
   onHubTab: (t: HubTab) => void;
+  /** Return to the last chart tab when closing the export panel. */
+  onCancelExport: () => void;
   exportProgress: number;
   refundAlert: boolean;
-  onOpenExport: () => void;
+  /**
+   * Server-side master export (MySQL aggregates). Resolve on success; reject so the panel stays open on failure.
+   */
+  onRunMasterExport: (args: {
+    areas: ReportExportBundleId[];
+    format: "pdf" | "csv" | "xlsx";
+    dateRange: { start: string; end: string };
+  }) => void | Promise<void>;
   /** Disables the export control (e.g. no data loaded yet, or PDF in progress). */
   exportDisabled?: boolean;
   /** When true, label reads "Preparing…" (PDF generation). When false but disabled, still shows "Export data". */
@@ -230,13 +304,32 @@ type HubProps = {
   monthlyRev: number;
 };
 
+const EXPORT_AREA_IDS: ReportExportBundleId[] = [
+  "passenger",
+  "attendants",
+  "bus",
+  "route",
+  "insights",
+  "timeWindowPickups",
+  "revenue",
+];
+
+function toggleExportBundleSelection(prev: Set<ReportExportBundleId>, id: ReportExportBundleId): Set<ReportExportBundleId> {
+  const n = new Set(prev);
+  if (n.has(id)) n.delete(id);
+  else n.add(id);
+  if (n.size === 0) n.add("passenger");
+  return n;
+}
+
 export function ReportsIntelligenceHub({
   data,
   hubTab,
   onHubTab,
+  onCancelExport,
   exportProgress,
   refundAlert,
-  onOpenExport,
+  onRunMasterExport,
   exportDisabled = false,
   exportBusy = false,
   sentimentLabel,
@@ -248,6 +341,16 @@ export function ReportsIntelligenceHub({
     () => data.hourlyToday.map((row) => ({ ...row, hourLabel: `${String(row.hour).padStart(2, "0")}:00` })),
     [data.hourlyToday]
   );
+
+  // Live "current time" pulse line for hourly charts.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
+  const nowHourLabel = `${String(new Date(nowTick).getHours()).padStart(2, "0")}:00`;
+  const hasNowHourLabel = hourlyRevData.some((x) => x.hourLabel === nowHourLabel);
+
   const daily = data.dailyLast14 ?? [];
   const monthly = data.monthlyThisYear ?? [];
   const yearly = data.yearlyAll ?? [];
@@ -268,9 +371,61 @@ export function ReportsIntelligenceHub({
   const emptyYearly = yearly.length === 0;
 
   const [passengerCongestionPeriod, setPassengerCongestionPeriod] = useState<PassengerCongestionPeriod>("hour");
+  /** Sidebar “Busiest hour / day / month / year” — one panel at a time. */
+  const [peakPickupPeriod, setPeakPickupPeriod] = useState<PassengerCongestionPeriod>("hour");
   const [passengerRevenuePeriod, setPassengerRevenuePeriod] = useState<PassengerCongestionPeriod>("hour");
   const [routeRevenuePeriod, setRouteRevenuePeriod] = useState<PassengerCongestionPeriod>("hour");
   const [busTicketPeriod, setBusTicketPeriod] = useState<PassengerCongestionPeriod>("hour");
+
+  const [exportBundles, setExportBundles] = useState<Set<ReportExportBundleId>>(
+    () =>
+      new Set<ReportExportBundleId>([
+        "passenger",
+        "attendants",
+        "bus",
+        "route",
+        "insights",
+        "timeWindowPickups",
+        "revenue",
+      ])
+  );
+  const [exportFormat, setExportFormat] = useState<"pdf" | "csv" | "xlsx">("pdf");
+
+  const [exportRangeStart, setExportRangeStart] = useState(() => {
+    const start = new Date();
+    start.setDate(start.getDate() - 29);
+    return localYmd(start);
+  });
+  const [exportRangeEnd, setExportRangeEnd] = useState(() => localYmd(new Date()));
+
+  const exportRangeValid = useMemo(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(exportRangeStart) || !/^\d{4}-\d{2}-\d{2}$/.test(exportRangeEnd)) {
+      return false;
+    }
+    return exportRangeStart <= exportRangeEnd;
+  }, [exportRangeStart, exportRangeEnd]);
+
+  async function handleConfirmHubExport() {
+    if (exportBundles.size === 0 || !exportRangeValid) return;
+    try {
+      await onRunMasterExport({
+        areas: Array.from(exportBundles),
+        format: exportFormat,
+        dateRange: { start: exportRangeStart, end: exportRangeEnd },
+      });
+      onCancelExport();
+    } catch {
+      /* Parent shows toast; keep export panel open. */
+    }
+  }
+
+  const exportAreaLabels = useMemo(() => {
+    const m = new Map<ReportExportBundleId, string>();
+    for (const o of REPORT_EXPORT_BUNDLES) {
+      m.set(o.id, o.label);
+    }
+    return m;
+  }, []);
 
   const congestionSubtitle = useMemo(() => {
     switch (passengerCongestionPeriod) {
@@ -401,24 +556,142 @@ export function ReportsIntelligenceHub({
           >
             Route report
           </button>
+        </div>
+        <div className="reports-hub__nav-actions">
           <button
             type="button"
-            className="reports-hub__nav-btn reports-hub__nav-btn--exportish"
+            className={`reports-hub__export-action-btn${hubTab === "export" ? " reports-hub__export-action-btn--active" : ""}`}
             disabled={exportDisabled}
-            title={exportDisabled && !exportBusy ? "Load analytics before exporting." : undefined}
-            onClick={onOpenExport}
+            title={
+              exportBusy
+                ? "Preparing export…"
+                : "Pick report areas, Manila date range, and format. Download uses server MySQL aggregates when ticketing is online."
+            }
+            onClick={() => onHubTab("export")}
           >
             {exportBusy ? "Preparing…" : "Export data"}
           </button>
+          {refundAlert ? (
+            <span className="reports-hub__export-fraud-dot reports-hub__nav-fraud" title="Refund-flagged tickets present" aria-label="Financial anomaly" />
+          ) : null}
         </div>
-        {refundAlert ? (
-          <span className="reports-hub__export-fraud-dot reports-hub__nav-fraud" title="Refund-flagged tickets present" aria-label="Financial anomaly" />
-        ) : null}
       </nav>
 
-      <div className="reports-hub__main-row">
+      <div className={`reports-hub__main-row${hubTab === "export" ? " reports-hub__main-row--export" : ""}`}>
         <div className="reports-hub__charts-stage">
-          <div className="reports-hub__charts" key={hubTab}>
+          {hubTab === "export" ? (
+            <div className="reports-hub__export-panel-wrap" key="export-panel">
+              <div className="reports-hub__export-panel">
+                <header className="reports-hub__export-panel-head">
+                  <h3 className="reports-hub__export-panel-title">Export data</h3>
+                </header>
+
+                <p className="reports-hub__export-panel-kicker">Report areas</p>
+                <div className="reports-hub__export-toggles" role="group" aria-label="Datasets to include">
+                  {EXPORT_AREA_IDS.map((id) => {
+                    const on = exportBundles.has(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        className={`reports-hub__export-toggle${on ? " reports-hub__export-toggle--on" : ""}`}
+                        onClick={() => setExportBundles((prev) => toggleExportBundleSelection(prev, id))}
+                      >
+                        <span className="reports-hub__export-toggle-track" aria-hidden>
+                          <span className="reports-hub__export-toggle-knob" />
+                        </span>
+                        <span className="reports-hub__export-toggle-label">{exportAreaLabels.get(id) ?? id}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="reports-hub__export-panel-kicker">Date range (inclusive, Asia / Manila)</p>
+                <div className="reports-hub__export-dates" role="group" aria-label="Report date range">
+                  <label className="reports-hub__export-date-field">
+                    <span className="reports-hub__export-date-label">Start</span>
+                    <input
+                      type="date"
+                      className="reports-hub__export-date-input"
+                      value={exportRangeStart}
+                      onChange={(e) => setExportRangeStart(e.target.value)}
+                    />
+                  </label>
+                  <label className="reports-hub__export-date-field">
+                    <span className="reports-hub__export-date-label">End</span>
+                    <input
+                      type="date"
+                      className="reports-hub__export-date-input"
+                      value={exportRangeEnd}
+                      onChange={(e) => setExportRangeEnd(e.target.value)}
+                    />
+                  </label>
+                </div>
+                {!exportRangeValid ? (
+                  <p className="reports-hub__export-date-hint reports-hub__export-date-hint--err">
+                    Use valid YYYY-MM-DD dates; start must be on or before end.
+                  </p>
+                ) : (
+                  <p className="reports-hub__export-date-hint">
+                    Ticket rows are filtered by <code>created_at</code> converted to Manila local hours for time-window
+                    charts.
+                  </p>
+                )}
+
+                <p className="reports-hub__export-panel-kicker">File format</p>
+                <div className="reports-hub__segmented reports-hub__segmented--export" role="tablist" aria-label="Export format">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={exportFormat === "pdf"}
+                    className={`reports-hub__segment-btn${exportFormat === "pdf" ? " reports-hub__segment-btn--active" : ""}`}
+                    onClick={() => setExportFormat("pdf")}
+                  >
+                    PDF
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={exportFormat === "csv"}
+                    className={`reports-hub__segment-btn${exportFormat === "csv" ? " reports-hub__segment-btn--active" : ""}`}
+                    onClick={() => setExportFormat("csv")}
+                  >
+                    CSV
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={exportFormat === "xlsx"}
+                    className={`reports-hub__segment-btn${exportFormat === "xlsx" ? " reports-hub__segment-btn--active" : ""}`}
+                    onClick={() => setExportFormat("xlsx")}
+                  >
+                    Excel
+                  </button>
+                </div>
+
+                <div className="reports-hub__export-actions">
+                  <button type="button" className="reports-hub__export-cancel" onClick={onCancelExport}>
+                    Back to charts
+                  </button>
+                  <button
+                    type="button"
+                    className="reports-hub__export-submit"
+                    disabled={exportDisabled || !exportRangeValid || exportBundles.size === 0}
+                    onClick={() => void handleConfirmHubExport()}
+                  >
+                    {exportFormat === "pdf"
+                      ? "Download PDF"
+                      : exportFormat === "csv"
+                        ? "Download CSV"
+                        : "Download Excel"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="reports-hub__charts" key={hubTab}>
             <div
               className={`reports-hub__charts-grid${
                 hubTab === "passenger" || hubTab === "bus" || hubTab === "route"
@@ -462,19 +735,21 @@ export function ReportsIntelligenceHub({
                         </span>
                       </div>
                     </header>
-                    <div
-                      className={`reports-hub__chart-shell${passengerCongestionPeriod === "hour" ? " reports-hub__chart-shell--heatmap" : ""}`}
-                    >
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-passenger">
                       {passengerCongestionPeriod === "hour" ? (
                         <>
-                          <div className="reports-hub__chart-canvas reports-hub__chart-canvas--heatmap">
+                          <div className="reports-hub__chart-canvas reports-hub__chart-canvas--congestion-bar">
                             {emptyCongestion ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <HourlyCongestionHeatmap
+                              <HourlyTicketsVolumeChart
                                 hourlyToday={data.hourlyToday}
                                 peakStart={data.insights.peakBoardingWindow.startHour}
                                 peakEnd={data.insights.peakBoardingWindow.endHour}
+                                barColor={PASSENGER_ORANGE_2}
+                                barColorPeak={PASSENGER_ORANGE}
+                                lineColor="#fde68a"
+                                legend="Bars = tickets per hour · line = trend · shaded band = peak boarding window"
                               />
                             )}
                           </div>
@@ -501,7 +776,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} />
                                   <Bar dataKey="tickets" radius={[6, 6, 0, 0]} activeBar={hubBarActive}>
                                     {daily.map((_, i) => (
-                                      <Cell key={i} className="reports-hub__chart-glow" fill={i % 2 ? SLATE_SECONDARY : SLATE_PRIMARY} />
+                                      <Cell key={i} className="reports-hub__chart-glow" fill={i % 2 ? PASSENGER_ORANGE_2 : PASSENGER_ORANGE} />
                                     ))}
                                   </Bar>
                                 </BarChart>
@@ -523,7 +798,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="label" stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} />
-                                  <Bar dataKey="tickets" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="tickets" fill={PASSENGER_ORANGE_2} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -543,7 +818,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="year" stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} />
-                                  <Bar dataKey="tickets" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="tickets" fill={PASSENGER_ORANGE} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -588,7 +863,7 @@ export function ReportsIntelligenceHub({
                         </span>
                       </div>
                     </header>
-                    <div className="reports-hub__chart-shell">
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-revenue">
                       {passengerRevenuePeriod === "hour" ? (
                         <>
                           <div className="reports-hub__chart-canvas reports-hub__chart-canvas--congestion-bar">
@@ -601,6 +876,14 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="hourLabel" stroke={hubAxisStroke} tick={{ ...hubAxisTick, fontSize: 8 }} interval={3} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
+                                  {hasNowHourLabel ? (
+                                    <ReferenceLine
+                                      x={nowHourLabel}
+                                      stroke="rgba(255,255,255,0.92)"
+                                      strokeWidth={1.5}
+                                      className="reports-hub__live-time-line"
+                                    />
+                                  ) : null}
                                   <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
                               </ResponsiveContainer>
@@ -621,7 +904,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="date" tickFormatter={(v) => String(v).slice(5)} stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
-                                  <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -641,7 +924,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="label" stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
-                                  <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -661,7 +944,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="year" stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
-                                  <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -678,7 +961,7 @@ export function ReportsIntelligenceHub({
                 <>
                   <div className="reports-hub__col">
                     {panelHead("Bus attendant revenue", "Bar view — every attendant desk by collected fare")}
-                    <div className="reports-hub__chart-shell">
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-fleet">
                       <div className="reports-hub__chart-canvas reports-hub__chart-canvas--tall">
                         {attendantsBar.length === 0 ? (
                           <p className="reports-hub__placeholder">Awaiting live feed…</p>
@@ -699,7 +982,7 @@ export function ReportsIntelligenceHub({
                               <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
                               <Bar dataKey="revenue" radius={[6, 6, 0, 0]} activeBar={hubBarActive}>
                                 {attendantsBar.map((_, i) => (
-                                  <Cell key={i} className="reports-hub__chart-glow" fill={i % 2 ? SLATE_SECONDARY : SLATE_PRIMARY} />
+                                  <Cell key={i} className="reports-hub__chart-glow" fill={i % 2 ? FLEET_GREEN_2 : FLEET_GREEN} />
                                 ))}
                               </Bar>
                             </BarChart>
@@ -767,19 +1050,21 @@ export function ReportsIntelligenceHub({
                         </span>
                       </div>
                     </header>
-                    <div
-                      className={`reports-hub__chart-shell${busTicketPeriod === "hour" ? " reports-hub__chart-shell--heatmap" : ""}`}
-                    >
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-fleet">
                       {busTicketPeriod === "hour" ? (
                         <>
-                          <div className="reports-hub__chart-canvas reports-hub__chart-canvas--heatmap">
+                          <div className="reports-hub__chart-canvas reports-hub__chart-canvas--congestion-bar">
                             {emptyCongestion ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <HourlyCongestionHeatmap
+                              <HourlyTicketsVolumeChart
                                 hourlyToday={data.hourlyToday}
                                 peakStart={data.insights.peakBoardingWindow.startHour}
                                 peakEnd={data.insights.peakBoardingWindow.endHour}
+                                barColor={FLEET_GREEN_2}
+                                barColorPeak={FLEET_GREEN}
+                                lineColor="#a7f3d0"
+                                legend="Bars = tickets per hour · line = trend · shaded band = peak boarding window"
                               />
                             )}
                           </div>
@@ -806,7 +1091,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} />
                                   <Bar dataKey="tickets" radius={[6, 6, 0, 0]} activeBar={hubBarActive}>
                                     {daily.map((_, i) => (
-                                      <Cell key={i} className="reports-hub__chart-glow" fill={i % 2 ? SLATE_SECONDARY : SLATE_PRIMARY} />
+                                      <Cell key={i} className="reports-hub__chart-glow" fill={i % 2 ? FLEET_GREEN_2 : FLEET_GREEN} />
                                     ))}
                                   </Bar>
                                 </BarChart>
@@ -828,7 +1113,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="label" stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} />
-                                  <Bar dataKey="tickets" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="tickets" fill={FLEET_GREEN_2} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -848,7 +1133,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="year" stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} />
-                                  <Bar dataKey="tickets" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="tickets" fill={FLEET_GREEN} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -860,7 +1145,7 @@ export function ReportsIntelligenceHub({
                   </div>
                   <div className="reports-hub__col">
                     {panelHead("Top 5 buses", "Share of fare by bus identifier", "muted")}
-                    <div className="reports-hub__chart-shell reports-hub__chart-shell--pad reports-hub__chart-shell--donut">
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--pad reports-hub__chart-shell--donut reports-hub__chart-shell--ambient-fleet">
                       <div className="reports-hub__chart-canvas">
                         {busPie.length === 0 ? (
                           <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
@@ -880,7 +1165,7 @@ export function ReportsIntelligenceHub({
                                 labelLine={false}
                               >
                                 {busPie.map((_, i) => (
-                                  <Cell key={i} className="reports-hub__chart-glow" fill={HUB_PIE_COLORS[i % HUB_PIE_COLORS.length]} />
+                                  <Cell key={i} className="reports-hub__chart-glow" fill={PIE_COLORS_FLEET[i % PIE_COLORS_FLEET.length]} />
                                 ))}
                                 <Label content={donutMtdCenterContent(monthlyRev) as ComponentProps<typeof Label>["content"]} />
                               </Pie>
@@ -893,7 +1178,7 @@ export function ReportsIntelligenceHub({
                         <ul className="reports-hub__donut-legend">
                           {busPie.map((r, i) => (
                             <li key={r.name} className="reports-hub__donut-legend-item">
-                              <span className="reports-hub__donut-swatch" style={{ background: HUB_PIE_COLORS[i % HUB_PIE_COLORS.length] }} aria-hidden />
+                              <span className="reports-hub__donut-swatch" style={{ background: PIE_COLORS_FLEET[i % PIE_COLORS_FLEET.length] }} aria-hidden />
                               <span className="reports-hub__donut-legend-label">{truncateLabel(r.name, 22)}</span>
                             </li>
                           ))}
@@ -940,7 +1225,7 @@ export function ReportsIntelligenceHub({
                         </span>
                       </div>
                     </header>
-                    <div className="reports-hub__chart-shell">
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-fleet">
                       {routeRevenuePeriod === "hour" ? (
                         <>
                           <div className="reports-hub__chart-canvas reports-hub__chart-canvas--congestion-bar">
@@ -954,6 +1239,14 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="hourLabel" stroke={hubAxisStroke} tick={{ ...hubAxisTick, fontSize: 8 }} interval={3} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
+                                  {hasNowHourLabel ? (
+                                    <ReferenceLine
+                                      x={nowHourLabel}
+                                      stroke="rgba(255,255,255,0.92)"
+                                      strokeWidth={1.5}
+                                      className="reports-hub__live-time-line"
+                                    />
+                                  ) : null}
                                   <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
                               </ResponsiveContainer>
@@ -975,7 +1268,7 @@ export function ReportsIntelligenceHub({
                                   <XAxis dataKey="date" tickFormatter={(v) => String(v).slice(5)} stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <YAxis stroke={hubAxisStroke} tick={hubAxisTick} />
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
-                                  <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
+                                  <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
                               </ResponsiveContainer>
                             )}
@@ -1027,7 +1320,7 @@ export function ReportsIntelligenceHub({
                   </div>
                   <div className="reports-hub__col">
                     {panelHead("Route revenue share", "Top corridors by fare", "muted")}
-                    <div className="reports-hub__chart-shell reports-hub__chart-shell--pad reports-hub__chart-shell--donut">
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--pad reports-hub__chart-shell--donut reports-hub__chart-shell--ambient-fleet">
                       <div className="reports-hub__chart-canvas">
                         {routePie.length === 0 ? (
                           <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
@@ -1047,7 +1340,7 @@ export function ReportsIntelligenceHub({
                                 labelLine={false}
                               >
                                 {routePie.map((_, i) => (
-                                  <Cell key={i} className="reports-hub__chart-glow" fill={HUB_PIE_COLORS[i % HUB_PIE_COLORS.length]} />
+                                  <Cell key={i} className="reports-hub__chart-glow" fill={PIE_COLORS_FLEET[i % PIE_COLORS_FLEET.length]} />
                                 ))}
                                 <Label content={donutMtdCenterContent(monthlyRev) as ComponentProps<typeof Label>["content"]} />
                               </Pie>
@@ -1062,6 +1355,7 @@ export function ReportsIntelligenceHub({
               ) : null}
             </div>
           </div>
+          )}
         </div>
 
         <aside className="reports-hub__sidebar-pickups" aria-label="Context panel">
@@ -1069,12 +1363,12 @@ export function ReportsIntelligenceHub({
             <div className="reports-hub__pickups-head">
               <h3 className="reports-hub__pickups-title">
                 {hubTab === "passenger"
-                  ? "Peak passenger starts"
-                  : hubTab === "attendants"
-                    ? "Fleet revenue snapshot"
-                    : hubTab === "bus"
-                      ? "Routes — top buses"
-                      : "Top 5 routes"}
+                    ? "Peak passenger starts"
+                    : hubTab === "attendants"
+                      ? "Fleet revenue snapshot"
+                      : hubTab === "bus"
+                        ? "Routes — top buses"
+                        : "Top 5 routes"}
               </h3>
               <div className="reports-hub__pickups-dots" aria-hidden>
                 <span className="reports-hub__animate-heartbeat" />
@@ -1083,28 +1377,69 @@ export function ReportsIntelligenceHub({
             </div>
 
             {hubTab === "passenger" && peak ? (
-              <div className="reports-hub__peak-stack">
-                <PeakPickupBlock
-                  title={`Busiest hour today (${String(peak.hour.slot).padStart(2, "0")}:00)`}
-                  subtitle={`${peak.hour.tickets} tickets · top start locations`}
-                  locations={peak.hour.locations as ReportPickupRow[]}
-                />
-                <PeakPickupBlock
-                  title="Busiest day (30d)"
-                  subtitle={peak.day.date ? `${peak.day.date} · ${peak.day.tickets} tickets` : "—"}
-                  locations={peak.day.locations as ReportPickupRow[]}
-                />
-                <PeakPickupBlock
-                  title="Busiest month (YTD)"
-                  subtitle={peak.month.label ? `${peak.month.label} · ${peak.month.tickets} tickets` : "—"}
-                  locations={peak.month.locations as ReportPickupRow[]}
-                />
-                <PeakPickupBlock
-                  title="Busiest year"
-                  subtitle={peak.year.year ? `${peak.year.year} · ${peak.year.tickets} tickets` : "—"}
-                  locations={peak.year.locations as ReportPickupRow[]}
-                />
-              </div>
+              <>
+                <div className="reports-hub__peak-period-bar">
+                  <div
+                    className="reports-hub__segmented reports-hub__segmented--peak-pickups"
+                    role="tablist"
+                    aria-label="Peak start locations by period"
+                  >
+                    {(
+                      [
+                        ["hour", "Hour"],
+                        ["day", "Day"],
+                        ["month", "Month"],
+                        ["year", "Year"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={peakPickupPeriod === key}
+                        className={`reports-hub__segment-btn${peakPickupPeriod === key ? " reports-hub__segment-btn--active" : ""}`}
+                        onClick={() => setPeakPickupPeriod(key)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="reports-hub__live-badge">
+                    <span className="reports-hub__live-dot reports-hub__animate-heartbeat" aria-hidden />
+                    LIVE
+                  </span>
+                </div>
+                <div className="reports-hub__peak-stack reports-hub__peak-stack--tabbed">
+                  {peakPickupPeriod === "hour" ? (
+                    <PeakPickupBlock
+                      title={`Busiest hour today (${String(peak.hour.slot).padStart(2, "0")}:00)`}
+                      subtitle={`${peak.hour.tickets} tickets · top start locations`}
+                      locations={peak.hour.locations as ReportPickupRow[]}
+                    />
+                  ) : null}
+                  {peakPickupPeriod === "day" ? (
+                    <PeakPickupBlock
+                      title="Busiest day (30d)"
+                      subtitle={peak.day.date ? `${peak.day.date} · ${peak.day.tickets} tickets` : "—"}
+                      locations={peak.day.locations as ReportPickupRow[]}
+                    />
+                  ) : null}
+                  {peakPickupPeriod === "month" ? (
+                    <PeakPickupBlock
+                      title="Busiest month (YTD)"
+                      subtitle={peak.month.label ? `${peak.month.label} · ${peak.month.tickets} tickets` : "—"}
+                      locations={peak.month.locations as ReportPickupRow[]}
+                    />
+                  ) : null}
+                  {peakPickupPeriod === "year" ? (
+                    <PeakPickupBlock
+                      title="Busiest year"
+                      subtitle={peak.year.year ? `${peak.year.year} · ${peak.year.tickets} tickets` : "—"}
+                      locations={peak.year.locations as ReportPickupRow[]}
+                    />
+                  ) : null}
+                </div>
+              </>
             ) : null}
             {hubTab === "passenger" && !peak ? (
               <p className="reports-hub__empty-table">Connect ticketing to see peak passenger start locations by period.</p>

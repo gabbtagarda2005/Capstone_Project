@@ -7,10 +7,25 @@
   margin-bottom: 1.75rem;
 }
 
+/* Bento: 3 columns on desktop, glass management cards fill cell width */
 .mgmt-module-grid--uverse {
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 1.35rem;
-  justify-items: center;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem 1.35rem;
+  margin-bottom: 1.75rem;
+  align-items: stretch;
+}
+
+@media (max-width: 1180px) {
+  .mgmt-module-grid--uverse {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .mgmt-module-grid--uverse {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mgmt-module-card {

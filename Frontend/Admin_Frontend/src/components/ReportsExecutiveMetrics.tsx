@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Sparkline } from "@/components/Sparkline";
 import type { ReportsAnalyticsDto } from "@/lib/types";
 import {
-  SLIDE_UP,
   buildExecutiveForecastLine,
   goalPaceAnalysis,
   isPeakHourVolume,
@@ -33,31 +32,45 @@ function TrendIndicator({ trend, suffix }: { trend: PctTrend; suffix?: string })
 function GoalRing({ pct, warn }: { pct: number; warn: boolean }) {
   const r = 52;
   const c = 2 * Math.PI * r;
-  const off = c * (1 - Math.min(100, pct) / 100);
   const gradId = "reportsGoalRingGrad";
+  const segments = 24;
+  const safePct = Math.max(0, Math.min(100, pct));
+  const onSegments = Math.round((safePct / 100) * segments);
+  const segLen = c / segments;
+
+  const onStroke = warn ? "#f87171" : `url(#${gradId})`;
+  const offStroke = "rgba(59,130,246,0.18)";
+
+  // Keep the subtle background ring for depth.
   return (
     <div className="reports-exec-goal-ring" aria-hidden>
       <svg width="120" height="120" viewBox="0 0 120 120" className="reports-exec-goal-ring__svg">
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#94a3b8" />
-            <stop offset="100%" stopColor="#64748b" />
+            <stop offset="0%" stopColor="#60a5fa" />
+            <stop offset="100%" stopColor="#2563eb" />
           </linearGradient>
         </defs>
-        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(148,163,184,0.2)" strokeWidth="10" />
-        <circle
-          cx="60"
-          cy="60"
-          r={r}
-          fill="none"
-          stroke={warn ? "#f87171" : `url(#${gradId})`}
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={off}
-          transform="rotate(-90 60 60)"
-          className={warn ? "reports-exec-goal-ring__arc--behind" : ""}
-        />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(59,130,246,0.2)" strokeWidth="10" />
+        {Array.from({ length: segments }, (_, i) => {
+          const isOn = i < onSegments;
+          return (
+            <circle
+              key={i}
+              cx="60"
+              cy="60"
+              r={r}
+              fill="none"
+              stroke={isOn ? onStroke : offStroke}
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={`${segLen} ${c - segLen}`}
+              strokeDashoffset={-i * segLen}
+              transform="rotate(-90 60 60)"
+              className="reports-exec-goal-ring__arc"
+            />
+          );
+        })}
       </svg>
       <div className="reports-exec-goal-ring__center">
         <strong>{pct.toFixed(1)}%</strong>
@@ -69,6 +82,7 @@ function GoalRing({ pct, warn }: { pct: number; warn: boolean }) {
 
 export function ReportsExecutiveMetrics({ analytics: d, isLive, goalAnomalyPulse }: Props) {
   const ex = d.executive;
+  const SLIDE_OCEAN = "#4A6BBE";
   const daily = d.dailyLast14 ?? [];
   const months = d.monthlyThisYear ?? [];
   const now = new Date();
@@ -120,7 +134,7 @@ export function ReportsExecutiveMetrics({ analytics: d, isLive, goalAnomalyPulse
   const forecastLine = useMemo(() => buildExecutiveForecastLine(d), [d]);
 
   return (
-    <>
+    <div className="reports-exec-suite">
       <section className="reports-page__exec reports-page__exec--intel">
         <article className={`reports-page__stat reports-page__stat--hero reports-page__stat--revenue-momentum${revenueMomentumGlow}`}>
           <div className="reports-page__stat-label-row">
@@ -139,7 +153,13 @@ export function ReportsExecutiveMetrics({ analytics: d, isLive, goalAnomalyPulse
           </div>
           <div className="reports-exec-spark">
             <span className="reports-exec-spark__label">Last 24h revenue flow</span>
-            <Sparkline values={hourlyRevSpark.length ? hourlyRevSpark : [0]} width={200} height={32} stroke={SLIDE_UP} fill="rgba(135, 168, 218, 0.15)" />
+            <Sparkline
+              values={hourlyRevSpark.length ? hourlyRevSpark : [0]}
+              width={200}
+              height={32}
+              stroke={SLIDE_OCEAN}
+              fill="rgba(74, 107, 190, 0.18)"
+            />
           </div>
         </article>
 
@@ -210,6 +230,6 @@ export function ReportsExecutiveMetrics({ analytics: d, isLive, goalAnomalyPulse
         <span className="reports-exec-forecast__dot reports-hub__animate-heartbeat" aria-hidden />
         <p className="reports-exec-forecast__text">{forecastLine}</p>
       </div>
-    </>
+    </div>
   );
 }

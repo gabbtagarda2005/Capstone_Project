@@ -7,6 +7,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "env:use:atlas": "powershell -ExecutionPolicy Bypass -File ./scripts/switch-env.ps1 atlas",
+    "env:use:localmongo": "powershell -ExecutionPolicy Bypass -File ./scripts/switch-env.ps1 localmongo",
+    "db:sync:atlas-to-local": "powershell -ExecutionPolicy Bypass -File ./scripts/sync-atlas-to-local.ps1",
+    "db:backfill-driver-pins": "node scripts/backfill-driver-ticket-pins.js",
     "migrate:capstone": "node scripts/migrate-mongodb-to-capstone.js",
     "migrate:capstone:drop": "node scripts/migrate-mongodb-to-capstone.js --drop-source",
     "migrate:capstone:fresh": "node scripts/migrate-mongodb-to-capstone.js --clear-target --drop-source"
@@ -16,14 +20,20 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "chart.js": "^4.5.1",
+    "chartjs-node-canvas": "^5.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.0",
     "firebase-admin": "^13.0.1",
+    "json2csv": "^5.0.7",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.0",
-    "mysql2": "^3.11.0",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.9.16",
+    "pdfkit": "^0.18.0",
+    "pdfmake": "^0.3.7",
     "socket.io": "^4.8.0"
   }
 }

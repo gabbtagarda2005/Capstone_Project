@@ -10,6 +10,7 @@ const gpsHistorySchema = new mongoose.Schema(
     longitude: { type: Number, required: true },
     speedKph: { type: Number, default: null },
     heading: { type: Number, default: null },
+    signal: { type: String, default: null },
     recordedAt: { type: Date, required: true, default: Date.now },
   },
   { timestamps: false, collection: "gps_history" }

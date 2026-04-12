@@ -14,11 +14,15 @@ const driverSchema = new mongoose.Schema(
     /** Official contact used for OTP verification (wizard onboarding). */
     email: { type: String, default: null, lowercase: true, trim: true, sparse: true, unique: true, index: true },
     licenseNumber: { type: String, default: null, index: true },
+    /** Optional LTO / certification expiry for admin alerts */
+    licenseExpiresAt: { type: Date, default: null },
     yearsExperience: { type: Number, default: null, min: 0 },
     profileImageUrl: { type: String, default: null },
     licenseScanUrl: { type: String, default: null },
     verifiedViaOtpAt: { type: Date, default: null },
     active: { type: Boolean, default: true },
+    /** Bcrypt hash of 6-digit PIN shown to driver — authorizes attendant ticket corrections. */
+    ticketEditPinHash: { type: String, default: null },
   },
   { timestamps: true, collection: "drivers" }
 );

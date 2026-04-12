@@ -1,12 +1,14 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { PassengerDashboardPage } from "@/pages/PassengerDashboardPage";
+import { PassengerDashboardRoute } from "@/components/PassengerDashboardRoute";
 import { PassengerLandingPage } from "@/pages/PassengerLandingPage";
+import { PassengerLocationPage } from "@/pages/PassengerLocationPage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<PassengerLandingPage />} />
-      <Route path="/dashboard" element={<PassengerDashboardPage />} />
+      <Route path="/enable-location" element={<PassengerLocationPage />} />
+      <Route path="/dashboard" element={<PassengerDashboardRoute />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

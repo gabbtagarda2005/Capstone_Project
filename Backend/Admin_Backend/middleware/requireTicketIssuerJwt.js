@@ -23,8 +23,15 @@ function requireTicketIssuerJwt(req, res, next) {
       if (!isAuthorizedAdminEmail(email)) {
         return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
       }
-    } else if (role !== "Operator" && role !== "BusAttendant") {
-      return res.status(403).json({ error: "Operator or Admin token required" });
+    } else {
+      const compact = String(role || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, "");
+      const okOp = compact === "operator" || compact === "busattendant";
+      if (!okOp) {
+        return res.status(403).json({ error: "Operator or Admin token required" });
+      }
     }
 
     req.ticketingUser = {

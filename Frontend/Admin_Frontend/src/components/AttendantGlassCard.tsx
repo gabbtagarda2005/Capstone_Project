@@ -36,6 +36,11 @@ export function AttendantGlassCard({ attendant, initials, onView, onEdit, onDele
           <div className="att-glass-card__fields">
             <span className="att-glass-card__text">{attendant.email}</span>
             {attendant.phone ? <span className="att-glass-card__meta">{attendant.phone}</span> : null}
+            {attendant.employeeId ? (
+              <span className="att-glass-card__meta att-glass-card__meta--mono" title="6-digit personnel ID">
+                ID {attendant.employeeId}
+              </span>
+            ) : null}
             <span className="att-glass-card__meta att-glass-card__meta--role">
               {attendant.role === "Operator" ? "Bus attendant" : attendant.role}
             </span>

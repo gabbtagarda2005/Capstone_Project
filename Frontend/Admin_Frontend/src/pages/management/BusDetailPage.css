@@ -1,0 +1,521 @@
+/* Tactical fleet command hub — obsidian + Slide Ocean Blue */
+.bus-hub {
+  min-height: calc(100vh - 48px);
+  background: #020817;
+  color: #f8fafc;
+  padding: 0 0 1.25rem;
+  margin: -1rem -1.25rem -2rem;
+}
+
+@media (min-width: 900px) {
+  .bus-hub {
+    margin: -1rem -2rem -2rem;
+  }
+}
+
+.bus-hub__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px 8px;
+  color: rgba(248, 250, 252, 0.75);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bus-hub__back:hover {
+  color: #5eead4;
+}
+
+.bus-hub__mgmt-back {
+  margin-bottom: 0;
+  padding: 16px 20px 8px;
+}
+
+.bus-hub__head {
+  padding: 0 20px 20px;
+  border-bottom: 1px solid rgba(31, 88, 133, 0.55);
+}
+
+.bus-hub__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.bus-hub__sub {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.bus-hub__grid {
+  display: grid;
+  gap: 14px;
+  padding: 16px 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .bus-hub__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .bus-hub__grid--map {
+    grid-column: span 2;
+  }
+}
+
+.bus-hub__tile {
+  border: 1px solid #1f5885;
+  background: rgba(4, 14, 35, 0.65);
+  padding: 14px 16px;
+}
+
+.bus-hub__tile-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(248, 250, 252, 0.45);
+  margin-bottom: 8px;
+}
+
+.bus-hub__mono {
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 0.9rem;
+  color: #fff;
+  font-weight: 500;
+}
+
+.bus-hub__mono--lg {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.bus-hub__mono--muted {
+  color: rgba(148, 163, 184, 0.9);
+  font-weight: 600;
+}
+
+.bus-hub__profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bus-hub__profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(31, 88, 133, 0.65);
+  background: rgba(2, 8, 23, 0.5);
+}
+
+.bus-hub__profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(31, 88, 133, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #5eead4;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+}
+
+.bus-hub__profile-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.bus-hub__profile-role {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(248, 250, 252, 0.45);
+}
+
+.bus-hub__profile-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bus-hub__pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22d3ee;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.85);
+  animation: bus-hub-pulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.bus-hub__pulse--off {
+  background: rgba(248, 250, 252, 0.2);
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes bus-hub-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+
+.bus-hub__map-wrap {
+  border: 1px solid #1f5885;
+  background: #0a0f18;
+  height: 260px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bus-hub__map-wrap .leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #0a0f18;
+  font-family: inherit;
+}
+
+.bus-hub__map-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 500;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  background: rgba(2, 8, 23, 0.88);
+  border: 1px solid rgba(31, 88, 133, 0.9);
+  color: #5eead4;
+  pointer-events: none;
+}
+
+.bus-hub__gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.bus-hub__gauge {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.bus-hub__gauge-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.bus-hub__gauge-svg .bus-hub__gauge-track {
+  fill: none;
+  stroke: rgba(31, 88, 133, 0.45);
+  stroke-width: 10;
+}
+
+.bus-hub__gauge-svg .bus-hub__gauge-fill {
+  fill: none;
+  stroke: #22d3ee;
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.bus-hub__gauge-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.bus-hub__gauge-num {
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+
+.bus-hub__gauge-den {
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 0.95rem;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.bus-hub__gauge-cap {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(248, 250, 252, 0.4);
+  margin-top: 4px;
+}
+
+.bus-hub__gauge-hint {
+  font-size: 0.7rem;
+  color: rgba(248, 250, 252, 0.45);
+  text-align: center;
+  margin-top: 6px;
+  max-width: 220px;
+}
+
+.bus-hub__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-left: 2px solid rgba(31, 88, 133, 0.65);
+  margin-left: 8px;
+  padding-left: 14px;
+}
+
+.bus-hub__timeline-row {
+  position: relative;
+  padding-bottom: 14px;
+}
+
+.bus-hub__timeline-row::before {
+  content: "";
+  position: absolute;
+  left: -21px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1f5885;
+  border: 2px solid #020817;
+}
+
+.bus-hub__timeline-label {
+  font-size: 0.8rem;
+  color: rgba(248, 250, 252, 0.88);
+}
+
+.bus-hub__timeline-time {
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: #5eead4;
+  margin-top: 2px;
+}
+
+.bus-hub__maint {
+  border: 1px solid rgba(31, 88, 133, 0.65);
+  padding: 16px;
+  background: rgba(4, 14, 35, 0.75);
+}
+
+.bus-hub__maint--amber {
+  border-color: rgba(245, 158, 11, 0.85);
+  background: rgba(69, 10, 10, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
+}
+
+.bus-hub__maint--red {
+  border-color: rgba(225, 29, 72, 0.9);
+  background: rgba(69, 10, 10, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(225, 29, 72, 0.25);
+}
+
+.bus-hub__maint-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.bus-hub__maint-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* Sticky within main scroll — solid chrome + high-contrast labels (matches route/driver dossier docks) */
+.bus-hub__dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  margin: 20px 20px 0;
+  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+  background: #0a101f;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 14px;
+  box-shadow:
+    0 -12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bus-hub__dock-inner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.bus-hub__dock-btn {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.7rem 1.05rem;
+  border-radius: 10px;
+  cursor: pointer;
+  border-width: 1px;
+  border-style: solid;
+  /* Explicit light text so global / light-theme body color never wins */
+  color: #f1f5f9;
+  background: rgba(15, 23, 42, 0.95);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.bus-hub__dock-btn--blue {
+  border-color: #1f5885;
+}
+
+.bus-hub__dock-btn--blue:hover:not(:disabled) {
+  background: rgba(31, 88, 133, 0.42);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #fff;
+}
+
+.bus-hub__dock-btn--red {
+  border-color: rgba(248, 113, 113, 0.88);
+  color: #fecdd3;
+  background: rgba(30, 10, 18, 0.75);
+}
+
+.bus-hub__dock-btn--red:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.28);
+  color: #fff;
+}
+
+.bus-hub__dock-btn--delete {
+  border-color: rgba(220, 38, 38, 0.95);
+  color: #fecaca;
+  background: rgba(69, 10, 10, 0.55);
+}
+
+.bus-hub__dock-btn--delete:hover:not(:disabled) {
+  background: rgba(127, 29, 29, 0.45);
+  border-color: #f87171;
+  color: #fff;
+}
+
+/* Avoid opacity-based disabled styles — they made labels nearly invisible on dark bars */
+.bus-hub__dock-btn:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  color: rgba(226, 232, 240, 0.55);
+  background: rgba(15, 23, 42, 0.5);
+  border-color: rgba(51, 65, 85, 0.75);
+}
+
+.bus-hub__dock-btn:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.75);
+  outline-offset: 2px;
+}
+
+.bus-hub__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+
+@media (min-width: 640px) {
+  .bus-hub__modal-backdrop {
+    align-items: center;
+  }
+}
+
+.bus-hub__modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 70vh;
+  overflow: auto;
+  background: #020817;
+  border: 1px solid #1f5885;
+  padding: 20px;
+}
+
+.bus-hub__modal h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.bus-hub__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.bus-hub__table th,
+.bus-hub__table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(31, 88, 133, 0.4);
+}
+
+.bus-hub__table th {
+  color: rgba(248, 250, 252, 0.5);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+}
+
+.bus-hub__table td {
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+}
+
+.bus-hub__modal-close {
+  margin-top: 16px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #1f5885;
+  background: transparent;
+  color: #f8fafc;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bus-hub__loading,
+.bus-hub__error {
+  padding: 48px 24px;
+  text-align: center;
+  color: rgba(248, 250, 252, 0.65);
+}

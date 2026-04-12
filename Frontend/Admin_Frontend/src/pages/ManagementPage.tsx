@@ -19,7 +19,7 @@ const MANAGEMENT_MODULES: HubModule[] = [
   {
     to: "passengers",
     title: "Passenger Management",
-    hint: "Profiles, tickets, and history",
+    hint: "Search, review, and manage passenger profiles and ticket history.",
     icon: "🧾",
     metricA: "2,626",
     metricB: "records",
@@ -28,7 +28,7 @@ const MANAGEMENT_MODULES: HubModule[] = [
   {
     to: "buses",
     title: "Bus Management",
-    hint: "Fleet health and maintenance",
+    hint: "Fleet status, ticket load, and preventive maintenance tracking.",
     icon: "🚌",
     metricA: "0",
     metricB: "fleet",
@@ -37,7 +37,7 @@ const MANAGEMENT_MODULES: HubModule[] = [
   {
     to: "attendants",
     title: "Bus Attendant Management",
-    hint: "Assignments and shifts",
+    hint: "Assign attendants to routes, shifts, and on-board duties.",
     icon: "👤",
     metricA: "64",
     metricB: "staff",
@@ -46,7 +46,7 @@ const MANAGEMENT_MODULES: HubModule[] = [
   {
     to: "drivers",
     title: "Driver Management",
-    hint: "Licenses and route assignments",
+    hint: "Licenses, assignments, and driver availability.",
     icon: "🛞",
     metricA: "112",
     metricB: "drivers",
@@ -55,7 +55,7 @@ const MANAGEMENT_MODULES: HubModule[] = [
   {
     to: "locations",
     title: "Location management",
-    hint: "Terminals and stops",
+    hint: "Terminals, stops, and geographic coverage for Bukidnon routes.",
     icon: "📍",
     metricA: "24",
     metricB: "hubs",
@@ -64,16 +64,25 @@ const MANAGEMENT_MODULES: HubModule[] = [
   {
     to: "routes",
     title: "Route management",
-    hint: "Corridors and timetables",
+    hint: "Corridors, timetables, and service patterns across the network.",
     icon: "🧭",
     metricA: "38",
     metricB: "routes",
     metricC: "optimized",
   },
   {
+    to: "schedules",
+    title: "Schedule management",
+    hint: "Departure boards, headways, and timetable exceptions by corridor.",
+    icon: "🕒",
+    metricA: "0",
+    metricB: "trips",
+    metricC: "planned",
+  },
+  {
     to: "fares",
     title: "Fare management",
-    hint: "Pricing and rules",
+    hint: "Fare tables, discounts, and payment rules.",
     icon: "💸",
     metricA: "12",
     metricB: "fares",
@@ -82,7 +91,7 @@ const MANAGEMENT_MODULES: HubModule[] = [
   {
     to: "admins",
     title: "Admin management",
-    hint: "Portal admins and access",
+    hint: "Portal administrators, roles, and access policies.",
     icon: "🛡️",
     metricA: "6",
     metricB: "admins",
@@ -108,7 +117,7 @@ export function ManagementPage() {
     <div className="admin-mgmt">
       <section aria-label="Management areas">
         <div className="mgmt-module-grid mgmt-module-grid--uverse">
-          {MANAGEMENT_MODULES.map((m, i) => (
+          {MANAGEMENT_MODULES.map((m) => (
             <ManagementHubCard
               key={m.to}
               to={`/dashboard/management/${m.to}`}
@@ -118,7 +127,6 @@ export function ManagementPage() {
               metricB={m.metricB}
               metricC={m.metricC}
               icon={m.icon}
-              variant={i}
               onNavigate={() => logModuleOpen(m.title)}
             />
           ))}

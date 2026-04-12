@@ -6,13 +6,14 @@ import "./FareGlassCard.css";
 type Props = {
   row: FareMatrixRowDto;
   onView: () => void;
-  onEditHint: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   canDelete?: boolean;
+  canEdit?: boolean;
   busy?: boolean;
 };
 
-export function FareGlassCard({ row, onView, onEditHint, onDelete, canDelete = true, busy }: Props) {
+export function FareGlassCard({ row, onView, onEdit, onDelete, canDelete = true, canEdit = true, busy }: Props) {
   const startShort = shortFareLocationLabel(row.startLabel);
   const endShort = shortFareLocationLabel(row.endLabel);
   const fare = Number(row.baseFarePesos);
@@ -55,7 +56,7 @@ export function FareGlassCard({ row, onView, onEditHint, onDelete, canDelete = t
             <button type="button" className="drv-glass-card__action drv-glass-card__action--view" disabled={busy} onClick={onView}>
               View
             </button>
-            <button type="button" className="drv-glass-card__action" disabled={busy} onClick={onEditHint}>
+            <button type="button" className="drv-glass-card__action" disabled={busy || !canEdit} onClick={onEdit}>
               Edit
             </button>
             <button

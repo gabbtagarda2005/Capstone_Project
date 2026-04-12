@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   deleteFareMatrixEntry,
   fetchFareLocationEndpoints,
   fetchFareMatrix,
   fetchFareSettings,
+  patchFareMatrixEntry,
   postFareMatrix,
   putFareSettings,
 } from "@/lib/api";
@@ -12,9 +13,11 @@ import { shortFareLocationLabel } from "@/lib/fareLocationLabel";
 import type { FareLocationOption, FareMatrixRowDto } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { swalConfirm } from "@/lib/swal";
 import { FareGlassCard } from "@/components/FareGlassCard";
 import { ViewDetailsModal, ViewDetailsDl, ViewDetailsRow } from "@/components/ViewDetailsModal";
 import "./FareManagementPanel.css";
+import "@/components/ViewDetailsModal.css";
 
 function IconBadgePercent() {
   return (
@@ -50,12 +53,23 @@ function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function normalizeFarePerKmFromApi(n: unknown): number {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 0) return 0;
+  return Math.round(v * 100) / 100;
+}
+
+/** Fare matrix uses hub terminals only (`t:coverageId`); stops use `s:` and are priced via Fare per Km. */
+function isTerminalFareEndpointToken(token: string): boolean {
+  return String(token).trim().startsWith("t:");
+}
+
 export function FareManagementPanel() {
   const { user } = useAuth();
   const canEditFares =
     user?.role === "Admin" &&
     (user?.adminTier === "super" || user?.rbacRole === "super_admin");
-  const { showError, showSuccess, showInfo } = useToast();
+  const { showError, showSuccess } = useToast();
   const [startOptions, setStartOptions] = useState<FareLocationOption[]>([]);
   const [endOptions, setEndOptions] = useState<FareLocationOption[]>([]);
   const [startEndpoint, setStartEndpoint] = useState("");
@@ -64,30 +78,46 @@ export function FareManagementPanel() {
   const [studentPct, setStudentPct] = useState(20);
   const [pwdPct, setPwdPct] = useState(20);
   const [seniorPct, setSeniorPct] = useState(20);
+  /** Same pattern as discount % fields — numeric state avoids controlled number-input string glitches. */
+  const [farePerKm, setFarePerKm] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [deploying, setDeploying] = useState(false);
+  const [deployingBase, setDeployingBase] = useState(false);
+  const [savingDiscounts, setSavingDiscounts] = useState(false);
   const [matrixItems, setMatrixItems] = useState<FareMatrixRowDto[]>([]);
   const [matrixBusyId, setMatrixBusyId] = useState<string | null>(null);
   const [viewFare, setViewFare] = useState<FareMatrixRowDto | null>(null);
+  const [editFare, setEditFare] = useState<FareMatrixRowDto | null>(null);
+  const [editBaseInput, setEditBaseInput] = useState("");
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  /** Bumps when saving discounts so a slow in-flight GET from `refresh` cannot overwrite Fare per Km after PUT. */
+  const settingsLoadGenRef = useRef(0);
+
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    const gen = ++settingsLoadGenRef.current;
+    if (!silent) setLoading(true);
     try {
       const [endpoints, settings, matrix] = await Promise.all([
         fetchFareLocationEndpoints(),
         fetchFareSettings(),
         fetchFareMatrix(),
       ]);
+      if (gen !== settingsLoadGenRef.current) return;
       setStartOptions(endpoints.startOptions);
       setEndOptions(endpoints.endOptions);
       setStudentPct(settings.studentDiscountPct);
       setPwdPct(settings.pwdDiscountPct);
       setSeniorPct(settings.seniorDiscountPct);
+      setFarePerKm(normalizeFarePerKmFromApi(settings.farePerKmPesos));
       setMatrixItems(matrix.items);
     } catch (e) {
-      showError(e instanceof Error ? e.message : "Failed to load fares");
+      if (gen === settingsLoadGenRef.current) {
+        showError(e instanceof Error ? e.message : "Failed to load fares");
+      }
     } finally {
-      setLoading(false);
+      if (!silent && gen === settingsLoadGenRef.current) {
+        setLoading(false);
+      }
     }
   }, [showError]);
 
@@ -95,61 +125,142 @@ export function FareManagementPanel() {
     void refresh();
   }, [refresh]);
 
-  const selectsDisabled = !canEditFares || startOptions.length === 0;
+  useEffect(() => {
+    if (editFare) {
+      setEditBaseInput(Number(editFare.baseFarePesos).toFixed(2));
+    }
+  }, [editFare]);
 
-  async function handleDeploy() {
+  const terminalStartOptions = useMemo(
+    () => startOptions.filter((o) => isTerminalFareEndpointToken(o.token)),
+    [startOptions],
+  );
+  const terminalEndOptions = useMemo(
+    () => endOptions.filter((o) => isTerminalFareEndpointToken(o.token)),
+    [endOptions],
+  );
+
+  useEffect(() => {
+    if (startEndpoint && !terminalStartOptions.some((o) => o.token === startEndpoint)) {
+      setStartEndpoint("");
+    }
+  }, [startEndpoint, terminalStartOptions]);
+
+  useEffect(() => {
+    if (endEndpoint && !terminalEndOptions.some((o) => o.token === endEndpoint)) {
+      setEndEndpoint("");
+    }
+  }, [endEndpoint, terminalEndOptions]);
+
+  const selectsDisabled = !canEditFares || terminalStartOptions.length === 0;
+
+  async function handleSaveDiscounts() {
+    if (!canEditFares) {
+      showError("Only Super Admin may change fare policies and the fare matrix.");
+      return;
+    }
+    const perKm = roundMoney(farePerKm);
+    if (!Number.isFinite(perKm) || perKm < 0) {
+      showError("Enter a valid fare per km (₱0 or more).");
+      return;
+    }
+    settingsLoadGenRef.current += 1;
+    setSavingDiscounts(true);
+    try {
+      const updated = await putFareSettings({
+        studentDiscountPct: studentPct,
+        pwdDiscountPct: pwdPct,
+        seniorDiscountPct: seniorPct,
+        farePerKmPesos: perKm,
+      });
+      setStudentPct(updated.studentDiscountPct);
+      setPwdPct(updated.pwdDiscountPct);
+      setSeniorPct(updated.seniorDiscountPct);
+      setFarePerKm(normalizeFarePerKmFromApi(updated.farePerKmPesos));
+      showSuccess("Global fare settings saved.");
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Could not save discounts");
+    } finally {
+      setSavingDiscounts(false);
+    }
+  }
+
+  async function handleDeployBaseFare() {
     if (!canEditFares) {
       showError("Only Super Admin may change fare policies and the fare matrix.");
       return;
     }
     const base = Number(baseFareInput);
-    const startTok = startEndpoint.trim() || null;
-    const endTok = endEndpoint.trim() || null;
-    const wantsMatrix =
-      Boolean(startTok && endTok) && Number.isFinite(base) && base >= 0 && baseFareInput.trim() !== "";
-    if (wantsMatrix && startTok === endTok) {
+    const startTok = startEndpoint.trim();
+    const endTok = endEndpoint.trim();
+    if (!startTok || !endTok) {
+      showError("Select a start location and a destination.");
+      return;
+    }
+    if (startTok === endTok) {
       showError("Start and destination must be different.");
       return;
     }
+    if (!Number.isFinite(base) || base < 0 || baseFareInput.trim() === "") {
+      showError("Enter a valid base fare (₱0 or more).");
+      return;
+    }
 
-    setDeploying(true);
+    setDeployingBase(true);
     try {
-      await putFareSettings({
-        studentDiscountPct: studentPct,
-        pwdDiscountPct: pwdPct,
-        seniorDiscountPct: seniorPct,
+      await postFareMatrix({
+        startEndpoint: startTok,
+        endEndpoint: endTok,
+        baseFarePesos: roundMoney(base),
       });
-
-      if (wantsMatrix && startTok && endTok) {
-        await postFareMatrix({
-          startEndpoint: startTok,
-          endEndpoint: endTok,
-          baseFarePesos: roundMoney(base),
-        });
-        showSuccess("Global discounts and route base fare deployed.");
-        setBaseFareInput("");
-        setStartEndpoint("");
-        setEndEndpoint("");
-      } else {
-        showSuccess("Global discount percentages saved.");
-      }
-      await refresh();
+      showSuccess("Base fare route saved.");
+      setBaseFareInput("");
+      setStartEndpoint("");
+      setEndEndpoint("");
+      await refresh({ silent: true });
     } catch (e) {
-      showError(e instanceof Error ? e.message : "Deploy failed");
+      showError(e instanceof Error ? e.message : "Could not save base fare");
     } finally {
-      setDeploying(false);
+      setDeployingBase(false);
+    }
+  }
+
+  async function handleSaveEditFare() {
+    if (!editFare || !canEditFares) return;
+    const base = Number(editBaseInput);
+    if (!Number.isFinite(base) || base < 0 || editBaseInput.trim() === "") {
+      showError("Enter a valid base fare (₱0 or more).");
+      return;
+    }
+    setMatrixBusyId(editFare._id);
+    try {
+      await patchFareMatrixEntry(editFare._id, { baseFarePesos: roundMoney(base) });
+      showSuccess("Base fare updated.");
+      setEditFare(null);
+      await refresh({ silent: true });
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Could not update fare");
+    } finally {
+      setMatrixBusyId(null);
     }
   }
 
   async function handleDeleteMatrix(row: FareMatrixRowDto) {
     if (!canEditFares) return;
-    const ok = window.confirm(`Remove fare route?\n${row.startLabel}\n→\n${row.endLabel}`);
-    if (!ok) return;
+    if (
+      !(await swalConfirm({
+        title: "Remove fare route?",
+        text: `${row.startLabel}\n→\n${row.endLabel}`,
+        icon: "warning",
+        confirmButtonText: "Remove",
+      }))
+    )
+      return;
     setMatrixBusyId(row._id);
     try {
       await deleteFareMatrixEntry(row._id);
       showSuccess("Fare route removed.");
-      await refresh();
+      await refresh({ silent: true });
     } catch (e) {
       showError(e instanceof Error ? e.message : "Could not delete fare route");
     } finally {
@@ -169,11 +280,15 @@ export function FareManagementPanel() {
           Fare &amp; discount configuration
         </h2>
 
-        <div className="fare-mgmt__bento">
-          <div className="fare-mgmt__card fare-mgmt__card--muted">
+        <div className="fare-mgmt__bento" aria-label="Fare configuration columns">
+          <div className="fare-mgmt__bento-col fare-mgmt__bento-col--left">
+            <div className="fare-mgmt__card fare-mgmt__card--muted">
             <h3 className="fare-mgmt__card-title fare-mgmt__card-title--dim">Set base rate</h3>
-            {startOptions.length === 0 ? (
-              <p className="fare-mgmt__hint fare-mgmt__hint--block">No locations available yet.</p>
+            {terminalStartOptions.length === 0 ? (
+              <p className="fare-mgmt__hint fare-mgmt__hint--block">
+                No deployed terminals yet. Under <strong>Location management</strong>, register a hub (terminal + optional
+                bus stops), then deploy it. Base fares are set between terminals only.
+              </p>
             ) : null}
             <div className="fare-mgmt__field">
               <label className="fare-mgmt__field-label" htmlFor="fare-start">
@@ -188,8 +303,8 @@ export function FareManagementPanel() {
                   disabled={selectsDisabled}
                   onChange={(e) => setStartEndpoint(e.target.value)}
                 >
-                  <option value="">Type start location name</option>
-                  {startOptions.map((o) => {
+                  <option value="">Select start terminal</option>
+                  {terminalStartOptions.map((o) => {
                     const short = shortFareLocationLabel(o.label);
                     return (
                       <option key={`s-${o.token}`} value={o.token} title={o.label}>
@@ -213,8 +328,8 @@ export function FareManagementPanel() {
                   disabled={selectsDisabled}
                   onChange={(e) => setEndEndpoint(e.target.value)}
                 >
-                  <option value="">Type destination name</option>
-                  {endOptions.map((o) => {
+                  <option value="">Select destination terminal</option>
+                  {terminalEndOptions.map((o) => {
                     const short = shortFareLocationLabel(o.label);
                     return (
                       <option key={`e-${o.token}`} value={o.token} title={o.label}>
@@ -246,10 +361,61 @@ export function FareManagementPanel() {
                 />
               </div>
             </div>
+            <div className="fare-mgmt__card-actions">
+              <button
+                type="button"
+                className="fare-mgmt__btn fare-mgmt__btn--base"
+                disabled={deployingBase || savingDiscounts || !canEditFares || selectsDisabled}
+                onClick={() => void handleDeployBaseFare()}
+              >
+                <IconSave />
+                {deployingBase ? "Saving…" : "Save base fare route"}
+              </button>
+            </div>
+            </div>
           </div>
 
-          <div className="fare-mgmt__card fare-mgmt__card--amber">
+          <div className="fare-mgmt__bento-col fare-mgmt__bento-col--right">
+            <div className="fare-mgmt__card fare-mgmt__card--amber">
             <h3 className="fare-mgmt__card-title fare-mgmt__card-title--amber">Global discounts (%)</h3>
+            <div className="fare-mgmt__discount-row">
+              <span id="fare-per-km-label">Fare per Km</span>
+              <div className="fare-mgmt__pct-wrap" style={{ flex: 1, justifyContent: "flex-end", minWidth: 0 }}>
+                {canEditFares ? (
+                  <div className="fare-mgmt__peso-row" style={{ maxWidth: "11rem" }}>
+                    <span className="fare-mgmt__peso-symbol" aria-hidden>
+                      ₱
+                    </span>
+                    <input
+                      id="fare-per-km"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      aria-labelledby="fare-per-km-label"
+                      className="fare-mgmt__input fare-mgmt__input--currency"
+                      value={farePerKm}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          setFarePerKm(0);
+                          return;
+                        }
+                        const n = Number(raw);
+                        if (Number.isFinite(n) && n >= 0) setFarePerKm(roundMoney(n));
+                      }}
+                    />
+                    <span className="fare-mgmt__hint" style={{ margin: 0, flexShrink: 0 }}>
+                      / km
+                    </span>
+                  </div>
+                ) : (
+                  <span className="fare-mgmt__hint" style={{ margin: 0, fontWeight: 700, color: "#e2e8f0" }}>
+                    ₱{farePerKm.toFixed(2)} / km
+                  </span>
+                )}
+              </div>
+            </div>
+
             {(
               [
                 ["Student", studentPct, setStudentPct] as const,
@@ -285,18 +451,20 @@ export function FareManagementPanel() {
             {!canEditFares ? (
               <p className="fare-mgmt__hint">Only Super Admin can change global discount rules and the fare matrix.</p>
             ) : null}
+            <div className="fare-mgmt__card-actions">
+              <button
+                type="button"
+                className="fare-mgmt__btn fare-mgmt__btn--discounts"
+                disabled={savingDiscounts || deployingBase || !canEditFares}
+                onClick={() => void handleSaveDiscounts()}
+              >
+                <IconSave />
+                {savingDiscounts ? "Saving…" : "Save discount changes"}
+              </button>
+            </div>
+            </div>
           </div>
         </div>
-
-        <button
-          type="button"
-          className="fare-mgmt__deploy"
-          disabled={deploying || !canEditFares}
-          onClick={() => void handleDeploy()}
-        >
-          <IconSave />
-          {deploying ? "Saving…" : "Deploy fare changes"}
-        </button>
       </div>
 
       {matrixItems.length > 0 ? (
@@ -308,13 +476,10 @@ export function FareManagementPanel() {
                 key={row._id}
                 row={row}
                 canDelete={canEditFares}
+                canEdit={canEditFares}
                 busy={matrixBusyId === row._id}
                 onView={() => setViewFare(row)}
-                onEditHint={() =>
-                  showInfo(
-                    "To change the base fare, use the form above: pick the same start and destination, enter the new amount, then Deploy — the fare row will update."
-                  )
-                }
+                onEdit={() => setEditFare(row)}
                 onDelete={() => void handleDeleteMatrix(row)}
               />
             ))}
@@ -334,6 +499,76 @@ export function FareManagementPanel() {
           </ViewDetailsDl>
         ) : null}
       </ViewDetailsModal>
+
+      {editFare ? (
+        <div
+          className="view-details-modal__backdrop"
+          role="presentation"
+          onClick={() => {
+            if (!matrixBusyId) setEditFare(null);
+          }}
+        >
+          <div
+            className="view-details-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="fare-edit-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="view-details-modal__header">
+              <h2 id="fare-edit-title" className="view-details-modal__title">
+                Edit base fare
+              </h2>
+              <button
+                type="button"
+                className="view-details-modal__close"
+                disabled={matrixBusyId != null}
+                onClick={() => setEditFare(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </header>
+            <div className="view-details-modal__body">
+              <p className="fare-mgmt__edit-route-preview" style={{ margin: "0 0 0.75rem", fontSize: "0.84rem", color: "#cbd5e1" }}>
+                <strong style={{ color: "#e2e8f0" }}>{editFare.startLabel}</strong>
+                <span style={{ margin: "0 0.35rem", opacity: 0.6 }}>→</span>
+                <strong style={{ color: "#e2e8f0" }}>{editFare.endLabel}</strong>
+              </p>
+              <label className="fare-mgmt__deploy-label" style={{ display: "block" }}>
+                <span className="fare-mgmt__deploy-k">Base fare (₱)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="fare-mgmt__deploy-input"
+                  value={editBaseInput}
+                  onChange={(e) => setEditBaseInput(e.target.value)}
+                  disabled={matrixBusyId != null}
+                />
+              </label>
+            </div>
+            <footer className="view-details-modal__footer fare-mgmt__edit-footer">
+              <button
+                type="button"
+                className="fare-mgmt__btn fare-mgmt__btn--ghost"
+                disabled={matrixBusyId != null}
+                onClick={() => setEditFare(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="fare-mgmt__btn fare-mgmt__btn--deploy"
+                disabled={matrixBusyId != null}
+                onClick={() => void handleSaveEditFare()}
+              >
+                {matrixBusyId != null ? "Saving…" : "Save"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

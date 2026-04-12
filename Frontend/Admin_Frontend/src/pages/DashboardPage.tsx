@@ -88,12 +88,14 @@ export function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [peakTab, setPeakTab] = useState<Tab>("day");
   const [revTab, setRevTab] = useState<Tab>("day");
   const [revSummaryTab, setRevSummaryTab] = useState<Tab>("year");
 
   const refresh = useCallback(async () => {
     setLoadError(null);
+    setLoading(true);
     try {
       const [st, list] = await Promise.all([
         api<Stats>("/api/tickets/stats"),
@@ -105,6 +107,8 @@ export function DashboardPage() {
       setLoadError(e instanceof Error ? e.message : "Failed to load analytics");
       setTickets([]);
       setStats(null);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -115,18 +119,22 @@ export function DashboardPage() {
   const refDate = useMemo(() => new Date(), []);
   const year = refDate.getFullYear();
 
-  /** Demo visuals only when API failed or stats never loaded */
-  const useDemo = loadError != null || stats == null;
+  /** Demo KPI numbers only when the tickets API actually failed (not while loading). */
+  const useDemoKpis = loadError != null;
 
-  const totalPaxDisplay = useDemo ? 7_541_390 : stats?.totalTicketCount ?? totalPassengersAllTime(tickets);
-  const totalRevDisplay = useDemo
+  const totalPaxDisplay = useDemoKpis
+    ? 7_541_390
+    : stats != null
+      ? stats.totalTicketCount
+      : totalPassengersAllTime(tickets);
+  const totalRevDisplay = useDemoKpis
     ? 12_847_000
     : tickets.length > 0
       ? totalRevenueAllTime(tickets)
       : Number(stats?.filteredRevenue ?? 0);
 
   const revenueSummary = useMemo(() => {
-    if (useDemo) {
+    if (useDemoKpis) {
       return {
         day: 428_700,
         month: 3_916_000,
@@ -154,10 +162,10 @@ export function DashboardPage() {
       .filter((t) => new Date(t.createdAt).getFullYear() === now.getFullYear())
       .reduce((s, t) => s + t.fare, 0);
     return { day, month, year };
-  }, [useDemo, refDate, tickets]);
+  }, [useDemoKpis, refDate, tickets]);
 
   const topLocations = useMemo(() => {
-    if (useDemo) {
+    if (useDemoKpis) {
       return [
         { name: "Malaybalay", count: 4200 },
         { name: "Valencia", count: 2800 },
@@ -175,15 +183,15 @@ export function DashboardPage() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
-  }, [useDemo, tickets]);
+  }, [useDemoKpis, tickets]);
 
   const topLocTotal = Math.max(
     1,
     topLocations.reduce((s, x) => s + x.count, 0)
   );
 
-  /** Chart series: demo when API failed or no ticket rows */
-  const chartSeriesDemo = useDemo || tickets.length === 0;
+  /** Chart series: placeholder curves when API failed or there are no ticket rows to aggregate */
+  const chartSeriesDemo = loadError != null || tickets.length === 0;
 
   const peakData = useMemo(() => {
     if (chartSeriesDemo) {
@@ -300,10 +308,19 @@ export function DashboardPage() {
 
   return (
     <div className="dash-analytics">
-      {chartSeriesDemo && !loadError ? (
-        <div className="neo-error" style={{ background: "rgba(30, 58, 138, 0.35)", borderColor: "rgba(96, 165, 250, 0.4)", color: "#bfdbfe" }}>
-          {useDemo
-            ? "API unavailable — showing demo chart series."
+      {!loading && chartSeriesDemo ? (
+        <div
+          className="neo-error"
+          style={{
+            background: loadError
+              ? "rgba(127, 29, 29, 0.35)"
+              : "rgba(30, 58, 138, 0.35)",
+            borderColor: loadError ? "rgba(248, 113, 113, 0.45)" : "rgba(96, 165, 250, 0.4)",
+            color: loadError ? "#fecaca" : "#bfdbfe",
+          }}
+        >
+          {loadError
+            ? `Could not load ticket analytics (${loadError}). Showing demo chart series.`
             : "No ticket rows yet — charts show sample curves until data exists."}
         </div>
       ) : null}
@@ -383,12 +400,12 @@ export function DashboardPage() {
             <div className="neo-forecast">
               <div className="neo-forecast__box">
                 <span style={{ fontSize: "0.7rem", color: "rgba(148,163,184,0.9)" }}>Monthly</span>
-                <strong>{fmtMoney(useDemo ? 890000 : totalRevDisplay / 12)}</strong>
+                <strong>{fmtMoney(useDemoKpis ? 890000 : totalRevDisplay / 12)}</strong>
                 <span className="neo-trend-up">▲ 8%</span>
               </div>
               <div className="neo-forecast__box">
                 <span style={{ fontSize: "0.7rem", color: "rgba(148,163,184,0.9)" }}>Yearly</span>
-                <strong>{fmtMoney(useDemo ? 10200000 : totalRevDisplay)}</strong>
+                <strong>{fmtMoney(useDemoKpis ? 10200000 : totalRevDisplay)}</strong>
                 <span className="neo-trend-up">▲ 12%</span>
               </div>
             </div>

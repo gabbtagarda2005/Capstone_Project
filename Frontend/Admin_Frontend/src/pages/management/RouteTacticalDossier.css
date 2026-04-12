@@ -1,0 +1,408 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap");
+
+.mgmt-mod:has(.rte-dossier) {
+  background: #020817;
+  border-radius: 16px;
+  padding: 1rem clamp(0.75rem, 2vw, 1.5rem) 2rem;
+  box-shadow: inset 0 0 0 1px rgba(31, 88, 133, 0.35);
+}
+
+.rte-dossier {
+  --rte-border: #1f5885;
+  --rte-cyan: #22d3ee;
+  background: #020817;
+  color: #f8fafc;
+  min-height: 100%;
+  padding-bottom: 2rem;
+}
+
+.rte-dossier__topbar {
+  padding: 0.35rem 0 1.25rem;
+  border-bottom: 1px solid rgba(31, 88, 133, 0.55);
+  margin-bottom: 1.25rem;
+}
+
+.rte-dossier__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(125, 211, 252, 0.95);
+  text-decoration: none;
+  border: 1px solid var(--rte-border);
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.rte-dossier__topbar .rte-dossier__mgmt-back {
+  margin-bottom: 0;
+}
+
+.rte-dossier__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.rte-dossier__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  max-width: min(100%, 48rem);
+  line-height: 1.2;
+}
+
+.rte-dossier__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.rte-dossier__status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.rte-dossier__status-dot--live {
+  background: var(--rte-cyan);
+  animation: rte-dossier-cyan-pulse 1.8s ease-out infinite;
+}
+
+.rte-dossier__status-dot--idle {
+  background: rgba(71, 85, 105, 0.95);
+}
+
+@keyframes rte-dossier-cyan-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(34, 211, 238, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+  }
+}
+
+.rte-dossier__sub {
+  margin: 0 0 1.15rem;
+  font-size: 0.82rem;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.rte-dossier__telemetry {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .rte-dossier__telemetry {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rte-dossier__tile {
+  border: 1px solid var(--rte-border);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.rte-dossier__tile-label {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(125, 211, 252, 0.85);
+  margin-bottom: 0.35rem;
+}
+
+.rte-dossier__tile-value {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.35;
+}
+
+.rte-dossier__mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f8fafc;
+  word-break: break-all;
+}
+
+.rte-dossier__row-split {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .rte-dossier__row-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rte-dossier__module {
+  border: 1px solid var(--rte-border);
+  border-radius: 14px;
+  padding: 0.85rem 1rem 1rem;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.rte-dossier__module--span {
+  margin-bottom: 1.25rem;
+}
+
+.rte-dossier__module-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(125, 211, 252, 0.9);
+}
+
+.rte-dossier__ring-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.rte-dossier__muted {
+  margin: 0.65rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: rgba(148, 163, 184, 0.88);
+}
+
+.rte-dossier__timeline {
+  margin-top: 0.25rem;
+}
+
+.rte-dossier__timeline-item {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr;
+  gap: 0.65rem;
+  min-height: 3.25rem;
+}
+
+.rte-dossier__timeline-rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.rte-dossier__timeline-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--rte-cyan);
+  border: 2px solid rgba(15, 23, 42, 0.95);
+  margin-top: 0.35rem;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.rte-dossier__timeline-dot--idle {
+  background: rgba(71, 85, 105, 0.95);
+}
+
+.rte-dossier__timeline-line {
+  position: absolute;
+  top: 0.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  bottom: -0.25rem;
+  border-left: 1px dashed rgba(56, 189, 248, 0.45);
+}
+
+.rte-dossier__timeline-body {
+  padding-bottom: 0.65rem;
+}
+
+.rte-dossier__timeline-name {
+  margin: 0 0 0.2rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.rte-dossier__timeline-meta {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.rte-dossier__dock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(31, 88, 133, 0.45);
+}
+
+.rte-dossier__dock-btn {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.rte-dossier__dock-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rte-dossier__dock-btn--blue {
+  border-color: #1f5885;
+}
+
+.rte-dossier__dock-btn--red {
+  border-color: rgba(248, 113, 113, 0.85);
+  color: rgba(254, 202, 202, 0.98);
+}
+
+.rte-dossier__overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(2, 8, 23, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.rte-dossier__overlay-panel {
+  width: min(100%, 440px);
+  max-height: min(88vh, 560px);
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid var(--rte-border);
+  background: #020817;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: 1.1rem 1.15rem 1.25rem;
+}
+
+.rte-dossier__overlay-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(125, 211, 252, 0.95);
+}
+
+.rte-dossier__overlay-p {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.rte-dossier__overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.rte-dossier__bus-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.rte-dossier__bus-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(31, 88, 133, 0.55);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.rte-dossier__bus-id {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.rte-dossier__bus-route {
+  font-size: 0.65rem;
+  color: rgba(148, 163, 184, 0.9);
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rte-dossier__bus-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.rte-dossier__mini-btn {
+  font-family: inherit;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #1f5885;
+  background: rgba(15, 23, 42, 0.95);
+  color: #bae6fd;
+}
+
+.rte-dossier__mini-btn--muted {
+  border-color: rgba(71, 85, 105, 0.8);
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.rte-dossier__mini-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

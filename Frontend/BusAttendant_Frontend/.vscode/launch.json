@@ -1,15 +1,40 @@
 {
+  // Hot reload on WEB needs a stable debug pipe. Edge often drops it → getVM (-32000) Service connection disposed.
+  // Fixes (pick one):
+  //   A) Terminal: flutter run -d web-server --web-hostname=localhost --web-port=50015 --dart-define=API_BASE_URL=http://localhost:4011
+  //      Then open Edge once to http://localhost:50015 — leave that tab open; use terminal "r" for reload.
+  //   B) Use Chrome device: flutter run -d chrome --web-port=50015 ...
+  //   C) Avoid refreshing the Edge tab and closing DevTools while attached; if it breaks, press R (capital) or restart flutter run.
+  // Admin map "ACTIVE BUSES" needs live GPS: browser geolocation is unreliable on web. Use config
+  // "web-server + mock GPS demo" or add --dart-define=MOCK_GPS_LAT=8.1477 --dart-define=MOCK_GPS_LNG=125.1324 (web only).
+  // Point ADMIN_SOCKET_URL at your Admin_Backend (default 127.0.0.1:4001).
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Bus Attendant (Edge :50015)",
+      "name": "Bus Attendant (web-server → open Edge)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "deviceId": "edge",
+      "deviceId": "web-server",
       "toolArgs": [
+        "--web-hostname=localhost",
         "--web-port=50015",
         "--dart-define=API_BASE_URL=http://localhost:4011"
+      ]
+    },
+    {
+      "name": "Bus Attendant (web-server + mock GPS demo)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "web-server",
+      "toolArgs": [
+        "--web-hostname=localhost",
+        "--web-port=50015",
+        "--dart-define=API_BASE_URL=http://localhost:4011",
+        "--dart-define=ADMIN_SOCKET_URL=http://127.0.0.1:4001",
+        "--dart-define=MOCK_GPS_LAT=8.1477",
+        "--dart-define=MOCK_GPS_LNG=125.1324"
       ]
     },
     {
@@ -18,6 +43,17 @@
       "type": "dart",
       "program": "lib/main.dart",
       "deviceId": "chrome",
+      "toolArgs": [
+        "--web-port=50015",
+        "--dart-define=API_BASE_URL=http://localhost:4011"
+      ]
+    },
+    {
+      "name": "Bus Attendant (Edge :50015)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "edge",
       "toolArgs": [
         "--web-port=50015",
         "--dart-define=API_BASE_URL=http://localhost:4011"

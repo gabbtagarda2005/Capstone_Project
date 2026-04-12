@@ -1,0 +1,478 @@
+/* Feedback intelligence — solid obsidian + Slide Ocean Blue (#38bdf8 / #22d3ee) */
+
+.sentiment-cmd {
+  --sent-obsidian: #020817;
+  --sent-ocean: #38bdf8;
+  --sent-cyan: #22d3ee;
+  --sent-critical: #e11d48;
+  --sent-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  margin-top: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: min(48rem, 100%);
+  padding: 1.15rem 1.25rem 1.5rem;
+  border-radius: 1.5rem;
+  background: var(--sent-obsidian);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.45);
+}
+
+.sentiment-cmd__banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  font-size: 0.78rem;
+  color: rgba(186, 230, 253, 0.92);
+}
+
+.sentiment-cmd__banner--err {
+  border-color: rgba(225, 29, 72, 0.45);
+  color: #fecdd3;
+}
+
+.sentiment-cmd__grid-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.15rem;
+  margin-bottom: 1.1rem;
+}
+
+.sentiment-cmd__ring-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 22rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.55), rgba(2, 8, 23, 0.9));
+}
+
+.sentiment-cmd__map-cell {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+  align-items: center;
+}
+
+.sentiment-cmd__map-cell .fb-hotspot-map {
+  width: 100%;
+  max-width: 32rem;
+}
+
+.sentiment-cmd__map-cell .sentiment-cmd__about-filter {
+  width: 100%;
+  max-width: 32rem;
+}
+
+.sentiment-cmd__intel-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 0;
+}
+
+.sentiment-cmd__panel {
+  border-radius: 1.15rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(15, 23, 42, 0.45);
+  padding: 0.75rem 0.85rem;
+  min-height: 0;
+}
+
+.sentiment-cmd__panel-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+}
+
+.sentiment-cmd__keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+}
+
+.sentiment-cmd__kw {
+  font-family: var(--sent-mono);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(2, 8, 23, 0.65);
+  color: rgba(226, 232, 240, 0.95);
+}
+
+.sentiment-cmd__kw-count {
+  margin-left: 0.25rem;
+  opacity: 0.65;
+  font-size: 0.65rem;
+}
+
+.sentiment-cmd__lead-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.sentiment-cmd__lead-table th {
+  text-align: left;
+  padding: 0.35rem 0.25rem 0.45rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(125, 211, 252, 0.75);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.sentiment-cmd__lead-table td {
+  padding: 0.4rem 0.25rem;
+  font-family: var(--sent-mono);
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.35);
+}
+
+.sentiment-cmd__lead-rank {
+  color: var(--sent-cyan);
+  font-weight: 800;
+  width: 1.5rem;
+}
+
+.sentiment-cmd__about-filter {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.sentiment-cmd__about-filter-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.sentiment-cmd__about-filter-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.sentiment-cmd__about-btn {
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 0.45rem;
+  padding: 0.38rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  background: rgba(2, 8, 23, 0.65);
+  color: rgba(186, 230, 253, 0.88);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.sentiment-cmd__about-btn:hover {
+  border-color: rgba(34, 211, 238, 0.55);
+  color: #f0f9ff;
+}
+
+.sentiment-cmd__about-btn--active {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #22d3ee;
+  color: #ecfeff;
+}
+
+.sentiment-cmd__section-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #bae6fd;
+  text-align: center;
+}
+
+.sentiment-cmd__critical {
+  margin-bottom: 1.15rem;
+}
+
+.sentiment-cmd__critical-list,
+.sentiment-cmd__feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+/* Feedback tiles */
+.sfi-tile {
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid var(--sent-ocean);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.06);
+  text-align: left;
+}
+
+.sfi-tile--critical {
+  border: 1px solid var(--sent-critical);
+  box-shadow: 0 0 20px rgba(225, 29, 72, 0.12);
+  background: rgba(69, 10, 26, 0.2);
+}
+
+.sfi-tile--low {
+  border-color: var(--sent-critical);
+  box-shadow: 0 0 18px rgba(225, 29, 72, 0.1);
+}
+
+.sfi-tile__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.sfi-tile__about {
+  margin: 0 0 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.sfi-tile__name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.sfi-tile__sos {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.45rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 0.3rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(225, 29, 72, 0.25);
+  color: #fecdd3;
+  border: 1px solid rgba(225, 29, 72, 0.55);
+  vertical-align: middle;
+}
+
+.sfi-tile__stars {
+  display: flex;
+  gap: 0.12rem;
+  font-size: 1.05rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.sfi-tile__stars--high .sfi-tile__star--on {
+  color: var(--sent-cyan);
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.85), 0 0 20px rgba(56, 189, 248, 0.35);
+}
+
+.sfi-tile__stars--mid .sfi-tile__star--on {
+  color: #fcd34d;
+}
+
+.sfi-tile__stars--low .sfi-tile__star--on {
+  color: var(--sent-critical);
+  text-shadow: 0 0 8px rgba(225, 29, 72, 0.55);
+}
+
+.sfi-tile__star--off {
+  color: rgba(51, 65, 85, 0.85);
+}
+
+.sfi-tile__comment {
+  margin: 0.35rem 0 0.55rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.sfi-tile__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.65rem;
+  align-items: center;
+  font-family: var(--sent-mono);
+  font-size: 0.72rem;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.sfi-tile__meta strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.sfi-tile__pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(2, 8, 23, 0.75);
+  font-size: 0.68rem;
+  color: #bae6fd;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+a.sfi-tile__pill:hover {
+  border-color: rgba(34, 211, 238, 0.65);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.sfi-tile__time {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: rgba(148, 163, 184, 0.9);
+  white-space: nowrap;
+}
+
+.sentiment-cmd__empty {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  font-size: 0.82rem;
+  color: rgba(148, 163, 184, 0.95);
+  border-radius: 0.85rem;
+  border: 1px dashed rgba(56, 189, 248, 0.22);
+  background: rgba(2, 8, 23, 0.35);
+  text-align: center;
+}
+
+/* Feedback intelligence — full content width (matches Command Center tactical rail) */
+.command-center--feedback-intel-full .sentiment-cmd {
+  max-width: none;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  box-sizing: border-box;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__banner {
+  justify-content: center;
+  text-align: center;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__grid-top {
+  display: grid;
+  grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 1.15rem;
+  width: 100%;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__ring-cell {
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__map-cell {
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  margin-right: 0;
+  align-items: stretch;
+  min-height: 260px;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__map-cell .fb-hotspot-map {
+  max-width: none;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 240px;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__map-cell .fb-hotspot-map__frame {
+  min-height: min(52vh, 480px);
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__map-cell .sentiment-cmd__about-filter {
+  max-width: none;
+  width: 100%;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__about-filter-label {
+  text-align: center;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__about-filter-btns {
+  justify-content: center;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__section-title {
+  text-align: center;
+}
+
+.command-center--feedback-intel-full .fb-hotspot-map__chrome {
+  justify-content: center;
+  text-align: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.command-center--feedback-intel-full .sentiment-cmd__feed-list {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+@media (max-width: 960px) {
+  .command-center--feedback-intel-full .sentiment-cmd__grid-top {
+    grid-template-columns: 1fr;
+  }
+
+  .command-center--feedback-intel-full .sentiment-cmd__ring-cell {
+    max-width: 22rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}

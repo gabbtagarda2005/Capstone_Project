@@ -3,7 +3,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const { getMysqlPool } = require("../db/mysqlPool");
+const IssuedTicketRecord = require("../models/IssuedTicketRecord");
 const { normalizeEmail } = require("../config/adminWhitelist");
 const { requireAdminJwt } = require("../middleware/requireAdminJwt");
 const { requireAttendantSignupJwt } = require("../middleware/requireAttendantSignupJwt");
@@ -11,6 +11,7 @@ const AttendantSignupOtp = require("../models/AttendantSignupOtp");
 const AttendantRegistry = require("../models/AttendantRegistry");
 const PortalUser = require("../models/PortalUser");
 const { sendAttendantSignupOtpEmail } = require("../services/mailer");
+const { allocateUniqueSixDigit } = require("../services/personnelSixDigit");
 
 const MAX_PROFILE_IMAGE_CHARS = 400_000;
 
@@ -36,15 +37,25 @@ async function findRegistryByOperatorParam(raw) {
   return AttendantRegistry.findOne({ mysqlOperatorId: spec.mysqlOperatorId });
 }
 
-async function emailExistsInTicketing(email) {
-  const pool = getMysqlPool();
-  if (pool) {
-    const [rows] = await pool.query(
-      "SELECT operator_id FROM bus_operators WHERE LOWER(email) = ? LIMIT 1",
-      [email]
-    );
-    if (rows[0]) return { exists: true, source: "mysql" };
+/**
+ * Ensure registry + PortalUser (+ MySQL employee_id when empty) have a valid 6-digit personnel ID.
+ * @param {object} reg - lean AttendantRegistry doc (mutated in memory if you reuse it)
+ */
+async function ensureRegistrySixDigitPersonnel(reg) {
+  const raw = reg.employeeNumber != null ? String(reg.employeeNumber).trim() : "";
+  if (/^\d{6}$/.test(raw)) {
+    return { employeeId: raw, allocated: false };
   }
+  const code = await allocateUniqueSixDigit();
+  await AttendantRegistry.updateOne({ _id: reg._id }, { $set: { employeeNumber: code } });
+  reg.employeeNumber = code;
+  if (reg.portalUserId) {
+    await PortalUser.updateOne({ _id: reg.portalUserId }, { $set: { employeeNumber: code } });
+  }
+  return { employeeId: code, allocated: true };
+}
+
+async function emailExistsInTicketing(email) {
   const mongoUser = await PortalUser.findOne({ email }).lean();
   if (mongoUser) return { exists: true, source: "mongo" };
   return { exists: false };
@@ -63,8 +74,7 @@ function createAttendantsSignupRouter() {
 
   /**
    * Attendants who completed Gmail OTP and are eligible for bus assignment.
-   * When MySQL is configured, we link using mysqlOperatorId.
-   * When MySQL is not configured, we link using portalUserId (Mongo-only onboarding).
+   * Links use portalUserId and/or legacy mysqlOperatorId on the registry document.
    */
   router.get("/verified", requireAdminJwt, async (_req, res) => {
     try {
@@ -77,27 +87,55 @@ function createAttendantsSignupRouter() {
       })
         .sort({ lastName: 1, firstName: 1 })
         .lean();
-      res.json({
-        items: regs
-          .map((r) => {
-            const attendantId = r.mysqlOperatorId != null ? String(r.mysqlOperatorId) : r.portalUserId ? String(r.portalUserId) : null;
-            if (!attendantId) return null;
-            return {
-              operatorId: attendantId,
-              firstName: r.firstName,
-              lastName: r.lastName,
-              middleName: r.middleName,
-              email: r.email,
-              phone: r.phone,
-              role: "Operator",
-              otpVerified: true,
-              profileImageUrl: r.profileImageUrl || null,
-            };
-          })
-          .filter(Boolean),
-      });
+
+      for (const reg of regs) {
+        const raw = reg.employeeNumber != null ? String(reg.employeeNumber).trim() : "";
+        if (/^\d{6}$/.test(raw)) continue;
+        try {
+          await ensureRegistrySixDigitPersonnel(reg);
+        } catch (backErr) {
+          console.error("[attendants/verified] employeeNumber backfill:", backErr.message || backErr);
+        }
+      }
+
+      const items = regs
+        .map((r) => {
+          const attendantId =
+            r.portalUserId != null ? String(r.portalUserId) : r.mysqlOperatorId != null ? String(r.mysqlOperatorId) : null;
+          if (!attendantId) return null;
+          return {
+            operatorId: attendantId,
+            employeeId: r.employeeNumber || null,
+            firstName: r.firstName,
+            lastName: r.lastName,
+            middleName: r.middleName,
+            email: r.email,
+            phone: r.phone,
+            role: "Operator",
+            otpVerified: true,
+            profileImageUrl: r.profileImageUrl || null,
+          };
+        })
+        .filter(Boolean);
+
+      res.json({ items });
     } catch (e) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  /** Assign or reveal the 6-digit personnel ID for a verified attendant (admin). */
+  router.post("/registry/:operatorId/ensure-personnel-id", requireAdminJwt, async (req, res) => {
+    try {
+      const regDoc = await findRegistryByOperatorParam(req.params.operatorId);
+      if (!regDoc) {
+        return res.status(404).json({ error: "Verified attendant not found" });
+      }
+      const reg = regDoc.toObject ? regDoc.toObject() : { ...regDoc };
+      const out = await ensureRegistrySixDigitPersonnel(reg);
+      return res.json({ employeeId: out.employeeId, allocated: out.allocated });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Could not assign personnel ID" });
     }
   });
 
@@ -137,32 +175,6 @@ function createAttendantsSignupRouter() {
         }
       }
 
-      const pool = getMysqlPool();
-      if (pool && reg.mysqlOperatorId) {
-        const fields = [];
-        const params = [];
-        if (firstName !== undefined) {
-          fields.push("first_name = ?");
-          params.push(reg.firstName);
-        }
-        if (lastName !== undefined) {
-          fields.push("last_name = ?");
-          params.push(reg.lastName);
-        }
-        if (middleName !== undefined) {
-          fields.push("middle_name = ?");
-          params.push(reg.middleName);
-        }
-        if (phone !== undefined) {
-          fields.push("phone = ?");
-          params.push(reg.phone);
-        }
-        if (fields.length) {
-          params.push(reg.mysqlOperatorId);
-          await pool.query(`UPDATE bus_operators SET ${fields.join(", ")} WHERE operator_id = ?`, params);
-        }
-      }
-
       return res.json({ ok: true });
     } catch (e) {
       return res.status(500).json({ error: e.message || "Update failed" });
@@ -173,24 +185,22 @@ function createAttendantsSignupRouter() {
    * Remove attendant: registry + PortalUser and/or MySQL row (ticket safety same as operators).
    */
   router.delete("/registry/:operatorId", requireAdminJwt, async (req, res) => {
-    const pool = getMysqlPool();
     try {
       const reg = await findRegistryByOperatorParam(req.params.operatorId);
 
       if (reg) {
-        if (reg.mysqlOperatorId != null && pool) {
-          const mid = reg.mysqlOperatorId;
-          const [counts] = await pool.query(
-            "SELECT COUNT(*) AS c FROM tickets WHERE issued_by_operator_id = ?",
-            [mid]
-          );
-          if (counts[0].c > 0) {
-            return res.status(409).json({
-              error: "This attendant has issued tickets; reassign or delete tickets first",
-              ticketCount: counts[0].c,
-            });
-          }
-          await pool.query("DELETE FROM bus_operators WHERE operator_id = ?", [mid]);
+        let ticketCount = 0;
+        if (reg.portalUserId) {
+          ticketCount = await IssuedTicketRecord.countDocuments({ issuerSub: String(reg.portalUserId) });
+        }
+        if (ticketCount === 0 && reg.mysqlOperatorId != null) {
+          ticketCount = await IssuedTicketRecord.countDocuments({ issuerMysqlId: reg.mysqlOperatorId });
+        }
+        if (ticketCount > 0) {
+          return res.status(409).json({
+            error: "This attendant has issued tickets; reassign or delete tickets first",
+            ticketCount,
+          });
         }
         if (reg.portalUserId) {
           await PortalUser.deleteOne({ _id: reg.portalUserId });
@@ -200,23 +210,16 @@ function createAttendantsSignupRouter() {
       }
 
       const spec = resolveOperatorIdParam(req.params.operatorId);
-      if (spec?.kind === "mysql" && pool) {
+      if (spec?.kind === "mysql") {
         const id = spec.mysqlOperatorId;
-        const [counts] = await pool.query(
-          "SELECT COUNT(*) AS c FROM tickets WHERE issued_by_operator_id = ?",
-          [id]
-        );
-        if (counts[0].c > 0) {
+        const ticketCount = await IssuedTicketRecord.countDocuments({ issuerMysqlId: id });
+        if (ticketCount > 0) {
           return res.status(409).json({
             error: "Operator has issued tickets; delete or reassign tickets first",
-            ticketCount: counts[0].c,
+            ticketCount,
           });
         }
-        const [result] = await pool.query("DELETE FROM bus_operators WHERE operator_id = ?", [id]);
-        if (result.affectedRows === 0) {
-          return res.status(404).json({ error: "Attendant not found" });
-        }
-        return res.status(204).send();
+        return res.status(404).json({ error: "Attendant not found" });
       }
 
       return res.status(404).json({ error: "Attendant not found" });
@@ -367,54 +370,8 @@ function createAttendantsSignupRouter() {
       return res.status(409).json({ error: "This email was registered while you were completing the form" });
     }
 
-    const pool = getMysqlPool();
-
     try {
-      if (pool) {
-        const hash = await bcrypt.hash(password, 10);
-        let insertId;
-        try {
-          const [result] = await pool.query(
-            `INSERT INTO bus_operators (first_name, last_name, middle_name, email, password, phone, role)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              firstName,
-              lastName,
-              middleName || null,
-              email,
-              hash,
-              phone || null,
-              "Operator",
-            ]
-          );
-          insertId = result.insertId;
-        } catch (e) {
-          if (e.code === "ER_DUP_ENTRY") {
-            return res.status(409).json({ error: "Email already registered" });
-          }
-          throw e;
-        }
-
-        await AttendantRegistry.create({
-          email,
-          firstName,
-          lastName,
-          middleName: middleName || null,
-          phone: phone || null,
-          profileImageUrl,
-          role: "BusAttendant",
-          mysqlOperatorId: insertId,
-          verifiedViaOtpAt: new Date(),
-        });
-
-        return res.status(201).json({
-          message: "Attendant verified and added",
-          operatorId: insertId,
-          email,
-          otpVerified: true,
-        });
-      }
-
+      const employeeId = await allocateUniqueSixDigit();
       const hash = await bcrypt.hash(password, 10);
       const doc = await PortalUser.create({
         email,
@@ -426,6 +383,7 @@ function createAttendantsSignupRouter() {
         role: "BusAttendant",
         photoURL: profileImageUrl,
         authProvider: "password",
+        employeeNumber: employeeId,
       });
 
       await AttendantRegistry.create({
@@ -437,12 +395,14 @@ function createAttendantsSignupRouter() {
         profileImageUrl,
         role: "BusAttendant",
         portalUserId: doc._id,
+        employeeNumber: employeeId,
         verifiedViaOtpAt: new Date(),
       });
 
       return res.status(201).json({
-        message: "Attendant verified and added (Mongo)",
+        message: "Attendant verified and added",
         operatorId: doc._id.toString(),
+        employeeId,
         email,
         otpVerified: true,
         authStore: "mongo",

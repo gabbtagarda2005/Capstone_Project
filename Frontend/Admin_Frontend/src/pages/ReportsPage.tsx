@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchReportsAnalytics, postAdminAuditEvent } from "@/lib/api";
+import {
+  downloadReportsMasterExport,
+  fetchReportsAnalytics,
+  postAdminAuditEvent,
+} from "@/lib/api";
+import { bundlesToCsvKeys, bundlesToPdfKeys } from "@/lib/reportExportBundles";
+import type { ReportExportBundleId } from "@/lib/reportExportBundles";
 import { downloadOperationsReportPdf } from "@/lib/generateOperationsReportPdf";
-import { downloadReportsCsv, type ReportExportSectionKey } from "@/lib/reportsCsvExport";
+import { downloadReportsCsv } from "@/lib/reportsCsvExport";
+import { downloadReportsXlsx } from "@/lib/reportsXlsxExport";
 import { ReportsExecutiveMetrics } from "@/components/ReportsExecutiveMetrics";
 import { ReportsIntelligenceHub, type HubTab } from "@/components/ReportsIntelligenceHub";
-import { ReportsExportModal } from "@/components/ReportsExportModal";
+import { DailyOperationsReportPanel } from "@/components/DailyOperationsReportPanel";
+import { ReportsSnapshotsArchive } from "@/components/ReportsSnapshotsArchive";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
@@ -31,7 +39,7 @@ function revenueBelowGoalSignal(d: ReportsAnalyticsDto): boolean {
 
 function buildPredictiveInsight(d: ReportsAnalyticsDto | null): string {
   if (!d) {
-    return "Connect ticketing to unlock fleet recommendations and live corridor insights.";
+    return "Open Reports when ticketing data is available to unlock fleet recommendations and corridor insights.";
   }
   const parts: string[] = [];
   const { startHour, endHour } = d.insights.peakBoardingWindow;
@@ -93,12 +101,20 @@ function emptyReportsAnalytics(): ReportsAnalyticsDto {
 export function ReportsPage() {
   const { user } = useAuth();
   const { branding } = useAdminBranding();
-  const { showError, showSuccess } = useToast();
+  const { showError, showSuccess, showInfo } = useToast();
   const [data, setData] = useState<ReportsAnalyticsDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [hubTab, setHubTab] = useState<HubTab>("passenger");
-  const [exportOpen, setExportOpen] = useState(false);
+  const lastNonExportHubTabRef = useRef<Exclude<HubTab, "export">>("passenger");
+  const [reportsMainTab, setReportsMainTab] = useState<"dashboard" | "archive">("dashboard");
+
+  function handleHubTab(t: HubTab) {
+    if (t !== "export") {
+      lastNonExportHubTabRef.current = t;
+    }
+    setHubTab(t);
+  }
   const [exportProgress, setExportProgress] = useState(0);
   const [goalAnomalyPulse, setGoalAnomalyPulse] = useState(false);
   const exportRampRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -193,36 +209,68 @@ export function ReportsPage() {
 
   const sentimentLabel = (hubData.insights.routeDelaySentiment ?? "—").toUpperCase();
 
-  async function runPdfExport(sections: Set<string>) {
-    if (!data) {
-      showError("Load analytics before exporting.");
-      return;
-    }
+  function isMysqlExportUnavailable(message: string): boolean {
+    const m = message.toLowerCase();
+    return (
+      m.includes("mysql not configured") ||
+      m.includes("ticketing exports unavailable") ||
+      (m.includes("503") && m.includes("mysql"))
+    );
+  }
+
+  async function runMasterExport(args: {
+    areas: ReportExportBundleId[];
+    format: "pdf" | "csv" | "xlsx";
+    dateRange: { start: string; end: string };
+  }) {
     if (exportRampRef.current) clearInterval(exportRampRef.current);
     setPdfBusy(true);
-    setExportProgress(6);
+    setExportProgress(8);
     exportRampRef.current = setInterval(() => {
-      setExportProgress((p) => (p >= 88 ? p : p + 5 + Math.random() * 4));
-    }, 140);
+      setExportProgress((p) => (p >= 88 ? p : p + 4 + Math.random() * 3));
+    }, 160);
     try {
-      await downloadOperationsReportPdf(data, user?.email ?? "admin", {
-        companyName: branding.companyName,
-        reportFooter: branding.reportFooter,
-        sections,
+      await downloadReportsMasterExport({
+        selectedAreas: args.areas,
+        format: args.format,
+        dateRange: args.dateRange,
       });
       setExportProgress(100);
-      showSuccess("Report downloaded.");
-      try {
-        await postAdminAuditEvent({
+      showSuccess("Report downloaded (server aggregate).");
+      void postAdminAuditEvent({
+        action: "VIEW",
+        module: "Reports & Analytics",
+        details: `Downloaded master ${args.format.toUpperCase()} (${args.dateRange.start} → ${args.dateRange.end})`,
+      }).catch(() => {});
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Export failed";
+      if (isMysqlExportUnavailable(msg)) {
+        showInfo("Server ticketing export unavailable — using on-device export from the current dashboard data.");
+        const payload = data ?? emptyReportsAnalytics();
+        const bundleSet = new Set(args.areas);
+        if (args.format === "pdf") {
+          await downloadOperationsReportPdf(payload, user?.email ?? "admin", {
+            companyName: branding.companyName,
+            reportFooter: branding.reportFooter,
+            sections: bundlesToPdfKeys(bundleSet),
+          });
+          showSuccess("PDF downloaded (browser snapshot).");
+        } else if (args.format === "csv") {
+          downloadReportsCsv(payload, bundlesToCsvKeys(bundleSet));
+          showSuccess("CSV downloaded.");
+        } else {
+          downloadReportsXlsx(payload, bundlesToCsvKeys(bundleSet));
+          showSuccess("Excel workbook downloaded.");
+        }
+        void postAdminAuditEvent({
           action: "VIEW",
           module: "Reports & Analytics",
-          details: "Downloaded operations PDF report (selected sections)",
-        });
-      } catch {
-        /* optional */
+          details: "Downloaded browser-side reports export (fallback)",
+        }).catch(() => {});
+        return;
       }
-    } catch (e) {
-      showError(e instanceof Error ? e.message : "PDF export failed");
+      showError(msg);
+      throw e;
     } finally {
       if (exportRampRef.current) {
         clearInterval(exportRampRef.current);
@@ -233,20 +281,6 @@ export function ReportsPage() {
     }
   }
 
-  function handleExportCsv(sections: Set<ReportExportSectionKey>) {
-    if (!data) {
-      showError("Load analytics before exporting.");
-      return;
-    }
-    downloadReportsCsv(data, sections);
-    showSuccess("CSV downloaded.");
-    void postAdminAuditEvent({
-      action: "VIEW",
-      module: "Reports & Analytics",
-      details: "Downloaded reports CSV export",
-    }).catch(() => {});
-  }
-
   return (
     <div className="reports-page admin-mgmt">
       <header className="reports-page__head reports-page__toolbar">
@@ -255,18 +289,44 @@ export function ReportsPage() {
         </div>
       </header>
 
+      <div className="reports-page__subtabs" role="tablist" aria-label="Reports views">
+        <button
+          type="button"
+          role="tab"
+          className={`reports-page__subtab${reportsMainTab === "dashboard" ? " reports-page__subtab--active" : ""}`}
+          aria-selected={reportsMainTab === "dashboard"}
+          onClick={() => setReportsMainTab("dashboard")}
+        >
+          Dashboard
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={`reports-page__subtab${reportsMainTab === "archive" ? " reports-page__subtab--active" : ""}`}
+          aria-selected={reportsMainTab === "archive"}
+          onClick={() => setReportsMainTab("archive")}
+        >
+          Archive
+        </button>
+      </div>
+
       {loadError ? <p className="reports-page__banner">{loadError}</p> : null}
 
+      {reportsMainTab === "archive" ? (
+        <ReportsSnapshotsArchive />
+      ) : (
+        <>
       <ReportsExecutiveMetrics analytics={hubData} isLive={!!data} goalAnomalyPulse={goalAnomalyPulse} />
 
       <ReportsIntelligenceHub
         data={hubData}
         hubTab={hubTab}
-        onHubTab={setHubTab}
+        onHubTab={handleHubTab}
+        onCancelExport={() => setHubTab(lastNonExportHubTabRef.current)}
         exportProgress={exportProgress}
         refundAlert={refundAlert}
-        onOpenExport={() => setExportOpen(true)}
-        exportDisabled={pdfBusy || !data}
+        onRunMasterExport={(args) => runMasterExport(args)}
+        exportDisabled={pdfBusy}
         exportBusy={pdfBusy}
         sentimentLabel={sentimentLabel}
         predictiveInsight={predictiveInsight}
@@ -274,18 +334,10 @@ export function ReportsPage() {
         monthlyRev={monthlyRev}
       />
 
-      <ReportsExportModal
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
-        onExportPdf={(sections) => {
-          setExportOpen(false);
-          void runPdfExport(sections);
-        }}
-        onExportCsv={(sections) => {
-          setExportOpen(false);
-          handleExportCsv(sections);
-        }}
-      />
+      <DailyOperationsReportPanel />
+
+        </>
+      )}
     </div>
   );
 }

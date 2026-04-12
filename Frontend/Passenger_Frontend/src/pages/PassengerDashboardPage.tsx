@@ -1,203 +1,232 @@
-import { Link } from "react-router-dom";
-import { PassengerLogo } from "@/components/PassengerLogo";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { DashboardMap } from "@/components/DashboardMap";
+import {
+  PassengerDepartureBoard,
+  PassengerFeedbackConsole,
+  PassengerNewsFeed,
+  type TacticalPanelId,
+} from "@/components/PassengerTacticalPanels";
+import { PassengerSidebarDashboardIcon } from "@/components/PassengerSidebarDashboardIcon";
+import { PassengerTopBar } from "@/components/PassengerTopBar";
+import { PassengerLostFound, PassengerRouteCalculator } from "@/components/PassengerTacticalHub";
+import { clearPassengerLocationGate } from "@/lib/passengerLocationGate";
+import { fetchPassengerNotificationFeed, type PassengerNotificationItem } from "@/lib/passengerNotifications";
 import "./PassengerLandingPage.css";
 import "./PassengerDashboardPage.css";
 
-const UPDATES = [
-  { title: "Bus B-07 approaching Valencia", meta: "ETA 4 min · Route MLY-VLC", time: "Just now" },
-  { title: "Schedule change: Dologon line", meta: "Extra trip 5:10 PM today", time: "12 min ago" },
-  { title: "Terminal A — shorter queue", meta: "Suggested gate: B for southbound", time: "28 min ago" },
-];
+type MainPanel = TacticalPanelId | "dashboard" | "buses" | "lost";
 
-const QUICK = [
-  { icon: "🔔", title: "Alerts", body: "Delay and gate push notices." },
-  { icon: "⭐", title: "Saved routes", body: "Jump back to frequent trips." },
-  { icon: "🧾", title: "E-tickets", body: "QR codes in one place." },
-  { icon: "💬", title: "Support", body: "Chat or call the terminal." },
-  { icon: "🎁", title: "Rewards", body: "Travel points & promos." },
-  { icon: "⚙️", title: "Settings", body: "Language & notifications." },
-];
+const API_BASE = (import.meta.env.VITE_PASSENGER_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+const COMPANY_NAME = "Bukidnon Transit";
+const COMPANY_LOGO_URL = (import.meta.env.VITE_PASSENGER_COMPANY_LOGO_URL as string | undefined)?.trim() || "";
 
 export function PassengerDashboardPage() {
+  const navigate = useNavigate();
+  const [darkMode, setDarkMode] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mainPanel, setMainPanel] = useState<MainPanel>("buses");
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<PassengerNotificationItem[]>([]);
+  const dashboardActive = mainPanel === "dashboard";
+
+  function handleLogout() {
+    clearPassengerLocationGate();
+    setNotifOpen(false);
+    navigate("/", { replace: true });
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const items = await fetchPassengerNotificationFeed();
+        if (!cancelled) setNotifications(items);
+      } catch {
+        if (!cancelled) setNotifications([]);
+      }
+    };
+    void poll();
+    const id = window.setInterval(() => void poll(), 28_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
   return (
-    <div className="pd">
+    <div className={"pd" + (darkMode ? "" : " pd--light")}>
       <div className="pd__glow" aria-hidden />
-
-      <header className="ph-nav pd__inner">
-        <Link to="/" className="ph-nav__brand">
-          <PassengerLogo />
-          Bukidnon Transit
-        </Link>
-        <nav className="ph-nav__links" aria-label="Dashboard">
-          <Link to="/">Home</Link>
-          <a href="#modules">Modules</a>
-          <a href="#quick">Quick actions</a>
-          <a href="#more">Insights</a>
-        </nav>
-        <Link to="/" className="ph-btn ph-btn--ghost">
-          Log out
-        </Link>
-      </header>
-
-      <main className="pd__inner">
-        <section className="pd-hero">
-          <h1 className="pd-hero__title">
-            Your trip hub — <span>live &amp; on time</span>
-          </h1>
-          <p className="pd-hero__sub">
-            Track buses, manage tickets, and catch updates the moment the fleet moves.
-          </p>
-        </section>
-
-        <section className="pd-metrics" aria-label="Key metrics">
-          <div className="pd-metric">
-            <div className="pd-metric__val">24</div>
-            <div className="pd-metric__label">Available buses today</div>
-          </div>
-          <div className="pd-metric">
-            <div className="pd-metric__val">3</div>
-            <div className="pd-metric__label">Active tickets</div>
-          </div>
-          <div className="pd-metric">
-            <div className="pd-metric__val">1.2k</div>
-            <div className="pd-metric__label">Travel points</div>
-          </div>
-        </section>
-
-        <section id="modules" className="pd-modules">
-          <Link to="/" className="pd-card pd-card--cta pd-mod--wide">
-            <div>
-              <div className="pd-card__icon" aria-hidden>
-                🚌
-              </div>
-              <h3>Book a trip</h3>
-              <p>Search origin, destination, and date — same flow as the landing page.</p>
-            </div>
-            <span className="pd-card__arrow">Start search →</span>
-          </Link>
-
-          <Link to="/" className="pd-card pd-card--cta pd-mod--wide">
-            <div>
-              <div className="pd-card__icon" aria-hidden>
-                🗺️
-              </div>
-              <h3>Live bus map</h3>
-              <p>See vehicles moving in real time when connected to your tracking API.</p>
-            </div>
-            <span className="pd-card__arrow">Open map →</span>
-          </Link>
-
-          <div className="pd-card pd-card--sm">
-            <div className="pd-card__icon" aria-hidden>
-              📜
-            </div>
-            <h3>Transaction history</h3>
-            <p>Past fares and refunds in one ledger.</p>
-          </div>
-
-          <div className="pd-card pd-card--sm">
-            <div className="pd-card__icon" aria-hidden>
-              👤
-            </div>
-            <h3>Profile &amp; ID</h3>
-            <p>Verify phone and student ID for discounts.</p>
-          </div>
-
-          <div className="pd-card pd-card--sm">
-            <div className="pd-card__icon" aria-hidden>
-              ❓
-            </div>
-            <h3>Help &amp; support</h3>
-            <p>FAQs, lost items, and terminal contacts.</p>
-          </div>
-
-          <aside className="pd-card pd-mod--feed">
-            <div className="pd-feed__head">
-              <h3 style={{ margin: 0, fontSize: "1.05rem" }}>Real-time trip updates</h3>
-              <span className="pd-feed__badge">Live</span>
-            </div>
-            <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", color: "var(--pd-muted)" }}>
-              Demo notifications — wire to WebSockets or push.
-            </p>
-            {UPDATES.map((u, i) => (
-              <div className="pd-feed__item" key={i}>
-                <div className="pd-feed__row">
-                  <div>
-                    <div className="pd-feed__title">{u.title}</div>
-                    <div className="pd-feed__meta">{u.meta}</div>
-                  </div>
-                  <span className="pd-feed__time">{u.time}</span>
+      <PassengerTopBar
+        onNotificationsClick={() => setNotifOpen(true)}
+        notificationCount={notifications.length}
+      />
+      <main className="pd__inner pd__inner--dashboard">
+        <div
+          className="pd-dashboard-body"
+          data-sidebar-expanded={sidebarOpen ? "true" : "false"}
+        >
+          <aside
+            className={"pd-sidebar pd-sidebar--adminlike" + (sidebarOpen ? " pd-sidebar--open" : "")}
+            aria-label="Passenger dashboard sidebar"
+            onClick={() => setSidebarOpen((v) => !v)}
+          >
+            <div className="pd-console">
+              <button type="button" className="pd-sidebar__brand-btn" aria-label="Toggle sidebar">
+                <span className="pd-sidebar__logo">
+                  {COMPANY_LOGO_URL ? (
+                    <img src={COMPANY_LOGO_URL} alt="" className="pd-sidebar__logo-img" />
+                  ) : (
+                    <span className="pd-sidebar__logo-fallback">{(COMPANY_NAME.charAt(0) || "B").toUpperCase()}</span>
+                  )}
+                </span>
+                <span className="pd-sidebar__brand-text">{COMPANY_NAME}</span>
+              </button>
+              <div
+                className="pd-util-list pd-console__section pd-sidebar__scroll"
+                aria-label="Passenger utilities"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className={"pd-util-btn" + (dashboardActive ? " pd-util-btn--active" : "")}
+                  onClick={() => setMainPanel("dashboard")}
+                >
+                  <span className="pd-util-btn__icon pd-util-btn__icon--dashboard" aria-hidden>
+                    <PassengerSidebarDashboardIcon />
+                  </span>
+                  <span className="pd-sidebar__item-label">Dashboard</span>
+                </button>
+                <button
+                  type="button"
+                  className={"pd-util-btn" + (mainPanel === "schedules" ? " pd-util-btn--active" : "")}
+                  onClick={() => setMainPanel("schedules")}
+                >
+                  <span className="pd-util-btn__icon" aria-hidden>
+                    🕒
+                  </span>
+                  <span className="pd-sidebar__item-label">Schedules</span>
+                </button>
+                <button
+                  type="button"
+                  className={"pd-util-btn" + (mainPanel === "buses" ? " pd-util-btn--active" : "")}
+                  onClick={() => setMainPanel("buses")}
+                >
+                  <span className="pd-util-btn__icon" aria-hidden>
+                    🚌
+                  </span>
+                  <span className="pd-sidebar__item-label">Check Buses</span>
+                </button>
+                <button
+                  type="button"
+                  className={"pd-util-btn" + (mainPanel === "news" ? " pd-util-btn--active" : "")}
+                  onClick={() => setMainPanel("news")}
+                >
+                  <span className="pd-util-btn__icon" aria-hidden>
+                    📰
+                  </span>
+                  <span className="pd-sidebar__item-label">News &amp; Updates</span>
+                </button>
+                <button
+                  type="button"
+                  className={"pd-util-btn" + (mainPanel === "feedback" ? " pd-util-btn--active" : "")}
+                  onClick={() => setMainPanel("feedback")}
+                >
+                  <span className="pd-util-btn__icon" aria-hidden>
+                    💬
+                  </span>
+                  <span className="pd-sidebar__item-label">Feedbacks</span>
+                </button>
+                <button
+                  type="button"
+                  className={"pd-util-btn" + (mainPanel === "lost" ? " pd-util-btn--active" : "")}
+                  onClick={() => setMainPanel("lost")}
+                >
+                  <span className="pd-util-btn__icon" aria-hidden>
+                    🎒
+                  </span>
+                  <span className="pd-sidebar__item-label">Left Something?</span>
+                </button>
+                <div className="pd-util-toggle">
+                  <span className="pd-sidebar__item-label">{darkMode ? "Dark Mode" : "Light Mode"}</span>
+                  <button
+                    type="button"
+                    className={"pd-util-switch" + (darkMode ? " pd-util-switch--on" : "")}
+                    aria-pressed={darkMode}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDarkMode((v) => !v);
+                    }}
+                  >
+                    <span className="pd-util-switch__knob" />
+                  </button>
                 </div>
               </div>
-            ))}
+
+              <button
+                type="button"
+                className="pd-logout-btn pd-console__section pd-sidebar__footer-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLogout();
+                }}
+              >
+                <span className="pd-util-btn__icon" aria-hidden>
+                  🏠
+                </span>
+                <span className="pd-sidebar__item-label">Logout</span>
+              </button>
+            </div>
           </aside>
-        </section>
 
-        <section id="quick">
-          <h2 className="pd-section-title">Quick actions</h2>
-          <p className="pd-section-sub">Shortcuts for everyday passenger tasks.</p>
-          <div className="pd-quick">
-            {QUICK.map((q) => (
-              <div className="pd-quick__card" key={q.title}>
-                <div className="pd-quick__icon" aria-hidden>
-                  {q.icon}
-                </div>
-                <h4>{q.title}</h4>
-                <p>{q.body}</p>
+          <div className={"pd-map-area" + (dashboardActive ? "" : " pd-map-area--tactical")}>
+            {dashboardActive ? (
+              <DashboardMap apiBase={API_BASE} />
+            ) : (
+              <div className="pd-tactical-main">
+                {mainPanel === "buses" ? (
+                  <PassengerRouteCalculator onClose={() => setMainPanel("dashboard")} />
+                ) : null}
+                {mainPanel === "lost" ? <PassengerLostFound /> : null}
+                {mainPanel === "schedules" ? <PassengerDepartureBoard /> : null}
+                {mainPanel === "news" ? <PassengerNewsFeed /> : null}
+                {mainPanel === "feedback" ? <PassengerFeedbackConsole /> : null}
               </div>
-            ))}
+            )}
           </div>
-        </section>
-
-        <section id="more" className="pd-split">
-          <div>
-            <h2 className="pd-section-title">Why real-time matters</h2>
-            <p className="pd-section-sub" style={{ marginBottom: "0.5rem" }}>
-              GPS pings and geofences power ETAs passengers can trust — fewer missed buses and calmer
-              terminals.
-            </p>
-            <div className="pd-split__stats">
-              <div className="pd-split__stat">
-                <strong>&lt; 10s</strong>
-                <span>Typical GPS refresh</span>
-              </div>
-              <div className="pd-split__stat">
-                <strong>99%</strong>
-                <span>Target on-time display</span>
-              </div>
-            </div>
-            <Link to="/" className="ph-btn ph-btn--primary">
-              Learn more
-            </Link>
-          </div>
-          <div>
-            {[
-              { icon: "✨", t: "Priority boarding", d: "Members get early gate alerts." },
-              { icon: "🛡️", t: "Secure ticketing", d: "QR tied to your account and trip." },
-              { icon: "📣", t: "Promos & news", d: "Route expansions and fare updates." },
-            ].map((x) => (
-              <div className="pd-benefit" key={x.t}>
-                <div className="pd-benefit__icon" aria-hidden>
-                  {x.icon}
-                </div>
-                <div>
-                  <h4>{x.t}</h4>
-                  <p>{x.d}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <footer className="pd-footer">
-          <p>
-            Bukidnon Transit passenger dashboard ·{" "}
-            <Link to="/" style={{ color: "#7dd3fc" }}>
-              Back to landing
-            </Link>
-          </p>
-        </footer>
+        </div>
       </main>
+      {notifOpen ? (
+        <div className="pd-notif-overlay" role="dialog" aria-modal="true" aria-label="Notifications">
+          <button type="button" className="pd-notif-overlay__backdrop" onClick={() => setNotifOpen(false)} />
+          <aside className="pd-notif-drawer">
+            <header className="pd-notif-drawer__head">
+              <h3>Notifications</h3>
+              <button type="button" onClick={() => setNotifOpen(false)} aria-label="Close notifications">
+                ×
+              </button>
+            </header>
+            <div className="pd-notif-drawer__body">
+              {notifications.length === 0 ? (
+                <p className="pd-notif-drawer__empty">No notifications yet. We&apos;ll alert you to bus arrivals and schedule changes here.</p>
+              ) : (
+                notifications.map((n) => (
+                  <article
+                    key={n.id}
+                    className={`pd-notif-drawer__item pd-notif-drawer__item--${n.kind}`}
+                  >
+                    <div className="pd-notif-drawer__item-head">
+                      <strong>{n.title}</strong>
+                      <span className="pd-notif-drawer__time">{n.timeLabel}</span>
+                    </div>
+                    <p>{n.body}</p>
+                  </article>
+                ))
+              )}
+            </div>
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

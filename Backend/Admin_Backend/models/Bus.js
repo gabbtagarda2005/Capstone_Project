@@ -17,6 +17,8 @@ const busSchema = new mongoose.Schema(
     busId: { type: String, required: true, unique: true, index: true },
     busNumber: { type: String, default: null, index: true },
     plateNumber: { type: String, default: "—" },
+    /** Nominal passenger seat capacity (admin-configured). */
+    seatCapacity: { type: Number, default: 50, min: 1, max: 300 },
     imei: { type: String, default: null, unique: true, sparse: true, index: true },
     /** MySQL bus_operators.operator_id when using ticketing DB */
     operatorMysqlId: { type: Number, default: null, index: true },
@@ -25,7 +27,8 @@ const busSchema = new mongoose.Schema(
     driverId: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
     route: { type: String, default: null },
     /** If true, ticketing allowed only inside authorized terminal/stop geofences. */
-    strictPickup: { type: Boolean, default: true },
+    /** When true, future features may restrict issuance to geofenced stops; ticketing does not enforce this by default. */
+    strictPickup: { type: Boolean, default: false },
     status: {
       type: String,
       enum: ["Active", "Maintenance", "Inactive"],

@@ -1,0 +1,696 @@
+/* Check Buses modal, Lost & Found — obsidian HMI (#020817 / #1F5885) */
+
+.pd-hub.pd-tactical {
+  background: #020817;
+}
+
+/* —— Check Buses: fare engine + fleet (stacked, full-width strips) —— */
+.pd-fare-modal-root {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0.75rem 0.85rem 1rem;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.pd-fare-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 23, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.pd-fare-stack {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: min(92rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pd-fare-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .pd-fare-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.glass-panel {
+  border-radius: 18px;
+  background: linear-gradient(155deg, rgba(15, 23, 42, 0.94) 0%, rgba(2, 6, 23, 0.92) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(31, 88, 133, 0.22),
+    0 20px 48px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: 1.25rem 1.35rem 1.4rem;
+  box-sizing: border-box;
+}
+
+.pd-fare-engine__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pd-fare-engine__title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.15rem, 2.4vw, 1.35rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.pd-fare-engine__close {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(2, 6, 23, 0.5);
+  color: #e2e8f0;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pd-fare-engine__close:hover {
+  border-color: rgba(94, 227, 150, 0.45);
+  color: #5ee396;
+}
+
+.pd-fare-engine__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem 1rem;
+}
+
+@media (max-width: 640px) {
+  .pd-fare-engine__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pd-fare-engine__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pd-fare-engine__label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.88);
+}
+
+.pd-fare-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.72rem 0.95rem;
+  font-size: 0.88rem;
+  color: #f8fafc;
+  background: rgba(2, 6, 23, 0.92);
+  border: 1px solid rgba(71, 85, 105, 0.65);
+  border-radius: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%),
+    linear-gradient(135deg, #94a3b8 50%, transparent 50%);
+  background-position: calc(100% - 1.1rem) 55%, calc(100% - 0.75rem) 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.pd-fare-select:focus {
+  outline: none;
+  border-color: rgba(96, 165, 250, 0.65);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.pd-fare-select--text {
+  appearance: auto;
+  background-image: none;
+}
+
+.pd-fare-engine__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1rem 0 1.1rem;
+}
+
+.pd-fare-chip {
+  padding: 0.42rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.65);
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.pd-fare-chip:hover {
+  border-color: rgba(94, 227, 150, 0.35);
+}
+
+.pd-fare-chip--active {
+  border-color: rgba(94, 227, 150, 0.55);
+  background: rgba(94, 227, 150, 0.12);
+  color: #bbf7d0;
+  box-shadow: 0 0 18px rgba(94, 227, 150, 0.12);
+}
+
+.pd-fare-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.1rem 1rem;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  margin-bottom: 0.85rem;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pd-fare-total--bump {
+  transform: scale(1.03);
+  border-color: rgba(94, 227, 150, 0.45);
+  box-shadow: 0 0 32px rgba(94, 227, 150, 0.15);
+}
+
+.pd-fare-total__label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.85);
+  margin-bottom: 0.35rem;
+}
+
+.pd-fare-total__amount {
+  font-size: clamp(1.85rem, 5vw, 2.45rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 24px rgba(34, 211, 238, 0.2);
+}
+
+.pd-fare-total__loading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.pd-fare-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(51, 65, 85, 0.45);
+  margin-bottom: 0.65rem;
+}
+
+.pd-fare-breakdown__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.8rem;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+.pd-fare-breakdown__row--sub {
+  padding-top: 0.35rem;
+  margin-top: 0.2rem;
+  border-top: 1px dashed rgba(71, 85, 105, 0.5);
+  font-weight: 600;
+}
+
+.pd-fare-breakdown__row--disc {
+  color: rgba(251, 191, 36, 0.95);
+}
+
+.pd-fare-breakdown__row--total {
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  padding-top: 0.45rem;
+  margin-top: 0.15rem;
+  border-top: 1px solid rgba(71, 85, 105, 0.55);
+}
+
+.pd-fare-breakdown__num {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, monospace;
+}
+
+.pd-fare-engine__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.pd-fare-engine__hint--warn {
+  color: #fcd34d;
+}
+
+.pd-fare-engine__hint--err {
+  color: #fecaca;
+}
+
+.pd-fare-engine__hint--mono {
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.pd-fare-fleet__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 0.85rem;
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.pd-fare-fleet__cards::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pd-fare-fleet__cards::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+}
+
+.pd-fare-fleet__err--inline {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #fcd34d;
+}
+
+/* Fleet showcase cards (gradient header + skew tab) */
+.pax-fleet-card {
+  min-width: 0;
+}
+
+.pax-fleet-card__shell {
+  border-radius: 20px;
+  background: #141c31;
+  padding: 5px;
+  overflow: hidden;
+  box-shadow: rgba(100, 100, 111, 0.28) 0 8px 22px 0;
+  transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.pax-fleet-card__shell:hover {
+  transform: scale(1.03);
+}
+
+.pax-fleet-card--inactive .pax-fleet-card__shell {
+  opacity: 0.82;
+}
+
+.pax-fleet-card__top {
+  height: 118px;
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(45deg, rgb(4, 120, 165) 0%, rgb(56, 220, 230) 100%);
+  position: relative;
+}
+
+.pax-fleet-card__border {
+  border-bottom-right-radius: 10px;
+  height: 28px;
+  width: 118px;
+  background: #141c31;
+  position: relative;
+  transform: skew(-40deg);
+  box-shadow: -10px -10px 0 0 #141c31;
+}
+
+.pax-fleet-card__border::before {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  top: 0;
+  right: -12px;
+  background: transparent;
+  border-top-left-radius: 10px;
+  box-shadow: -4px -4px 0 2px #141c31;
+}
+
+.pax-fleet-card__top::before {
+  content: "";
+  position: absolute;
+  top: 28px;
+  left: 0;
+  background: transparent;
+  height: 12px;
+  width: 12px;
+  border-top-left-radius: 15px;
+  box-shadow: -4px -4px 0 2px #141c31;
+}
+
+.pax-fleet-card__icons {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pax-fleet-card__logo {
+  height: 28px;
+  padding: 2px 0 2px 12px;
+  display: flex;
+  align-items: center;
+}
+
+.pax-fleet-card__bus-svg {
+  height: 22px;
+  width: auto;
+  display: block;
+}
+
+.pax-fleet-card__status-icons {
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  gap: 6px;
+}
+
+.pax-fleet-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #141c31;
+}
+
+.pax-fleet-card__dot--on {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.55);
+}
+
+.pax-fleet-card__dot--off {
+  background: #94a3b8;
+}
+
+.pax-fleet-card__bottom {
+  margin-top: 12px;
+  padding: 8px 6px 10px;
+}
+
+.pax-fleet-card__title {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #f8fafc;
+  text-align: center;
+  letter-spacing: 0.05em;
+  line-height: 1.25;
+  padding: 0 4px;
+}
+
+.pax-fleet-card__route-line {
+  margin: 6px 4px 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(170, 222, 243, 0.78);
+  text-align: center;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pax-fleet-card__row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  gap: 4px;
+}
+
+.pax-fleet-card__item {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  padding: 4px 2px;
+  color: rgba(170, 222, 243, 0.78);
+}
+
+.pax-fleet-card__item:nth-child(2) {
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pax-fleet-card__item-label {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.pax-fleet-card__big {
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: block;
+  color: #e2e8f0;
+  line-height: 1.25;
+  max-height: 2.6em;
+  overflow: hidden;
+}
+
+.pax-fleet-card__small {
+  display: block;
+  font-size: 0.58rem;
+  margin-top: 3px;
+  color: rgba(148, 163, 184, 0.78);
+  line-height: 1.2;
+  min-height: 2.4em;
+}
+
+.pax-fleet-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pax-fleet-card__meta {
+  font-size: 0.62rem;
+  color: rgba(148, 163, 184, 0.95);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Fleet horizontal strips (legacy; kept if reused elsewhere) */
+.pd-fare-fleet-section__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.pd-fare-fleet-section__sub {
+  margin: 0 0 1rem;
+  font-size: 0.78rem;
+  color: rgba(148, 163, 184, 0.9);
+  line-height: 1.45;
+}
+
+.pd-fare-fleet__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: min(42vh, 380px);
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.pd-fare-fleet__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pd-fare-fleet__list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+}
+
+.pd-fare-fleet__hint,
+.pd-fare-fleet__err {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(248, 250, 252, 0.65);
+}
+
+.pd-fare-fleet__err {
+  color: #fecaca;
+}
+
+.pd-fare-fleet__strip {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 8rem) 1fr auto;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.55);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+@media (max-width: 720px) {
+  .pd-fare-fleet__strip {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .pd-fare-fleet__strip-tail {
+    justify-content: space-between;
+  }
+}
+
+.pd-fare-fleet__strip--dim {
+  opacity: 0.72;
+  border-color: rgba(127, 29, 29, 0.22);
+}
+
+.pd-fare-fleet__strip-bus {
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #f8fafc;
+}
+
+.pd-fare-fleet__strip-route {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.92);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pd-fare-fleet__strip-tail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .pd-fare-fleet__strip-tail {
+    align-items: flex-start;
+  }
+}
+
+.pd-fare-fleet__strip-meta {
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.95);
+  text-align: right;
+  line-height: 1.35;
+}
+
+@media (max-width: 720px) {
+  .pd-fare-fleet__strip-meta {
+    text-align: left;
+  }
+}
+
+.pd-fare-fleet__pill {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pd-fare-fleet__pill--active {
+  background: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.2);
+}
+
+.pd-fare-fleet__pill--maint {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fcd34d;
+}
+
+.pd-fare-fleet__pill--inactive {
+  background: rgba(239, 68, 68, 0.08);
+  color: rgba(248, 113, 113, 0.72);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pd-fare-total--bump {
+    transform: none;
+  }
+
+  .pd-fare-chip,
+  .pd-fare-total {
+    transition: none;
+  }
+
+  .pax-fleet-card__shell {
+    transition: none;
+  }
+
+  .pax-fleet-card__shell:hover {
+    transform: none;
+  }
+}
+
+/* Left something? — uses shared .pd-fb-card* from PassengerTacticalPanels.css */

@@ -16,6 +16,8 @@ const portalUserSchema = new mongoose.Schema(
     firebaseUid: { type: String, default: null, index: true },
     photoURL: { type: String, default: null },
     authProvider: { type: String, enum: ["password", "google"], default: "password" },
+    /** Unique 6-digit personnel id (attendants); shared number space with drivers. */
+    employeeNumber: { type: String, default: null, sparse: true, unique: true, match: /^\d{6}$/ },
   },
   { timestamps: true, collection: "portal_users" }
 );

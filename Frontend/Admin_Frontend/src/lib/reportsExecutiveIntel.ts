@@ -1,6 +1,6 @@
 import type { ReportsAnalyticsDto } from "@/lib/types";
 
-export const SLIDE_UP = "#87A8DA";
+export const SLIDE_UP = "#3b82f6";
 export const SLIDE_DOWN = "#f87171";
 
 export type PctTrend = {
@@ -131,7 +131,11 @@ export function buildExecutiveForecastLine(d: ReportsAnalyticsDto): string {
   const gap = goal - proj;
   const corridor = d.insights.peakCorridorHint?.trim() || "primary corridors";
   if (mtd <= 0 && proj <= 0) {
-    return "AI forecast: Connect ticketing to model month-end trajectory and corridor actions.";
+    const tk = d.executive.totalTickets ?? 0;
+    if (tk <= 0) {
+      return "Forecast uses issued-ticket history. Once trips are recorded, month-end pace and corridor actions will reflect live data.";
+    }
+    return `Forecast: month-to-date revenue is still ramping on ${corridor}. As more shifts post fares, trajectory will tighten.`;
   }
   if (gap <= 0) {
     return `AI forecast: On track for ~₱${proj.toLocaleString(undefined, { maximumFractionDigits: 0 })} MTD pace — at or above ₱${goal.toLocaleString()} goal. Reinforce ${corridor} during peak windows.`;

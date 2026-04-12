@@ -1,8 +1,12 @@
-import { useEffect, useState, type MouseEvent, type MouseEventHandler } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type MouseEventHandler } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { GeofenceBreachAlert } from "@/components/GeofenceBreachAlert";
+import { TacticalNotificationSidebar } from "@/components/TacticalNotificationSidebar";
+import { SosResolveModal } from "@/components/SosCriticalOverlay";
+import { useTacticalNotifications } from "@/context/TacticalNotificationContext";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
+import { useSosInterceptOptional } from "@/context/SosInterceptContext";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import "./AdminLayout.css";
 
@@ -176,10 +180,41 @@ function getTopbarTitle(pathname: string) {
 export function AdminLayout() {
   const { logout, user } = useAuth();
   const { branding } = useAdminBranding();
+  const { showError } = useToast();
+  const sos = useSosInterceptOptional();
+  const tactical = useTacticalNotifications();
+  const { setSidebarOpen: setTacticalSidebarOpen } = tactical;
+  const lastAutoOpenSosId = useRef<string | null>(null);
   useSessionTimeout(branding.sessionTimeoutMinutes);
   const location = useLocation();
+  const isDashboardHome = location.pathname === "/dashboard" || location.pathname === "/dashboard/";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const toggleSidebar = () => setSidebarOpen((v) => !v);
+  const sosShellClass = sos?.activeIncident ? " admin-shell--sos-critical" : "";
+
+  useEffect(() => {
+    const onSpeed = (e: Event) => {
+      const d = (e as CustomEvent<{ busId?: string; speedKph?: number; message?: string }>).detail;
+      const bus = d?.busId != null ? String(d.busId) : "—";
+      const spd = d?.speedKph != null && Number.isFinite(Number(d.speedKph)) ? Math.round(Number(d.speedKph)) : null;
+      const msg =
+        d?.message && String(d.message).trim()
+          ? String(d.message).trim()
+          : `SPEED ALERT: ${bus} is traveling at ${spd ?? "?"} km/h`;
+      showError(msg, { durationMs: 12_000 });
+    };
+    window.addEventListener("admin-speed-violation", onSpeed);
+    return () => window.removeEventListener("admin-speed-violation", onSpeed);
+  }, [showError]);
+
+  useEffect(() => {
+    const id = sos?.activeIncident?.id ?? null;
+    if (id && lastAutoOpenSosId.current !== id) {
+      lastAutoOpenSosId.current = id;
+      setTacticalSidebarOpen(true);
+    }
+    if (!id) lastAutoOpenSosId.current = null;
+  }, [sos?.activeIncident?.id, setTacticalSidebarOpen]);
 
   useEffect(() => {
     const href = branding.faviconUrl?.trim();
@@ -217,7 +252,11 @@ export function AdminLayout() {
   };
 
   return (
-    <div className="admin-shell">
+    <div
+      className={
+        "admin-shell" + (isDashboardHome ? " admin-shell--dashboard-home" : "") + sosShellClass
+      }
+    >
       <div className="admin-shell__bg" aria-hidden />
       <aside className={"admin-sidebar" + (sidebarOpen ? " admin-sidebar--open" : "")} onClick={onSidebarClick}>
         <SidebarBrand open={sidebarOpen} onToggle={toggleSidebar} />
@@ -256,9 +295,18 @@ export function AdminLayout() {
         <header className="admin-topbar">
           <div className="admin-topbar__title">{getTopbarTitle(location.pathname)}</div>
           <div className="admin-topbar__right">
-            <button type="button" className="admin-topbar__bell" aria-label="Notifications">
+            <button
+              type="button"
+              className={"admin-topbar__bell" + (sos?.activeIncident ? " admin-topbar__bell--critical" : "")}
+              aria-label={tactical.sidebarOpen ? "Close tactical feed" : "Open tactical feed"}
+              aria-expanded={tactical.sidebarOpen}
+              onClick={() => tactical.toggleSidebar()}
+            >
               <IconBell />
-              <span className="admin-topbar__bell-dot" />
+              <span
+                className={"admin-topbar__bell-badge" + (sos?.activeIncident ? " admin-topbar__bell-badge--pulse" : "")}
+                aria-hidden
+              />
             </button>
             <div className="admin-topbar__identity">
               <div className="admin-topbar__meta-label">
@@ -285,7 +333,8 @@ export function AdminLayout() {
           <Outlet />
         </div>
       </main>
-      <GeofenceBreachAlert />
+      <TacticalNotificationSidebar />
+      <SosResolveModal />
     </div>
   );
 }

@@ -1,0 +1,54 @@
+.passenger-notif-fab {
+  position: fixed;
+  top: 1.7rem;
+  right: 2rem;
+  z-index: 120;
+}
+
+.passenger-notif-fab__btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(5, 16, 41, 0.88);
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  color: #e2e8f0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.passenger-notif-fab__btn:hover {
+  background: rgba(17, 35, 78, 0.95);
+  color: #fff;
+  box-shadow: 0 0 22px rgba(34, 211, 238, 0.18);
+}
+
+.passenger-notif-fab__btn:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.passenger-notif-fab__icon {
+  display: grid;
+  place-items: center;
+}
+
+.passenger-notif-fab__badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}

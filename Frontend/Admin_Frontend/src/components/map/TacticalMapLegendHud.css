@@ -1,0 +1,452 @@
+.tactical-map-hud-wrap {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  max-width: calc(100% - 5.5rem);
+  pointer-events: none;
+}
+
+.tactical-map-hud-wrap > * {
+  pointer-events: auto;
+}
+
+.tactical-map-hud-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.38rem 0.55rem 0.38rem 0.42rem;
+  border-radius: 10px;
+  border: 1px solid #1f5885;
+  background: rgba(2, 8, 23, 0.92);
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.tactical-map-hud-trigger:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #e2e8f0;
+  box-shadow: 0 4px 28px rgba(34, 211, 238, 0.12);
+}
+
+.tactical-map-hud-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45), 0 4px 24px rgba(0, 0, 0, 0.45);
+}
+
+.tactical-map-hud-trigger__glyph {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(31, 88, 133, 0.5), rgba(2, 8, 23, 0.9));
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #7dd3fc;
+}
+
+.tactical-map-hud-trigger__label {
+  padding-right: 0.15rem;
+}
+
+.tactical-map-hud {
+  width: min(400px, calc(100vw - 2rem));
+  max-height: min(72vh, 520px);
+  overflow: auto;
+  border: 1px solid #1f5885;
+  background: #020817;
+  border-radius: 4px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.35);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(31, 88, 133, 0.8) transparent;
+}
+
+.tactical-map-hud::-webkit-scrollbar {
+  width: 5px;
+}
+
+.tactical-map-hud::-webkit-scrollbar-thumb {
+  background: rgba(31, 88, 133, 0.85);
+  border-radius: 4px;
+}
+
+.tactical-map-hud__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.5rem 0.4rem;
+  border-bottom: 1px solid #1f5885;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.tactical-map-hud__title {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #38bdf8;
+}
+
+.tactical-map-hud__close {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.tactical-map-hud__close:hover {
+  color: #f1f5f9;
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.tactical-map-hud-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.68rem;
+  color: #cbd5e1;
+}
+
+.tactical-map-hud-table th,
+.tactical-map-hud-table td {
+  border: 1px solid #1f5885;
+  padding: 0.42rem 0.45rem;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.tactical-map-hud-table thead th {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.tactical-map-hud-table__status {
+  min-width: 7.5rem;
+}
+
+.tactical-map-hud-table__cat {
+  font-weight: 700;
+  color: #e2e8f0;
+  white-space: nowrap;
+  max-width: 6.5rem;
+}
+
+.tactical-map-hud-table tbody tr:nth-child(even) td {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.tactical-map-hud-table--layers .tactical-map-hud-table__cat {
+  width: 32%;
+  vertical-align: top;
+}
+
+.tactical-map-hud-table__desc {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.62rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.tactical-map-hud-table__sub {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.58rem;
+  opacity: 0.85;
+  letter-spacing: 0.04em;
+}
+
+.tactical-map-hud-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.tactical-map-hud__section-label {
+  margin: 0;
+  padding: 0.4rem 0.5rem 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #a5b4fc;
+  border-top: 1px solid #1f5885;
+  background: rgba(2, 8, 23, 0.98);
+}
+
+.tactical-map-hud-table--layers tbody td:first-child {
+  border-right: 1px solid #1f5885;
+}
+
+.tactical-map-hud-pill {
+  display: inline-block;
+  padding: 0.12rem 0.32rem;
+  margin: 0 0.08rem;
+  border-radius: 3px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+
+.tactical-map-hud-pill--orange {
+  background: rgba(251, 146, 60, 0.18);
+  border-color: rgba(251, 146, 60, 0.45);
+  color: #fdba74;
+}
+
+.tactical-map-hud-pill--cyan {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.4);
+  color: #67e8f9;
+}
+
+.tactical-map-hud-pill--red {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+}
+
+.tactical-map-hud-pill--green {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.tactical-map-hud-pill--amber {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+.tactical-map-hud-pill--redbright {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.tactical-map-hud-fare {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.15rem;
+}
+
+.tactical-map-hud-fare-sep {
+  color: #475569;
+  font-weight: 700;
+}
+
+.tactical-map-hud__foot {
+  margin: 0;
+  padding: 0.45rem 0.5rem 0.55rem;
+  font-size: 0.58rem;
+  line-height: 1.4;
+  color: #64748b;
+  border-top: 1px solid #1f5885;
+  letter-spacing: 0.02em;
+}
+
+/* Indicator column visuals */
+.tactical-hud-ind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 36px;
+}
+
+.tactical-hud-ind--terminal {
+  gap: 4px;
+}
+
+.tactical-hud-ind__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.tactical-hud-ind__dot--high {
+  background: #ef4444;
+  color: #ef4444;
+}
+
+.tactical-hud-ind__dot--med {
+  background: #f59e0b;
+  color: #f59e0b;
+}
+
+.tactical-hud-ind__dot--low {
+  background: #22c55e;
+  color: #22c55e;
+}
+
+.tactical-hud-ind--gps {
+  position: relative;
+}
+
+.tactical-hud-ind__pulse {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #22d3ee 0%, #0891b2 100%);
+  box-shadow:
+    0 0 0 2px rgba(34, 211, 238, 0.45),
+    0 0 14px rgba(34, 211, 238, 0.5);
+  animation: tactical-hud-gps-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes tactical-hud-gps-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.88;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tactical-hud-ind__pulse {
+    animation: none;
+  }
+}
+
+.tactical-hud-ind--sos {
+  position: relative;
+  width: 28px;
+  height: 28px;
+}
+
+.tactical-hud-ind__sos-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(225, 29, 72, 0.85);
+  border-radius: 50%;
+  animation: tactical-hud-sos-ring 1.35s ease-in-out infinite;
+}
+
+.tactical-hud-ind__sos-core {
+  position: absolute;
+  inset: 6px;
+  background: #e11d48;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.65);
+}
+
+@keyframes tactical-hud-sos-ring {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.65;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tactical-hud-ind__sos-ring {
+    animation: none;
+  }
+}
+
+.tactical-hud-ind--waypoint {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #7c3aed;
+  border: 2px solid #c4b5fd;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.45);
+}
+
+.tactical-hud-ind--arrival {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+
+.tactical-hud-ind__arrival-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(52, 211, 153, 0.9);
+  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.35) 0%, transparent 70%);
+  animation: tactical-hud-arrival-pulse 1.2s ease-out infinite;
+}
+
+@keyframes tactical-hud-arrival-pulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+.tactical-hud-ind--speed {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+.tactical-hud-ind__speed-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(145deg, #ef4444, #991b1b);
+  box-shadow:
+    0 0 0 2px rgba(254, 202, 202, 0.85),
+    0 0 12px rgba(239, 68, 68, 0.75);
+  animation: tactical-hud-speed-pulse 0.75s ease-out infinite;
+}
+
+@keyframes tactical-hud-speed-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.92;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tactical-hud-ind__arrival-ring,
+  .tactical-hud-ind__speed-core {
+    animation: none;
+  }
+}

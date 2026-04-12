@@ -1,0 +1,67 @@
+.fleet-sat-ring {
+  position: relative;
+  width: min(240px, 100%);
+  aspect-ratio: 1;
+  max-width: 240px;
+  flex-shrink: 0;
+}
+
+.fleet-sat-ring__svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 22px rgba(34, 211, 238, 0.28));
+}
+
+.fleet-sat-ring__track {
+  fill: none;
+  stroke: rgba(15, 23, 42, 0.98);
+  stroke-width: 11;
+}
+
+.fleet-sat-ring__arc {
+  fill: none;
+  stroke-width: 11;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fleet-sat-ring__core {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  padding: 0 0.75rem;
+}
+
+.fleet-sat-ring__pct {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: clamp(1.65rem, 4vw, 2rem);
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.fleet-sat-ring__sub {
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(125, 211, 252, 0.95);
+}
+
+.fleet-sat-ring__cap {
+  margin-top: 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(148, 163, 184, 0.9);
+  max-width: 11rem;
+  line-height: 1.35;
+}

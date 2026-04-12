@@ -1,0 +1,68 @@
+#ifndef TA7670E_WIFI_CONFIG_H
+#define TA7670E_WIFI_CONFIG_H
+
+// -----------------------------------------------------------------------------
+// Wi-Fi — same LAN as your PC running Admin_Backend (adjust IP / port)
+// -----------------------------------------------------------------------------
+#define WIFI_SSID "Your_WiFi_Name"
+#define WIFI_PASSWORD "Your_Password"
+
+/** Full URL: http://SERVER_HOST:SERVER_PORT SERVER_PATH — PORT must match Admin_Backend .env PORT (often 4001). */
+#define SERVER_HOST "192.168.1.60"  // your PC Wi-Fi IPv4 from ipconfig (changes if DHCP)
+#define SERVER_PORT 4001
+#define SERVER_PATH "/api/buses/hardware-telemetry"
+
+/** Retry / cadence (ms) — same delay after GNSS wait, Wi-Fi failure, or non-2xx HTTP */
+#define POST_INTERVAL_MS 5000
+
+/** Must match Backend/Admin_Backend .env DEVICE_INGEST_SECRET (leave "" if unset on server) */
+#define DEVICE_INGEST_SECRET ""
+
+// -----------------------------------------------------------------------------
+// A7670E UART (verify pins on your LilyGO T-A7670E schematic — often 32/33 or 26/27)
+// -----------------------------------------------------------------------------
+#define MODEM_RX_PIN 32
+#define MODEM_TX_PIN 33
+#define MODEM_BAUD 115200
+
+// -----------------------------------------------------------------------------
+// GNSS — A7670E (SIM7670-class). Tune indices if your AT+CGNSSINFO CSV layout differs.
+// Indoors you may only get 3 sats — use 3 here if POST never happens.
+// -----------------------------------------------------------------------------
+/** More satellites → better geometry (when sky allows). Use 5–6 for stricter fixes. */
+#define GPS_MIN_SATS 4
+#define GNSS_WARMUP_MS 20000
+
+/**
+ * Running average of this many consecutive fixes before uploading (reduces map jitter).
+ * 1 = no smoothing. 3–5 is typical. Uses more RAM; caps at 8 in firmware.
+ */
+#define GPS_SMOOTH_SAMPLES 4
+
+/** After CGNSSPWR=1, try multi-constellation (SIM7670-class). Set 0 if modem returns ERROR. */
+#define GNSS_ENABLE_MULTI_CONSTELLATION 1
+
+/** Set to 1 to test Wi-Fi + HTTP + IMEI only (no GNSS). Uses TEST_LAT / TEST_LON. */
+#ifndef DEBUG_WIFI_ONLY_POST
+#define DEBUG_WIFI_ONLY_POST 0
+#endif
+#define TEST_LAT 8.1477
+#define TEST_LON 125.1324
+
+/** Print full modem reply after AT+CGNSSINFO when parsing fails (helps fix CSV layout). */
+#ifndef GNSS_RAW_DEBUG
+#define GNSS_RAW_DEBUG 1
+#endif
+
+/** Set true if the speed field from AT+CGNSSINFO is in m/s (common); false if already km/h */
+#define GNSS_SPEED_FIELD_IS_MPS true
+#define GNSS_SPEED_FIELD_INDEX 7
+
+/**
+ * 0 = lat/lon fields are already decimal degrees (e.g. 8.1477).
+ * 1 = fields are NMEA-style DDMM.MMMM / DDDMM.MMMM (e.g. 0812.3456 = 8°12.3456'N).
+ * ~1–5+ km error usually means wrong format — toggle 0 ↔ 1, test outdoors, compare to Maps.
+ */
+#define GNSS_COORDS_DDMM_FORMAT 0
+
+#endif

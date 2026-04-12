@@ -1,7 +1,22 @@
 /* Neo dark admin shell — sidebar + main (Hyper-style) */
 
+/* Full-dashboard SOS intercept — solid red border flash (enterprise safety) */
+.admin-shell--sos-critical {
+  animation: admin-shell-sos-flash 1.25s ease-in-out infinite;
+}
+
+@keyframes admin-shell-sos-flash {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 3px rgba(225, 29, 72, 0.95);
+  }
+  50% {
+    box-shadow: inset 0 0 0 5px rgba(248, 113, 113, 1), 0 0 42px rgba(225, 29, 72, 0.35);
+  }
+}
+
 .admin-shell {
-  --neo-bg: #06080d;
+  --neo-bg: #040e23;
   --neo-surface: transparent;
   --neo-panel: rgba(18, 24, 38, 0.72);
   --neo-border: rgba(100, 120, 200, 0.18);
@@ -29,11 +44,20 @@
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(34, 211, 238, 0.08), transparent 45%),
-    radial-gradient(ellipse 50% 35% at 0% 100%, rgba(232, 121, 249, 0.1), transparent 50%),
-    linear-gradient(180deg, #050810 0%, #0a0f1a 50%, #050810 100%);
+    radial-gradient(ellipse 80% 55% at 55% -25%, rgba(34, 211, 238, 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 110% 0%, rgba(74, 107, 190, 0.12), transparent 45%),
+    radial-gradient(ellipse 55% 40% at -10% 105%, rgba(99, 102, 241, 0.08), transparent 52%),
+    linear-gradient(180deg, #040e23 0%, #061a3a 45%, #020817 100%);
   z-index: 0;
+}
+
+/* Ensure page wrappers don't paint over the updated shell gradient */
+.locations-page,
+.command-center,
+.admin-mgmt,
+.reports-page,
+.admin-settings {
+  background: transparent;
 }
 
 .admin-sidebar {
@@ -274,6 +298,33 @@
   -webkit-backdrop-filter: none;
 }
 
+/* Dashboard-only: restore classic black chrome for topbar + sidebar */
+.admin-shell--dashboard-home .admin-sidebar {
+  background: linear-gradient(
+      180deg,
+      rgba(5, 8, 16, 0.55) 0%,
+      rgba(5, 8, 18, 0.78) 45%,
+      rgba(5, 8, 22, 0.88) 100%
+    ),
+    #0b0e14;
+  box-shadow: none;
+}
+
+.admin-shell--dashboard-home .admin-topbar {
+  background: linear-gradient(
+      180deg,
+      rgba(5, 8, 16, 0.55) 0%,
+      rgba(5, 8, 18, 0.78) 45%,
+      rgba(5, 8, 22, 0.88) 100%
+    ),
+    #0b0e14;
+  border-bottom: none;
+}
+
+.admin-shell--dashboard-home .admin-topbar__identity {
+  border-left: none;
+}
+
 .admin-topbar__title {
   font-size: 1.15rem;
   font-weight: 800;
@@ -300,26 +351,74 @@
 
 .admin-topbar__bell {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  border: 1px solid var(--neo-border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--neo-text);
+  border-radius: 999px;
+  border: 1px solid rgba(30, 41, 59, 0.95);
+  background: linear-gradient(165deg, #0b0e14 0%, #121a2a 55%, #0d1320 100%);
+  color: #e2e8f0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.admin-topbar__bell-dot {
+.admin-topbar__bell:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(14, 165, 233, 0.22),
+    0 0 24px rgba(14, 165, 233, 0.28);
+  color: #7dd3fc;
+}
+
+.admin-topbar__bell--critical {
+  border-color: rgba(225, 29, 72, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 20px rgba(225, 29, 72, 0.18);
+}
+
+.admin-topbar__bell-badge {
   position: absolute;
-  top: 7px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
+  top: 9px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
+  background: rgba(148, 163, 184, 0.85);
+  pointer-events: none;
+}
+
+.admin-topbar__bell-badge--pulse {
   background: #ef4444;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+  animation: admin-bell-sos-pulse 1.75s ease-in-out infinite;
+}
+
+@keyframes admin-bell-sos-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    transform: scale(1);
+  }
+  55% {
+    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-topbar__bell-badge--pulse {
+    animation: none;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.65);
+  }
 }
 
 .admin-topbar__identity {
@@ -376,6 +475,14 @@
 .admin-content::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+/* Dashboard full-viewport scroll-snap: only the inner scroller scrolls */
+.admin-content:has(.dash-mission) {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
 }
 
 .admin-shell * {
@@ -485,8 +592,4 @@
 
 [data-theme="light"] .admin-main {
   background: transparent;
-}
-
-[data-theme="light"] .admin-topbar {
-  background: var(--neo-surface);
 }

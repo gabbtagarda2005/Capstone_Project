@@ -1,4 +1,8 @@
+import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import img1 from "@/Image/1.jpg";
+import img2 from "@/Image/2.jpg";
+import img3 from "@/Image/3.jpg";
 import "./LandingPage.css";
 
 const ShieldIcon = () => (
@@ -20,6 +24,78 @@ const ShieldIcon = () => (
   </svg>
 );
 
+const part1Bg: CSSProperties = {
+  backgroundColor: "#020617",
+  backgroundImage: `linear-gradient(
+      90deg,
+      rgba(2, 6, 23, 0.82) 0%,
+      rgba(2, 6, 23, 0.42) 45%,
+      rgba(2, 6, 23, 0.42) 55%,
+      rgba(2, 6, 23, 0.82) 100%
+    ),
+    url(${img2}),
+    url(${img1})`,
+  backgroundSize: "100% 100%, 50% 100%, 50% 100%",
+  backgroundPosition: "center, left center, right center",
+  backgroundRepeat: "no-repeat, no-repeat, no-repeat",
+};
+
+const part2Bg: CSSProperties = {
+  backgroundColor: "#020617",
+  backgroundImage: `linear-gradient(
+      180deg,
+      rgba(2, 6, 23, 0.97) 0%,
+      rgba(2, 6, 23, 0.78) 18%,
+      rgba(2, 6, 23, 0.72) 45%,
+      rgba(2, 6, 23, 0.88) 100%
+    ),
+    url(${img3})`,
+  backgroundSize: "cover, cover",
+  backgroundPosition: "center, center",
+  backgroundRepeat: "no-repeat, no-repeat",
+};
+
+const passengerTrackBase =
+  (import.meta.env.VITE_PASSENGER_APP_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:5174";
+
+const ROADMAP_STEPS = [
+  {
+    title: "Q1: Foundation",
+    items: ["Admin API + Mongo ingest", "Live map prototype", "Bus Attendant auth baseline"],
+    side: "above" as const,
+    xPct: 17.3,
+    yPct: 72.4,
+  },
+  {
+    title: "Q2: Terminal scale",
+    items: ["Ticketing SQL + revenue cards", "Passenger web ETA", "Geofence events"],
+    side: "below" as const,
+    xPct: 42.3,
+    yPct: 72.4,
+  },
+  {
+    title: "Q3: Field apps",
+    items: ["Bus Attendant mobile hardening", "OTA firmware pipeline", "Push notifications"],
+    side: "above" as const,
+    xPct: 42.3,
+    yPct: 51.7,
+  },
+  {
+    title: "Q4: Hardening",
+    items: ["Audit exports", "Performance & SLAs", "Disaster backups"],
+    side: "below" as const,
+    xPct: 67.3,
+    yPct: 51.7,
+  },
+  {
+    title: "Beyond",
+    items: ["Inter-city routes", "Analytics & ML assist", "Continuous growth"],
+    side: "above" as const,
+    xPct: 67.3,
+    yPct: 31,
+  },
+];
+
 export function LandingPage() {
   return (
     <div className="landing-page">
@@ -30,195 +106,162 @@ export function LandingPage() {
         </Link>
       </header>
 
-      <section className="landing-hero">
-        <div className="landing-hero__grid">
-          <div>
-            <p className="landing-hero__eyebrow">Real-time · IoT · Operations</p>
-            <h1 className="landing-hero__title">
-              Welcome to <span>Bukidnon Bus Command</span>
-            </h1>
-            <p className="landing-hero__desc">
-              A distributed transport platform for Bukidnon: LilyGo GPS ingestion, live fleet maps, operator
-              ticketing, and admin oversight — built so passengers, drivers, and control room stay in sync.
-            </p>
-            <Link to="/login" className="landing-hero__go">
-              Let&apos;s GO ↗
-            </Link>
-          </div>
-          <div className="landing-hero__visual" aria-hidden>
-            <div className="landing-hero__ring" />
-            <div className="landing-hero__ring2" />
-            <div className="landing-hero__core">
-              <ShieldIcon />
+      <section className="landing-part landing-part--1" style={part1Bg} aria-label="Welcome">
+        <div className="landing-part--1__inner">
+          <div className="landing-hero__grid">
+            <div className="landing-hero__copy">
+              <p className="landing-hero__eyebrow">Real-time · IoT · Operations</p>
+              <h1 className="landing-hero__title">
+                Welcome to <span>Bukidnon Bus Command</span>
+              </h1>
+              <p className="landing-hero__desc">
+                A distributed transport platform for Bukidnon: LilyGo GPS ingestion, live fleet maps, Bus Attendant
+                ticketing, and admin oversight, built so passengers, drivers, and control room stay in sync.
+              </p>
+              <div className="landing-hero__actions">
+                <Link to="/login" className="landing-hero__go">
+                  Get Started ↗
+                </Link>
+                <span className="landing-hero__actions-or">or</span>
+                <a href={`${passengerTrackBase}/`} className="landing-hero__go">
+                  Track Bus ↗
+                </a>
+              </div>
+            </div>
+            <div className="landing-hero__visual" aria-hidden>
+              <div className="landing-hero__ring" />
+              <div className="landing-hero__ring2" />
+              <div className="landing-hero__core">
+                <ShieldIcon />
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="landing-section">
-        <div className="landing-section__head">
-          <h2>Why operators choose this stack</h2>
-          <p>Secure workflows, transparent fares, and hardware you can trust on the road.</p>
-        </div>
-        <div className="landing-cards">
-          <article className="landing-card">
-            <div className="landing-card__icon" aria-hidden>
-              📡
+      <section className="landing-part landing-part--2" style={part2Bg} aria-label="Overview and roadmap">
+        <div className="landing-part--2__shell">
+          <section className="landing-section landing-section--operational">
+            <div className="landing-section__head">
+              <h2>Operational mix</h2>
+              <p>How effort typically splits across the ecosystem (illustrative for planning).</p>
             </div>
-            <h3>Live fleet intelligence</h3>
-            <p>
-              GPS pings land in the cloud, broadcast over WebSockets, and render as moving markers — no manual
-              refresh on the admin map.
-            </p>
-          </article>
-          <article className="landing-card">
-            <div className="landing-card__icon" aria-hidden>
-              🎫
+            <div className="landing-split">
+              <div className="landing-donut-wrap">
+                <div className="landing-donut" />
+                <div className="landing-donut__hole">
+                  Fleet &amp;
+                  <br />
+                  passenger
+                </div>
+              </div>
+              <ul className="landing-bullets">
+                <li>
+                  <strong>35%: Tracking &amp; maps</strong>
+                  <br />
+                  Ingest, validate, and visualize bus positions for admins and passengers.
+                </li>
+                <li>
+                  <strong>25%: Terminal ticketing</strong>
+                  <br />
+                  Issue tickets, enforce fixed fares, and keep Bus Attendant attribution on every row.
+                </li>
+                <li>
+                  <strong>15%: Geofences &amp; alerts</strong>
+                  <br />
+                  Stops, proximity, and optional push when a bus nears a passenger.
+                </li>
+                <li>
+                  <strong>15%: Hardware &amp; OTA</strong>
+                  <br />
+                  LilyGo firmware paths and safe rollout to field devices.
+                </li>
+                <li>
+                  <strong>10%: Reporting &amp; audits</strong>
+                  <br />
+                  Filters by day, month, and range for cash-drawer alignment.
+                </li>
+              </ul>
             </div>
-            <h3>Ticketing with accountability</h3>
-            <p>
-              Every passenger record stores route, fare, and the operator name at issue time — so audits and
-              revenue totals stay defensible.
-            </p>
-          </article>
-          <article className="landing-card">
-            <div className="landing-card__icon" aria-hidden>
-              🛡️
+          </section>
+
+          <section className="landing-section landing-roadmap" aria-labelledby="landing-roadmap-title">
+            <div className="landing-section__head">
+              <h2 id="landing-roadmap-title">Roadmap</h2>
+              <p>From first ping to province-wide reliability.</p>
             </div>
-            <h3>Controlled admin access</h3>
-            <p>
-              Role-based admin sign-in, session tokens, and recovery flows — built for terminal operations, not
-              anonymous dashboards.
-            </p>
-          </article>
+
+            <div className="landing-roadmap__canvas">
+              <div className="landing-roadmap__stage">
+              <svg
+                className="landing-roadmap__svg"
+                viewBox="0 0 520 580"
+                preserveAspectRatio="xMidYMid meet"
+                aria-hidden
+              >
+                <defs>
+                  <linearGradient id="lp-roadmap-glow" x1="0%" y1="0%" x2="100%" y2="0%" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#e879f9" />
+                    <stop offset="45%" stopColor="#22d3ee" />
+                    <stop offset="100%" stopColor="#38bdf8" />
+                  </linearGradient>
+                </defs>
+                <path
+                  className="landing-roadmap__path-glow"
+                  d="M 90 520 L 90 420 L 220 420 L 220 300 L 350 300 L 350 180 L 500 180"
+                  fill="none"
+                  stroke="url(#lp-roadmap-glow)"
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.35"
+                />
+                <path
+                  className="landing-roadmap__path"
+                  d="M 90 520 L 90 420 L 220 420 L 220 300 L 350 300 L 350 180 L 500 180"
+                  fill="none"
+                  stroke="url(#lp-roadmap-glow)"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle className="landing-roadmap__dot" cx="90" cy="520" r="7" fill="#f0f9ff" />
+                <circle className="landing-roadmap__dot" cx="90" cy="420" r="7" fill="#f0f9ff" />
+                <circle className="landing-roadmap__dot" cx="220" cy="420" r="7" fill="#f0f9ff" />
+                <circle className="landing-roadmap__dot" cx="220" cy="300" r="7" fill="#f0f9ff" />
+                <circle className="landing-roadmap__dot" cx="350" cy="300" r="7" fill="#f0f9ff" />
+                <circle className="landing-roadmap__dot" cx="350" cy="180" r="7" fill="#f0f9ff" />
+                <circle className="landing-roadmap__dot" cx="500" cy="180" r="7" fill="#f0f9ff" />
+              </svg>
+
+              <span className="landing-roadmap__pill landing-roadmap__pill--start">2025</span>
+              <span className="landing-roadmap__pill landing-roadmap__pill--end">2026</span>
+
+              {ROADMAP_STEPS.map((step) => (
+                <div
+                  key={step.title}
+                  className={`landing-roadmap__anchor landing-roadmap__anchor--${step.side}`}
+                  style={{ left: `${step.xPct}%`, top: `${step.yPct}%` }}
+                >
+                  <article className={`landing-roadmap__card landing-roadmap__card--${step.side}`}>
+                    <h3 className="landing-roadmap__card-title">{step.title}</h3>
+                    <ul className="landing-roadmap__card-list">
+                      {step.items.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </article>
+                </div>
+              ))}
+              </div>
+            </div>
+          </section>
+
+          <footer className="landing-footer">
+            <p className="landing-footer__copy">© 2026 Bukidnon Transit · Capstone Project.</p>
+          </footer>
         </div>
       </section>
-
-      <section className="landing-section">
-        <div className="landing-section__head">
-          <h2>Operational mix</h2>
-          <p>How effort typically splits across the ecosystem (illustrative for planning).</p>
-        </div>
-        <div className="landing-split">
-          <div className="landing-donut-wrap">
-            <div className="landing-donut" />
-            <div className="landing-donut__hole">
-              Fleet &amp;
-              <br />
-              passenger
-            </div>
-          </div>
-          <ul className="landing-bullets">
-            <li>
-              <strong>35% — Tracking &amp; maps</strong>
-              <br />
-              Ingest, validate, and visualize bus positions for admins and passengers.
-            </li>
-            <li>
-              <strong>25% — Terminal ticketing</strong>
-              <br />
-              Issue tickets, enforce fixed fares, and keep operator attribution on every row.
-            </li>
-            <li>
-              <strong>15% — Geofences &amp; alerts</strong>
-              <br />
-              Stops, proximity, and optional push when a bus nears a passenger.
-            </li>
-            <li>
-              <strong>15% — Hardware &amp; OTA</strong>
-              <br />
-              LilyGo firmware paths and safe rollout to field devices.
-            </li>
-            <li>
-              <strong>10% — Reporting &amp; audits</strong>
-              <br />
-              Filters by day, month, and range for cash-drawer alignment.
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section className="landing-section landing-roadmap">
-        <div className="landing-roadmap__bg" aria-hidden>
-          2025
-        </div>
-        <div className="landing-section__head">
-          <h2>Roadmap</h2>
-          <p>From first ping to province-wide reliability.</p>
-        </div>
-        <div className="landing-timeline">
-          <div className="landing-timeline__item">
-            <h4>Q1 — Foundation</h4>
-            <ul>
-              <li>Admin API + Mongo ingest</li>
-              <li>Live map prototype</li>
-              <li>Operator auth baseline</li>
-            </ul>
-          </div>
-          <div className="landing-timeline__item">
-            <h4>Q2 — Terminal scale</h4>
-            <ul>
-              <li>Ticketing SQL + revenue cards</li>
-              <li>Passenger web ETA</li>
-              <li>Geofence events</li>
-            </ul>
-          </div>
-          <div className="landing-timeline__item">
-            <h4>Q3 — Field apps</h4>
-            <ul>
-              <li>Operator mobile hardening</li>
-              <li>OTA firmware pipeline</li>
-              <li>Push notifications</li>
-            </ul>
-          </div>
-          <div className="landing-timeline__item">
-            <h4>Q4 — Hardening</h4>
-            <ul>
-              <li>Audit exports</li>
-              <li>Performance &amp; SLAs</li>
-              <li>Disaster backups</li>
-            </ul>
-          </div>
-          <div className="landing-timeline__item">
-            <h4>Beyond</h4>
-            <ul>
-              <li>Inter-city routes</li>
-              <li>Analytics &amp; ML assist</li>
-              <li>Continuous growth</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-paper">
-        <div className="landing-paper__inner">
-          <div>
-            <h3>Bukidnon Transport — Architecture brief</h3>
-            <p>System diagram, data flows, and collection map for your capstone defense.</p>
-          </div>
-          <a
-            className="landing-paper__btn"
-            href="mailto:bukidnonbuscompany2025@gmail.com?subject=Architecture%20brief%20request"
-          >
-            <span aria-hidden>⬇</span>
-            Request document
-          </a>
-        </div>
-      </section>
-
-      <footer className="landing-footer">
-        <div className="landing-footer__row">
-          <h3>Join the project</h3>
-          <div className="landing-footer__actions">
-            <a className="landing-footer__pill" href="mailto:bukidnonbuscompany2025@gmail.com">
-              <span aria-hidden>✈</span> Company inbox
-            </a>
-            <a className="landing-footer__pill" href="mailto:2301108330@student.buksu.edu.ph">
-              <span aria-hidden>🎓</span> Student dev
-            </a>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

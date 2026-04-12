@@ -16,6 +16,8 @@ const attendantRegistrySchema = new mongoose.Schema(
     verifiedViaOtpAt: { type: Date, default: () => new Date() },
     mysqlOperatorId: { type: Number, default: null, index: true },
     portalUserId: { type: mongoose.Schema.Types.ObjectId, ref: "PortalUser", default: null },
+    /** Same value as bus_operators.employee_id when MySQL; mirrors PortalUser.employeeNumber for Mongo path. */
+    employeeNumber: { type: String, default: null, sparse: true, unique: true, match: /^\d{6}$/ },
   },
   { timestamps: true, collection: "attendant_registry" }
 );

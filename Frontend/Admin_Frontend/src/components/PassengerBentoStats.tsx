@@ -67,7 +67,6 @@ export function PassengerBentoStats({ totalTicketCount, filteredRevenue, filtere
             Matching filters: {fmtCompactRecords(filteredCount)}
           </span>
         </div>
-        <div className="passenger-bento__card-sub">Total revenue (filtered)</div>
       </article>
     </div>
   );

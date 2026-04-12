@@ -30,6 +30,14 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 body {
@@ -280,4 +288,273 @@ button {
   background: transparent;
   color: var(--accent) !important;
   border: 1px solid var(--border);
+}
+
+/* SweetAlert2 — match admin light/dark tokens */
+.app-swal-popup.swal2-popup {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  font-family: inherit;
+  padding: 1.35rem 1.25rem 1.1rem;
+}
+
+.app-swal-popup .swal2-title {
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0 0 0.35rem;
+}
+
+.admin-swal-popup .swal2-html-container,
+.admin-swal-popup .swal2-content {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.app-swal-popup .swal2-actions {
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.app-swal-confirm.swal2-styled,
+.app-swal-cancel.swal2-styled {
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.55rem 1.15rem;
+  margin: 0;
+}
+
+.app-swal-confirm.swal2-styled {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.app-swal-cancel.swal2-styled {
+  background: transparent !important;
+  color: var(--muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.app-swal-popup .swal2-icon.swal2-warning {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: var(--danger);
+}
+
+/* Critical destructive dialog — solid obsidian shell, high-contrast frame (bus delete registry) */
+.app-swal-glass-backdrop.swal2-container {
+  background: rgba(2, 6, 12, 0.72) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.app-swal-popup.app-swal-popup--glass.swal2-popup {
+  position: relative;
+  overflow: hidden;
+  max-width: 26rem !important;
+  width: calc(100% - 2rem) !important;
+  background: #0a0e14 !important;
+  border: 1px solid rgba(148, 163, 184, 0.45) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(15, 23, 42, 0.9) inset !important;
+  color: #f8fafc;
+  padding: 1.6rem 1.4rem 1.15rem !important;
+}
+
+/* Danger accent rail — separates critical delete context from body */
+.app-swal-popup--glass.swal2-popup::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #7f1d1d;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.55);
+  pointer-events: none;
+}
+
+.app-swal-popup--glass .swal2-title {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: 1.22rem !important;
+  letter-spacing: -0.025em;
+  line-height: 1.25 !important;
+  padding: 0.15rem 0 0.55rem !important;
+  text-align: left !important;
+}
+
+.app-swal-popup--glass .swal2-html-container {
+  color: rgba(226, 232, 240, 0.88) !important;
+  font-size: 0.9rem !important;
+  line-height: 1.55 !important;
+  text-align: left !important;
+  margin: 0 !important;
+  padding: 0 0 0.75rem !important;
+}
+
+.app-swal-popup--glass .swal2-html-container strong {
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.app-swal-popup--glass .swal2-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0.75rem 0 0 !important;
+  padding: 0.72rem 0.95rem !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.4) !important;
+  background: #020617 !important;
+  color: #f8fafc !important;
+  font-size: 0.94rem !important;
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.32),
+    0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.app-swal-popup--glass .swal2-input::placeholder {
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.app-swal-popup--glass .swal2-input:focus {
+  border-color: rgba(34, 211, 238, 0.45) !important;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 3px rgba(34, 211, 238, 0.2) !important;
+  outline: none !important;
+}
+
+.app-swal-popup--glass .swal2-validation-message {
+  margin-top: 0.5rem !important;
+  padding: 0.45rem 0.55rem !important;
+  border-radius: 8px !important;
+  background: rgba(127, 29, 29, 0.35) !important;
+  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+  color: #fecaca !important;
+  font-size: 0.82rem !important;
+}
+
+/* Action bar — Cancel first, Delete second; high-contrast separator */
+.app-swal-popup--glass .swal2-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  margin: 1.35rem 0 0 !important;
+  padding: 1.2rem 0 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  gap: 0.7rem !important;
+  border-top: 1px solid rgba(148, 163, 184, 0.28) !important;
+  background: transparent;
+  border-radius: 0;
+}
+
+.app-swal-popup--glass .swal2-actions button {
+  flex: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+/* SweetAlert may render confirm before cancel — keep Cancel visually first */
+.app-swal-popup--glass .swal2-actions .swal2-cancel {
+  order: 1;
+}
+
+.app-swal-popup--glass .swal2-actions .swal2-confirm {
+  order: 2;
+}
+
+/* Delete bus — solid crimson, glowing red border, high-contrast white label */
+.app-swal-confirm--danger.swal2-styled {
+  background: #7f1d1d !important;
+  color: #ffffff !important;
+  border: 1px solid #f87171 !important;
+  font-weight: 700 !important;
+  font-size: 0.875rem !important;
+  letter-spacing: 0.03em;
+  padding: 0.88rem 1.25rem !important;
+  min-height: 3rem !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 0 0 1px rgba(248, 113, 113, 0.35),
+    0 0 20px rgba(239, 68, 68, 0.45),
+    0 6px 18px rgba(0, 0, 0, 0.4) !important;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.12s ease;
+}
+
+.app-swal-confirm--danger.swal2-styled:hover {
+  background: #991b1b !important;
+  border-color: #fca5a5 !important;
+  box-shadow:
+    0 0 0 1px rgba(252, 165, 165, 0.5),
+    0 0 26px rgba(248, 113, 113, 0.55),
+    0 8px 22px rgba(0, 0, 0, 0.45) !important;
+}
+
+.app-swal-confirm--danger.swal2-styled:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 0 12px rgba(239, 68, 68, 0.35),
+    0 3px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.app-swal-confirm--danger.swal2-styled:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 3px rgba(248, 113, 113, 0.45),
+    0 0 22px rgba(239, 68, 68, 0.5),
+    0 6px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Cancel — solid slate #334155, 1px gray border (back out without changes) */
+.app-swal-cancel--glass.swal2-styled {
+  background: #334155 !important;
+  color: #f8fafc !important;
+  border: 1px solid #64748b !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  letter-spacing: 0.025em;
+  padding: 0.85rem 1.25rem !important;
+  min-height: 2.95rem !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.12s ease;
+}
+
+.app-swal-cancel--glass.swal2-styled:hover {
+  background: #475569 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+}
+
+.app-swal-cancel--glass.swal2-styled:active {
+  transform: translateY(1px);
+}
+
+.app-swal-cancel--glass.swal2-styled:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 3px rgba(148, 163, 184, 0.35),
+    0 2px 10px rgba(0, 0, 0, 0.25) !important;
 }

@@ -28,6 +28,24 @@
   color: #34d399;
 }
 
+.add-route-form__linkish {
+  border: none;
+  background: none;
+  color: #34d399;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font: inherit;
+}
+
+.add-route-form__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.add-route-form__mono--strong {
+  font-weight: 600;
+}
+
 .add-route-form__route-ends {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -56,15 +74,24 @@
   margin-left: 0.35rem;
 }
 
-.add-route-form__select {
+.add-route-form__control {
   width: 100%;
-  padding: 0.95rem 1rem;
+  box-sizing: border-box;
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.05);
   color: #f1f5f9;
   font-size: 0.9rem;
   outline: none;
+}
+
+.add-route-form__input {
+  padding: 0.95rem 1rem;
+  cursor: text;
+  background-image: none;
+}
+
+.add-route-form__select {
   cursor: pointer;
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, rgba(148, 163, 184, 0.85) 50%),
@@ -76,6 +103,8 @@
   background-repeat: no-repeat;
   padding-left: 1.9rem;
   padding-right: 2rem;
+  padding-top: 0.95rem;
+  padding-bottom: 0.95rem;
 }
 
 .add-route-form__select-wrap {
@@ -93,7 +122,7 @@
   align-items: center;
 }
 
-.add-route-form__select:focus {
+.add-route-form__control:focus {
   border-color: rgba(16, 185, 129, 0.55);
 }
 

@@ -206,7 +206,10 @@ export function AddAttendantWizard({ isOpen, onClose, onSaved }: Props) {
     }
     setSaving(true);
     try {
-      await api("/api/attendants/save-attendant", {
+      const saved = await api<{
+        employeeId?: string;
+        message?: string;
+      }>("/api/attendants/save-attendant", {
         method: "POST",
         authToken: signupToken,
         json: {
@@ -225,7 +228,11 @@ export function AddAttendantWizard({ isOpen, onClose, onSaved }: Props) {
         action: `System: New attendant ${display} verified via Gmail OTP.`,
         level: "SUCCESS",
       });
-      showSuccess("Attendant saved and verified.");
+      showSuccess(
+        saved.employeeId
+          ? `Attendant saved. Personnel ID ${saved.employeeId} (share with them for records).`
+          : "Attendant saved and verified."
+      );
       onSaved();
       onClose();
     } catch (err) {

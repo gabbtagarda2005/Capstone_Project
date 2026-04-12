@@ -1,12 +1,14 @@
 /**
  * OpenStreetMap Nominatim — Bukidnon-focused search (free, no API key).
+ * Queries go through Admin_Backend `/api/geocode/nominatim` to avoid browser CORS and
+ * shared-IP 429 rate limits on nominatim.openstreetmap.org.
  * @see https://nominatim.org/release-docs/latest/api/Search/
  */
 
-/** min_lon, max_lat, max_lon, min_lat — prioritizes Bukidnon, Philippines */
-export const NOMINATIM_BUKIDNON_VIEWBOX = "124.5,8.2,125.5,7.5";
+import { api } from "./api";
 
-const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
+/** min_lon, max_lat, max_lon, min_lat — Bukidnon + northern corridor (e.g. Libona ~8.25°N) */
+export const NOMINATIM_BUKIDNON_VIEWBOX = "124.35,8.55,125.65,7.45";
 
 export type NominatimAddress = {
   amenity?: string;
@@ -81,23 +83,24 @@ export function nominatimCompressedLabel(row: Pick<NominatimSearchRow, "display_
   return fallbackCompress(row.display_name || "");
 }
 
-/** Use on all direct Nominatim `fetch` calls (usage policy). */
-export const NOMINATIM_FETCH_HEADERS: HeadersInit = {
-  Accept: "application/json",
-  "User-Agent": "BukidnonBusCompany-AdminPortal/1.0 (internal; Nominatim usage policy)",
-};
-
-function buildSearchUrl(q: string, bounded: 0 | 1): string {
+/**
+ * Raw Nominatim rows via admin API (throttled server-side; sends proper User-Agent upstream).
+ */
+export async function fetchNominatimRowsViaProxy(
+  query: string,
+  opts: { bounded: 0 | 1; limit?: number; signal?: AbortSignal }
+): Promise<NominatimSearchRow[]> {
+  const q = query.trim();
+  if (!q) return [];
   const params = new URLSearchParams({
-    format: "jsonv2",
-    addressdetails: "1",
-    limit: "14",
-    countrycodes: "ph",
-    viewbox: NOMINATIM_BUKIDNON_VIEWBOX,
-    bounded: String(bounded),
-    q: q.trim(),
+    q,
+    bounded: String(opts.bounded),
+    limit: String(opts.limit ?? 14),
   });
-  return `${NOMINATIM_BASE}?${params.toString()}`;
+  const rows = await api<NominatimSearchRow[]>(`/api/geocode/nominatim?${params.toString()}`, {
+    signal: opts.signal,
+  });
+  return Array.isArray(rows) ? rows : [];
 }
 
 function mapRows(rows: NominatimSearchRow[]): NominatimMappedHit[] {
@@ -127,13 +130,7 @@ export async function searchNominatimBukidnon(
   const q = query.trim();
   if (q.length < 1) return [];
 
-  const tryBounded = async (bounded: 0 | 1): Promise<NominatimSearchRow[]> => {
-    const res = await fetch(buildSearchUrl(q, bounded), { signal, headers: NOMINATIM_FETCH_HEADERS });
-    if (!res.ok) return [];
-    return (await res.json()) as NominatimSearchRow[];
-  };
-
-  const strict = mapRows(await tryBounded(1));
+  const strict = mapRows(await fetchNominatimRowsViaProxy(q, { bounded: 1, limit: 14, signal }));
   if (strict.length > 0) return strict.slice(0, 12);
-  return mapRows(await tryBounded(0)).slice(0, 12);
+  return mapRows(await fetchNominatimRowsViaProxy(q, { bounded: 0, limit: 14, signal })).slice(0, 12);
 }

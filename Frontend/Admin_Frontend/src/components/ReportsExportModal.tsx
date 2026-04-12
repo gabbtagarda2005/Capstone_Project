@@ -8,34 +8,39 @@ import {
 } from "@/lib/reportExportBundles";
 import "./ReportsExportModal.css";
 
-type Format = "pdf" | "csv";
+type Format = "pdf" | "csv" | "xlsx";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onExportPdf: (sections: Set<string>) => void | Promise<void>;
   onExportCsv: (sections: Set<ReportExportSectionKey>) => void;
+  onExportXlsx: (sections: Set<ReportExportSectionKey>) => void;
 };
 
-export function ReportsExportModal({ open, onClose, onExportPdf, onExportCsv }: Props) {
+const DEFAULT_BUNDLES = new Set<ReportExportBundleId>([
+  "passenger",
+  "attendants",
+  "bus",
+  "route",
+  "insights",
+  "timeWindowPickups",
+  "revenue",
+]);
+
+export function ReportsExportModal({ open, onClose, onExportPdf, onExportCsv, onExportXlsx }: Props) {
   const [format, setFormat] = useState<Format>("pdf");
-  const [selectedBundles, setSelectedBundles] = useState<Set<ReportExportBundleId>>(
-    () => new Set<ReportExportBundleId>(["everything"])
-  );
+  const [selectedBundles, setSelectedBundles] = useState<Set<ReportExportBundleId>>(() => new Set(DEFAULT_BUNDLES));
 
   const csvKeys = useMemo(() => bundlesToCsvKeys(selectedBundles), [selectedBundles]);
   const pdfKeys = useMemo(() => bundlesToPdfKeys(selectedBundles), [selectedBundles]);
 
   function toggleBundle(id: ReportExportBundleId) {
     setSelectedBundles((prev) => {
-      if (id === "everything") {
-        if (prev.has("everything")) return new Set();
-        return new Set<ReportExportBundleId>(["everything"]);
-      }
       const n = new Set(prev);
-      n.delete("everything");
       if (n.has(id)) n.delete(id);
       else n.add(id);
+      if (n.size === 0) n.add("passenger");
       return n;
     });
   }
@@ -45,8 +50,10 @@ export function ReportsExportModal({ open, onClose, onExportPdf, onExportCsv }: 
     if (format === "pdf") {
       if (pdfKeys.size === 0) return;
       void onExportPdf(pdfKeys);
-    } else {
+    } else if (format === "csv") {
       onExportCsv(csvKeys);
+    } else {
+      onExportXlsx(csvKeys);
     }
     onClose();
   }
@@ -54,7 +61,7 @@ export function ReportsExportModal({ open, onClose, onExportPdf, onExportCsv }: 
   if (!open) return null;
 
   const canPdf = pdfKeys.size > 0;
-  const canCsv = csvKeys.size > 0;
+  const canGrid = csvKeys.size > 0;
 
   return (
     <div className="reports-export-modal" role="dialog" aria-modal="true" aria-labelledby="reports-export-title">
@@ -63,10 +70,7 @@ export function ReportsExportModal({ open, onClose, onExportPdf, onExportCsv }: 
         <h2 id="reports-export-title" className="reports-export-modal__title">
           Export reports
         </h2>
-        <p className="reports-export-modal__hint">
-          Choose which hub areas to include. PDF includes summary tables; CSV adds full day / month / year trend grids where
-          available. Pick <strong>Everything</strong> for the full package, or combine individual areas.
-        </p>
+        <p className="reports-export-modal__hint">Choose report areas, then PDF, CSV, or Excel.</p>
 
         <div className="reports-export-modal__formats">
           <label className="reports-export-modal__radio">
@@ -76,6 +80,10 @@ export function ReportsExportModal({ open, onClose, onExportPdf, onExportCsv }: 
           <label className="reports-export-modal__radio">
             <input type="radio" name="export-fmt" checked={format === "csv"} onChange={() => setFormat("csv")} />
             CSV
+          </label>
+          <label className="reports-export-modal__radio">
+            <input type="radio" name="export-fmt" checked={format === "xlsx"} onChange={() => setFormat("xlsx")} />
+            Excel
           </label>
         </div>
 
@@ -100,7 +108,7 @@ export function ReportsExportModal({ open, onClose, onExportPdf, onExportCsv }: 
           <button
             type="button"
             className="reports-export-modal__btn reports-export-modal__btn--primary"
-            disabled={selectedBundles.size === 0 || (format === "pdf" ? !canPdf : !canCsv)}
+            disabled={selectedBundles.size === 0 || (format === "pdf" ? !canPdf : !canGrid)}
             onClick={handleExport}
           >
             Export

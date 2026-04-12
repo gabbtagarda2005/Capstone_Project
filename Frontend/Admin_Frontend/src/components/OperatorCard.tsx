@@ -18,7 +18,11 @@ export function OperatorCard({ op, accountStatus = "Offline", onEdit, onDelete }
       <div className="dg-op-card__name">{fullName(op)}</div>
       <div className="dg-op-card__email">{op.email}</div>
       <div className="dg-op-card__id">
-        <span className="dg-op-card__id-label">ID</span>{" "}
+        <span className="dg-op-card__id-label">Personnel</span>{" "}
+        <span className="dg-op-card__id-value">{op.employeeId ?? "—"}</span>
+        <span className="dg-op-card__id-label" style={{ marginLeft: "0.65rem" }}>
+          Sys
+        </span>{" "}
         <span className="dg-op-card__id-value">{op.operatorId}</span>
       </div>
       <div className="dg-op-card__status-row">

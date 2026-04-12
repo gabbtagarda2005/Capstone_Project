@@ -44,7 +44,7 @@ class _TripListScreenState extends State<TripListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.offWhite,
+      backgroundColor: MintObsidian.canvas,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -82,14 +82,22 @@ class _TripListScreenState extends State<TripListScreen> {
                 future: _future,
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator(color: AppColors.tealDeep));
+                    return const Center(child: CircularProgressIndicator(color: MintObsidian.mint));
                   }
                   if (snap.hasError) {
-                    return Center(child: Text('Could not load trips.\n${snap.error}', textAlign: TextAlign.center));
+                    return Center(
+                      child: Text(
+                        'Could not load trips.\n${snap.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: MintObsidian.textSecondary),
+                      ),
+                    );
                   }
                   final list = snap.data ?? [];
                   if (list.isEmpty) {
-                    return const Center(child: Text('No trips for this route.'));
+                    return const Center(
+                      child: Text('No trips for this route.', style: TextStyle(color: MintObsidian.textSecondary)),
+                    );
                   }
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -118,11 +126,19 @@ class _TripCard extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Material(
-            elevation: 8,
-            shadowColor: Colors.black26,
-            borderRadius: BorderRadius.circular(20),
-            color: AppColors.white,
+          Container(
+            decoration: BoxDecoration(
+              color: MintObsidian.surface.withOpacity(0.95),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: MintObsidian.mint.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
               child: Row(
@@ -132,27 +148,56 @@ class _TripCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(trip.from, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        Text(
+                          trip.from,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: MintObsidian.textPrimary,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text(trip.statusLabel, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        Text(
+                          trip.statusLabel,
+                          style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95), fontSize: 12),
+                        ),
                         const SizedBox(height: 12),
-                        Text(trip.to, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        Text(
+                          trip.to,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: MintObsidian.textPrimary,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text('Departure', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        Text(
+                          'Departure',
+                          style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95), fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(trip.durationLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        trip.durationLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: MintObsidian.textPrimary),
+                      ),
                       const SizedBox(height: 6),
-                      Text(trip.departLabel, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      Text(
+                        trip.departLabel,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: MintObsidian.textPrimary,
+                            ),
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         trip.priceLabel,
                         style: const TextStyle(
-                          color: AppColors.purple,
+                          color: MintObsidian.mint,
                           fontWeight: FontWeight.w900,
                           fontSize: 18,
                         ),
@@ -166,6 +211,8 @@ class _TripCard extends StatelessWidget {
                         },
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          backgroundColor: MintObsidian.mint,
+                          foregroundColor: MintObsidian.textOnMint,
                           textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
                         ),
                         child: const Text('SCAN QR'),
@@ -181,8 +228,8 @@ class _TripCard extends StatelessWidget {
             left: 20,
             child: CircleAvatar(
               radius: 22,
-              backgroundColor: AppColors.tealDeep,
-              child: const Icon(Icons.directions_bus_rounded, color: AppColors.white, size: 22),
+              backgroundColor: MintObsidian.oceanDeep,
+              child: const Icon(Icons.directions_bus_rounded, color: MintObsidian.textPrimary, size: 22),
             ),
           ),
         ],

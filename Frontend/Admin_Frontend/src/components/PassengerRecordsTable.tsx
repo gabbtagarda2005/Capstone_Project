@@ -25,7 +25,7 @@ export function PassengerRecordsTable({ rows }: Props) {
             </tr>
           ) : (
             rows.map((t) => (
-              <tr key={t.id}>
+              <tr key={String(t.id)}>
                 <td className="dg-table__mono">{t.passengerId}</td>
                 <td>{t.startLocation}</td>
                 <td>{t.destination}</td>

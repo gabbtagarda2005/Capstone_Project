@@ -1,0 +1,272 @@
+.dashboard-map {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  background: linear-gradient(165deg, rgba(34, 211, 238, 0.08) 0%, rgba(15, 23, 42, 0.5) 52%, rgba(37, 99, 235, 0.1) 100%);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(34, 211, 238, 0.06);
+  margin-bottom: 1.75rem;
+}
+
+.dashboard-map__chrome {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-map__chrome-main {
+  flex: 1;
+  min-width: min(100%, 14rem);
+}
+
+.dashboard-map__chrome-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.dashboard-map__near-you {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--pd-muted, #94a3b8);
+  max-width: 36rem;
+}
+
+.dashboard-map__near-you strong {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.dashboard-map__near-you-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+  vertical-align: 0.05em;
+  background: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.85);
+  animation: dashboard-user-dot-blink 2s ease-in-out infinite;
+}
+
+@keyframes dashboard-user-dot-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.dashboard-map__nearby-btn {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid rgba(94, 227, 150, 0.45);
+  background: rgba(94, 227, 150, 0.12);
+  color: #5ee396;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.dashboard-map__nearby-btn:hover {
+  background: rgba(94, 227, 150, 0.2);
+  border-color: rgba(94, 227, 150, 0.65);
+}
+
+.dashboard-map__nearby-btn--active {
+  background: rgba(94, 227, 150, 0.28);
+  border-color: #5ee396;
+  color: #ecfdf5;
+}
+
+.dashboard-map__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.dashboard-map__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--pd-muted, #94a3b8);
+}
+
+.dashboard-map__frame {
+  height: min(52vh, 420px);
+  min-height: 280px;
+  position: relative;
+}
+
+.dashboard-map__leaflet {
+  width: 100%;
+  height: 100%;
+  border-radius: 0 0 18px 18px;
+  z-index: 1;
+}
+
+.dashboard-map__leaflet .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #040e2a;
+  font-family: inherit;
+}
+
+/* Dark matter / map atmosphere */
+/* Keep satellite / terrain full color; subtle grade on roadmap + dark */
+.dashboard-map__leaflet:not(.dashboard-map__leaflet--photo) .leaflet-tile {
+  filter: grayscale(1) brightness(0.72) saturate(0.55) contrast(1.05);
+}
+
+.dashboard-map__bus-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.dashboard-map__marker-terminal,
+.dashboard-map__marker-stop,
+.dashboard-map__marker-waypoint,
+.dashboard-map__marker-user {
+  background: transparent !important;
+  border: none !important;
+}
+
+.dashboard-map__user-dot-wrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-map__user-pulse {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(56, 189, 248, 0.65);
+  animation: dashboard-user-pulse-ring 2s ease-out infinite;
+}
+
+.dashboard-map__user-core {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #38bdf8;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 12px rgba(56, 189, 248, 0.65);
+}
+
+@keyframes dashboard-user-pulse-ring {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.dashboard-map__terminal-inner {
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+
+.dashboard-map__popup-muted {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+.dashboard-map__bus-pin {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(37, 99, 235, 0.95));
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  box-shadow: 0 4px 22px rgba(34, 211, 238, 0.35);
+}
+
+.dashboard-map__dest-pulse {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--dest-color, #4A6BBE);
+  box-shadow: 0 0 18px var(--dest-color, #4A6BBE), 0 0 40px rgba(0, 242, 255, 0.18);
+  position: relative;
+  animation: dashboard-map-dest-pulse 1.6s ease-in-out infinite;
+}
+
+.dashboard-map__dest-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 999px;
+  border: 2px solid var(--dest-color, #4A6BBE);
+  opacity: 0.65;
+  animation: dashboard-map-dest-ring 1.6s ease-in-out infinite;
+}
+
+.dashboard-map__leaflet .dashboard-map__route-polyline {
+  filter: drop-shadow(0 0 10px rgba(74, 107, 190, 0.85));
+}
+
+.dashboard-map__leaflet .dashboard-map__route-polyline--draw {
+  animation: dashboard-map-route-draw 2.8s linear 1;
+}
+
+@keyframes dashboard-map-route-draw {
+  from {
+    stroke-dashoffset: 180;
+    opacity: 0.45;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 0.95;
+  }
+}
+
+@keyframes dashboard-map-dest-pulse {
+  0%,
+  100% {
+    transform: scale(0.95);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.18);
+    filter: brightness(1.15);
+  }
+}
+
+@keyframes dashboard-map-dest-ring {
+  0% {
+    transform: scale(0.65);
+    opacity: 0.65;
+  }
+  70% {
+    transform: scale(1);
+    opacity: 0.08;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

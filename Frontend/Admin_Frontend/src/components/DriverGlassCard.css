@@ -219,22 +219,30 @@
   background: rgb(255, 255, 255);
   color: #0369a1;
   box-shadow: rgba(4, 78, 108, 0.35) 0px 6px 5px -4px;
+}
+
+.drv-glass-card__action:nth-child(1) {
   transition:
-    transform 0.2s ease,
+    transform 0.2s ease-in-out 0.4s,
+    box-shadow 0.2s ease-in-out 0.4s,
     background 0.2s ease,
     color 0.2s ease;
 }
 
-.drv-glass-card__action:nth-child(1) {
-  transition-delay: 0.3s;
-}
-
 .drv-glass-card__action:nth-child(2) {
-  transition-delay: 0.4s;
+  transition:
+    transform 0.2s ease-in-out 0.6s,
+    box-shadow 0.2s ease-in-out 0.6s,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .drv-glass-card__action:nth-child(3) {
-  transition-delay: 0.5s;
+  transition:
+    transform 0.2s ease-in-out 0.8s,
+    box-shadow 0.2s ease-in-out 0.8s,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .drv-glass-card__action--view {
@@ -264,15 +272,15 @@
 }
 
 .drv-glass-parent:hover .drv-glass-card {
-  transform: rotate3d(1, 1, 0, 28deg);
+  transform: rotate3d(1, 1, 0, 30deg);
   box-shadow:
-    rgba(4, 78, 108, 0.28) 30px 50px 25px -40px,
-    rgba(4, 78, 108, 0.14) 0px 25px 30px 0px;
+    rgba(4, 78, 108, 0.3) 30px 50px 25px -40px,
+    rgba(4, 78, 108, 0.1) 0px 25px 30px 0px;
 }
 
 .drv-glass-parent:hover .drv-glass-card__action {
-  transform: translate3d(0, 0, 45px);
-  box-shadow: rgba(4, 78, 108, 0.22) -4px 16px 10px 0px;
+  transform: translate3d(0, 0, 50px);
+  box-shadow: rgba(4, 78, 108, 0.2) -5px 20px 10px 0px;
 }
 
 .drv-glass-parent:hover .drv-glass-card__circle--2 {
@@ -301,4 +309,34 @@
 
 .admin-shell--light .drv-glass-card__meta {
   color: rgba(7, 89, 133, 0.82);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drv-glass-parent:hover .drv-glass-card {
+    transform: none;
+    box-shadow:
+      rgba(4, 78, 108, 0) 40px 50px 25px -40px,
+      rgba(4, 78, 108, 0.24) 0px 25px 25px -5px;
+  }
+
+  .drv-glass-parent:hover .drv-glass-card__action {
+    transform: none;
+    box-shadow: rgba(4, 78, 108, 0.35) 0px 6px 5px -4px;
+  }
+
+  .drv-glass-parent:hover .drv-glass-card__circle--2 {
+    transform: translate3d(0, 0, 40px);
+  }
+
+  .drv-glass-parent:hover .drv-glass-card__circle--3 {
+    transform: translate3d(0, 0, 60px);
+  }
+
+  .drv-glass-parent:hover .drv-glass-card__circle--4 {
+    transform: translate3d(0, 0, 80px);
+  }
+
+  .drv-glass-parent:hover .drv-glass-card__circle--5 {
+    transform: translate3d(0, 0, 100px);
+  }
 }

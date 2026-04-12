@@ -225,12 +225,97 @@ async function sendDriverSignupOtpEmail({ to, otp }) {
   }
 }
 
+async function sendOperatorPasswordResetOtpEmail({ to, otp }) {
+  const from =
+    process.env.MAIL_FROM?.trim() ||
+    process.env.SMTP_USER?.trim() ||
+    "no-reply@localhost";
+
+  const subject = "Bus attendant app — password reset code";
+  const text = `Your 6-digit password reset code is: ${otp}\n\nIt expires in 10 minutes. If you did not request this, ignore this email.\n`;
+  const html = `
+    <div style="font-family:Segoe UI,Arial,sans-serif;background:#0B0E14;color:#E2E8F0;padding:24px;border-radius:12px;max-width:420px">
+      <h2 style="margin:0 0 10px;color:#2DD4BF;font-size:18px">Bus attendant — reset password</h2>
+      <p style="margin:0 0 14px;color:#cbd5e1;font-size:14px">Enter this code in the attendant app to set a new password:</p>
+      <div style="font-size:28px;letter-spacing:8px;font-weight:700;color:#22D3EE;font-variant-numeric:tabular-nums">${otp}</div>
+      <p style="margin:16px 0 0;color:#94a3b8;font-size:12px">Expires in 10 minutes. If you didn’t ask for this, you can ignore this message.</p>
+    </div>
+  `;
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    return { simulated: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject,
+      text,
+      html,
+    });
+    return { simulated: false };
+  } catch (err) {
+    resetTransporterCache();
+    throw new Error(formatSendError(err));
+  }
+}
+
+/**
+ * Ops digest (daily automated report). `to` = comma-separated string or array of emails.
+ * `attachments` optional: [{ filename, content: Buffer, contentType }].
+ */
+async function sendDailyOperationsDigestEmail({ to, subject, text, html, attachments }) {
+  const from =
+    process.env.MAIL_FROM?.trim() ||
+    process.env.SMTP_USER?.trim() ||
+    "no-reply@localhost";
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    return { simulated: true };
+  }
+
+  const toField = Array.isArray(to) ? to.join(", ") : String(to || "").trim();
+  if (!toField) {
+    return { simulated: true };
+  }
+
+  const att =
+    Array.isArray(attachments) && attachments.length
+      ? attachments.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType || "application/octet-stream",
+        }))
+      : undefined;
+
+  try {
+    await transporter.sendMail({
+      from,
+      to: toField,
+      subject,
+      text,
+      html,
+      ...(att ? { attachments: att } : {}),
+    });
+    return { simulated: false };
+  } catch (err) {
+    resetTransporterCache();
+    throw new Error(formatSendError(err));
+  }
+}
+
 module.exports = {
   sendOtpEmail,
   sendAttendantSignupOtpEmail,
   sendDriverSignupOtpEmail,
+  sendOperatorPasswordResetOtpEmail,
+  sendDailyOperationsDigestEmail,
   resetTransporterCache,
   logMailerBoot,
   isOtpEmailConfigured,
+  describeMailProvider,
   normalizeSmtpPass,
 };

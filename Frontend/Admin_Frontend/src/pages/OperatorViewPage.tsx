@@ -109,7 +109,7 @@ export function OperatorViewPage() {
             <li style={{ color: "rgba(255,255,255,0.55)" }}>No tickets.</li>
           ) : (
             tickets.map((t) => (
-              <li key={t.id} style={{ marginBottom: "0.45rem" }}>
+              <li key={String(t.id)} style={{ marginBottom: "0.45rem" }}>
                 <strong>{t.passengerId}</strong> — {t.startLocation} → {t.destination} · ₱{t.fare.toFixed(2)}
                 {t.busOperatorName ? <> · {t.busOperatorName}</> : null} · {new Date(t.createdAt).toLocaleString()}
               </li>

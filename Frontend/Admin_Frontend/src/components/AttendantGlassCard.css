@@ -6,6 +6,160 @@
   margin: 0 auto;
 }
 
+/* Fleet bus card: extra body lines, same glass chrome */
+.att-glass-parent--fleet {
+  height: auto;
+  min-height: 380px;
+  max-width: 300px;
+}
+
+.att-glass-parent--fleet .att-glass-card {
+  height: auto;
+  min-height: 380px;
+}
+
+.att-glass-card__content--fleet {
+  padding-top: 88px;
+  padding-bottom: 5.5rem;
+}
+
+.att-glass-card__text--mono {
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+}
+
+.att-glass-card__meta--health {
+  font-weight: 900;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  align-self: flex-start;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.att-glass-card__meta--health-healthy {
+  color: #047857;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+}
+
+.att-glass-card__meta--health-maintenance,
+.att-glass-card__meta--health-inspection {
+  color: #92400e;
+  background: rgba(254, 243, 199, 0.85);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+}
+
+.att-glass-card__crew-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+
+.att-glass-card__crew-inline--driver {
+  margin-top: 0.35rem;
+}
+
+.att-glass-card__crew-badge {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(145deg, #8b5cf6, #a855f7);
+  box-shadow: 0 2px 8px rgba(91, 33, 182, 0.25);
+}
+
+.att-glass-card__crew-badge--driver {
+  background: linear-gradient(145deg, #0284c7, #22d3ee);
+}
+
+.att-glass-card__crew-role {
+  display: block;
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(0, 107, 61, 0.55);
+  line-height: 1.2;
+}
+
+.att-glass-card__crew-name {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(0, 80, 45, 0.92);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.att-glass-card__meta--tickets {
+  margin-top: 0.35rem;
+  font-size: 0.74rem;
+  color: rgba(0, 107, 61, 0.78);
+}
+
+.att-glass-card__meta--tickets strong {
+  font-weight: 900;
+  color: #047857;
+}
+
+.att-glass-card__meta--route {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(0, 90, 50, 0.88);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.att-glass-card__policy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.att-glass-card__policy-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: rgba(0, 90, 50, 0.88);
+}
+
+.att-glass-card__meta--pickup {
+  margin-top: 0.25rem;
+}
+
+.admin-shell--light .att-glass-card__crew-role {
+  color: rgba(6, 78, 59, 0.65);
+}
+
+.admin-shell--light .att-glass-card__crew-name {
+  color: rgba(6, 78, 59, 0.92);
+}
+
+.admin-shell--light .att-glass-card__meta--route,
+.admin-shell--light .att-glass-card__meta--tickets {
+  color: rgba(6, 78, 59, 0.82);
+}
+
 .att-glass-card {
   position: relative;
   height: 100%;
@@ -205,6 +359,13 @@
   transform-style: preserve-3d;
 }
 
+a.att-glass-card__action {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .att-glass-card__action {
   flex: 1 1 0;
   min-width: 0;
@@ -219,22 +380,30 @@
   background: rgb(255, 255, 255);
   color: #00894d;
   box-shadow: rgba(5, 71, 17, 0.45) 0px 6px 5px -4px;
+}
+
+.att-glass-card__action:nth-child(1) {
   transition:
-    transform 0.2s ease,
+    transform 0.2s ease-in-out 0.4s,
+    box-shadow 0.2s ease-in-out 0.4s,
     background 0.2s ease,
     color 0.2s ease;
 }
 
-.att-glass-card__action:nth-child(1) {
-  transition-delay: 0.3s;
-}
-
 .att-glass-card__action:nth-child(2) {
-  transition-delay: 0.4s;
+  transition:
+    transform 0.2s ease-in-out 0.6s,
+    box-shadow 0.2s ease-in-out 0.6s,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .att-glass-card__action:nth-child(3) {
-  transition-delay: 0.5s;
+  transition:
+    transform 0.2s ease-in-out 0.8s,
+    box-shadow 0.2s ease-in-out 0.8s,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .att-glass-card__action--view {
@@ -264,15 +433,15 @@
 }
 
 .att-glass-parent:hover .att-glass-card {
-  transform: rotate3d(1, 1, 0, 28deg);
+  transform: rotate3d(1, 1, 0, 30deg);
   box-shadow:
-    rgba(5, 71, 17, 0.28) 30px 50px 25px -40px,
-    rgba(5, 71, 17, 0.12) 0px 25px 30px 0px;
+    rgba(5, 71, 17, 0.3) 30px 50px 25px -40px,
+    rgba(5, 71, 17, 0.1) 0px 25px 30px 0px;
 }
 
 .att-glass-parent:hover .att-glass-card__action {
-  transform: translate3d(0, 0, 45px);
-  box-shadow: rgba(5, 71, 17, 0.2) -4px 16px 10px 0px;
+  transform: translate3d(0, 0, 50px);
+  box-shadow: rgba(5, 71, 17, 0.2) -5px 20px 10px 0px;
 }
 
 .att-glass-parent:hover .att-glass-card__circle--2 {
@@ -367,4 +536,34 @@
 
 .admin-shell--light .att-glass-card__route-v {
   color: rgba(6, 78, 59, 0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .att-glass-parent:hover .att-glass-card {
+    transform: none;
+    box-shadow:
+      rgba(5, 71, 17, 0) 40px 50px 25px -40px,
+      rgba(5, 71, 17, 0.2) 0px 25px 25px -5px;
+  }
+
+  .att-glass-parent:hover .att-glass-card__action {
+    transform: none;
+    box-shadow: rgba(5, 71, 17, 0.45) 0px 6px 5px -4px;
+  }
+
+  .att-glass-parent:hover .att-glass-card__circle--2 {
+    transform: translate3d(0, 0, 40px);
+  }
+
+  .att-glass-parent:hover .att-glass-card__circle--3 {
+    transform: translate3d(0, 0, 60px);
+  }
+
+  .att-glass-parent:hover .att-glass-card__circle--4 {
+    transform: translate3d(0, 0, 80px);
+  }
+
+  .att-glass-parent:hover .att-glass-card__circle--5 {
+    transform: translate3d(0, 0, 100px);
+  }
 }

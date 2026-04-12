@@ -1,4 +1,4 @@
-import type { ReportsAnalyticsDto } from "@/lib/types";
+import type { ReportPickupRow, ReportsAnalyticsDto } from "@/lib/types";
 
 export type ReportExportSectionKey =
   | "executive"
@@ -10,7 +10,13 @@ export type ReportExportSectionKey =
   | "routes"
   | "attendants"
   | "buses"
-  | "refunds";
+  | "refunds"
+  /** Insights, constants, generatedAt — not in legacy four bundles until passenger extended */
+  | "insightsMeta"
+  /** Today-only attendant rows (vs all-time in Bus attendant bundle) */
+  | "operatorsToday"
+  /** Peak hour/day/month/year blocks + top pickups by window (today / 30d / MTD / YTD) */
+  | "peakPeriodPickups";
 
 function escCell(s: string): string {
   const t = String(s ?? "");
@@ -27,12 +33,75 @@ export function buildReportsCsv(data: ReportsAnalyticsDto, sections: Set<ReportE
 
   if (sections.has("executive")) {
     const ex = data.executive;
+    const goal = ex.monthlyProfitGoalPesos ?? data.constants.monthlyProfitGoalPesos;
     lines.push(row(["Executive", "Total revenue", ex.totalRevenue]));
     lines.push(row(["Executive", "Total tickets", ex.totalTickets]));
     lines.push(row(["Executive", "Today revenue", ex.todayRevenue]));
+    lines.push(row(["Executive", "Today tickets", ex.todayTickets]));
     lines.push(row(["Executive", "Month-to-date revenue", ex.monthlyRevenue]));
+    lines.push(row(["Executive", "Monthly profit goal (pesos)", goal]));
     lines.push(row(["Executive", "YTD revenue", ex.ytdRevenue ?? ""]));
+    lines.push(row(["Executive", "YTD tickets", ex.ytdTickets ?? ""]));
     lines.push(row(["Executive", "Goal progress %", ex.goalProgressPct]));
+    lines.push(row(["Executive", "Tomorrow projection", ex.tomorrowProjection]));
+    lines.push(row(["Executive", "Avg daily revenue last 7 days", ex.avgDailyLast7Days]));
+    lines.push(row(["Executive", "Today hourly revenue total", ex.todayHourlyRevenueTotal ?? ""]));
+  }
+
+  if (sections.has("insightsMeta")) {
+    const ins = data.insights;
+    lines.push(row(["Insights", "Peak boarding start hour", ins.peakBoardingWindow.startHour]));
+    lines.push(row(["Insights", "Peak boarding end hour", ins.peakBoardingWindow.endHour]));
+    lines.push(row(["Insights", "Peak corridor hint", ins.peakCorridorHint]));
+    lines.push(row(["Insights", "Route delay sentiment", ins.routeDelaySentiment]));
+    lines.push(row(["Insights", "Suggested extra buses", ins.suggestedExtraBuses]));
+    lines.push(row(["Constants", "Monthly profit goal (pesos)", data.constants.monthlyProfitGoalPesos]));
+    lines.push(row(["Constants", "Tomorrow growth rate", data.constants.tomorrowGrowthRate]));
+    lines.push(row(["Meta", "Report generated_at", data.generatedAt]));
+  }
+
+  if (sections.has("operatorsToday")) {
+    lines.push("Operators today,operator_id,operator,tickets,revenue");
+    for (const o of data.operatorsToday) {
+      lines.push(row(["Operators today", o.operatorId, o.operator, o.tickets, o.revenue]));
+    }
+  }
+
+  if (sections.has("peakPeriodPickups")) {
+    const pushWindow = (label: string, arr: ReportPickupRow[] | undefined) => {
+      if (!arr?.length) return;
+      lines.push(`${label},location,tickets,revenue,share_pct,status`);
+      for (const p of arr) {
+        lines.push(row([label, p.location, p.ticketCount, p.revenue, p.sharePct, p.status]));
+      }
+    };
+    pushWindow("Top pickups today", data.topPickupsToday);
+    pushWindow("Top pickups last 30d", data.topPickupsLast30);
+    pushWindow("Top pickups MTD", data.topPickupsMtd);
+    pushWindow("Top pickups YTD", data.topPickupsYtd);
+    const pk = data.peakPickups;
+    if (pk) {
+      lines.push(row(["Peak hour", "slot", pk.hour.slot, "tickets", pk.hour.tickets]));
+      lines.push("Peak hour locations,location,tickets,revenue,share_pct,status");
+      for (const p of pk.hour.locations) {
+        lines.push(row(["Peak hour locations", p.location, p.ticketCount, p.revenue, p.sharePct, p.status]));
+      }
+      lines.push(row(["Peak day", "date", pk.day.date, "tickets", pk.day.tickets]));
+      lines.push("Peak day locations,location,tickets,revenue,share_pct,status");
+      for (const p of pk.day.locations) {
+        lines.push(row(["Peak day locations", p.location, p.ticketCount, p.revenue, p.sharePct, p.status]));
+      }
+      lines.push(row(["Peak month", "label", pk.month.label, "tickets", pk.month.tickets]));
+      lines.push("Peak month locations,location,tickets,revenue,share_pct,status");
+      for (const p of pk.month.locations) {
+        lines.push(row(["Peak month locations", p.location, p.ticketCount, p.revenue, p.sharePct, p.status]));
+      }
+      lines.push(row(["Peak year", "year", pk.year.year, "tickets", pk.year.tickets]));
+      lines.push("Peak year locations,location,tickets,revenue,share_pct,status");
+      for (const p of pk.year.locations) {
+        lines.push(row(["Peak year locations", p.location, p.ticketCount, p.revenue, p.sharePct, p.status]));
+      }
+    }
   }
 
   if (sections.has("hourlyToday")) {
@@ -75,6 +144,12 @@ export function buildReportsCsv(data: ReportsAnalyticsDto, sections: Set<ReportE
     const routes = data.allRoutes?.length ? data.allRoutes : data.topRoutes;
     for (const r of routes) {
       lines.push(`Routes,${r.route},${r.tickets},${r.revenue}`);
+    }
+    if (data.routesForTopBuses?.length) {
+      lines.push("Routes (top buses context),route,tickets,revenue");
+      for (const r of data.routesForTopBuses) {
+        lines.push(`Routes (top buses context),${r.route},${r.tickets},${r.revenue}`);
+      }
     }
   }
 

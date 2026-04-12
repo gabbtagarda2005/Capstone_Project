@@ -49,6 +49,7 @@ async function syncCorridorRouteToRtdb(doc) {
     latitude: s.latitude,
     longitude: s.longitude,
     geofenceRadiusM: s.geofenceRadiusM ?? 100,
+    pickupOnly: s.pickupOnly !== false,
   }));
   const vias = (doc.viaCoverageIds || []).map((x) => String(x));
   await db.ref(`current_routes/${id}`).set({
@@ -57,6 +58,7 @@ async function syncCorridorRouteToRtdb(doc) {
     destinationCoverageId: String(doc.destinationCoverageId),
     viaCoverageIds: vias,
     authorizedStops: stops,
+    suspended: doc.suspended === true,
     updatedAt: Date.now(),
   });
   return { ok: true };
