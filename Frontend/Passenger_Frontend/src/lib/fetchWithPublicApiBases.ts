@@ -2,6 +2,23 @@ import { publicApiBaseCandidates } from "@/lib/publicApiBase";
 
 const RETRY_STATUS = new Set([404, 502, 503, 504]);
 
+/** Build `/path?a=1&b=two` for public GET helpers. Omits empty / null / undefined values. */
+export function publicPathWithQuery(
+  path: string,
+  query?: Record<string, string | number | undefined | null>,
+): string {
+  if (!query) return path;
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) {
+    if (v === undefined || v === null) continue;
+    const s = String(v).trim();
+    if (!s) continue;
+    sp.set(k, s);
+  }
+  const q = sp.toString();
+  return q ? `${path}?${q}` : path;
+}
+
 function notJsonHint(base: string, path: string): string {
   return `Response from ${base}${path} was not JSON. Set VITE_PASSENGER_API_URL to your Passenger API (e.g. http://localhost:4000), not the Vite dev port; ensure Passenger_Backend proxies to Admin (ADMIN_BACKEND_URL) or set VITE_ADMIN_API_URL and run Admin_Backend.`;
 }

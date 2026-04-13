@@ -120,7 +120,12 @@ async function buildPublicPayload() {
 function createPublicLiveBoardHandler() {
   return async (_req, res) => {
     try {
-      res.json(await buildPublicPayload());
+      const { isOperationsDeckLive } = require("../services/adminPortalSettingsService");
+      const payload = await buildPublicPayload();
+      if (!(await isOperationsDeckLive())) {
+        payload.items = [];
+      }
+      res.json(payload);
     } catch (e) {
       res.status(500).json({ error: e.message || "live-board failed" });
     }

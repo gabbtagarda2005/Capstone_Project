@@ -1,0 +1,4 @@
+/* Match Admin passenger / attendant wordmark (see Admin_Frontend brandWordmark.css). */
+:root {
+  --brand-wordmark-family: "Syne", "Inter", system-ui, sans-serif;
+}

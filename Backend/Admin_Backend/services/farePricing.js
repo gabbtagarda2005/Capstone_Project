@@ -200,6 +200,7 @@ const DEFAULT_MAIN_LINE_HUB_KEYWORDS = [
   ["maramag"],
   ["valencia"],
   ["malaybalay"],
+  ["aglayan"],
 ];
 
 function coverageMatchesMainLineKeywords(cov, keywordNorms) {
@@ -299,6 +300,50 @@ function findLinearHubChainPath(lookup, startHubId, endHubId, coverages, chainId
   return { segments, totalBase, pathSource: "hub_chain" };
 }
 
+/**
+ * True if corridor-graph path backtracks (same hub visited twice). Dijkstra minimizes fare sum;
+ * asymmetric matrix rows can make M→V→M→… cheaper than the real main-line sequence — reject those.
+ */
+function interHubSegmentsRevisitAnyHub(segments) {
+  if (!Array.isArray(segments) || segments.length === 0) return false;
+  const nodes = [String(segments[0].fromId)];
+  for (const seg of segments) {
+    if (String(seg.fromId) !== nodes[nodes.length - 1]) return true;
+    nodes.push(String(seg.toId));
+  }
+  return new Set(nodes).size !== nodes.length;
+}
+
+/**
+ * Prefer the configured / inferred **linear hub chain** (real bus line, both directions).
+ * Fall back to corridor graph only when a hub is off-chain; drop graph paths that revisit a hub.
+ */
+async function resolveInterHubMatrixPath(lookup, startHubId, endHubId, coverages, settings) {
+  const a = String(startHubId || "");
+  const b = String(endHubId || "");
+  if (!a || !b || a === b) return null;
+  const chainIds = resolveEffectiveHubChainIds(settings, coverages);
+  let multi = findLinearHubChainPath(lookup, a, b, coverages, chainIds);
+  if (multi?.segments?.length) return multi;
+
+  multi = await findMultiSegmentHubPath(lookup, a, b, coverages);
+  if (multi?.segments?.length && interHubSegmentsRevisitAnyHub(multi.segments)) {
+    return null;
+  }
+  return multi;
+}
+
+/** Show km with enough decimals that “km × ₱/km” matches the billed distance pesos in the same line. */
+function formatGeoKmForPerKmLine(geoKm, distanceChargePesos, perKm) {
+  const pk = Number(perKm) || 0;
+  const dc = Number(distanceChargePesos) || 0;
+  const g = Number(geoKm) || 0;
+  if (pk <= 0 || dc <= 0) return g.toFixed(3);
+  const implied = dc / pk;
+  if (Math.abs(implied - g) < 0.0005) return g.toFixed(3);
+  return implied.toFixed(3);
+}
+
 function discountPctForCategory(settings, category) {
   const c = String(category || "adult").toLowerCase();
   if (c === "student") return Number(settings.studentDiscountPct) || 0;
@@ -344,7 +389,8 @@ function formatHubMatrixPricingSummary({
   const distP = Number(distanceChargePesos) || 0;
   let line = `Hub-to-hub ₱${base.toFixed(2)}`;
   if (dist > 0 && pk > 0) {
-    line += ` + ₱${distP.toFixed(2)} distance (${dist.toFixed(1)} km × ₱${pk.toFixed(2)}/km)`;
+    const kmShown = formatGeoKmForPerKmLine(dist, distP, pk);
+    line += ` + ₱${distP.toFixed(2)} distance (${kmShown} km × ₱${pk.toFixed(2)}/km)`;
   }
   if (Number(pct) > 0) {
     line += ` → ₱${Number(subtotalRoundedHalf).toFixed(2)} → ₱${Number(fare).toFixed(2)} after ${Number(pct)}% discount`;
@@ -358,13 +404,155 @@ function formatPreTerminalPricingSummary({ fullKm, perKm, distCharge, pct, fare,
   const km = Number(fullKm) || 0;
   const pk = Number(perKm) || 0;
   const dc = Number(distCharge) || 0;
-  let line = `Before destination hub: ${km.toFixed(1)} km × ₱${pk.toFixed(2)}/km (₱${dc.toFixed(2)})`;
+  const kmShown = formatGeoKmForPerKmLine(km, dc, pk);
+  let line = `Before destination hub: ${kmShown} km × ₱${pk.toFixed(2)}/km (₱${dc.toFixed(2)})`;
   if (Number(pct) > 0) {
     line += ` → ₱${Number(subtotalRoundedHalf).toFixed(2)} → ₱${Number(fare).toFixed(2)} after ${Number(pct)}% discount`;
   } else {
     line += ` → ₱${Number(fare).toFixed(2)} total (no hub-to-hub matrix)`;
   }
   return line;
+}
+
+/**
+ * Hub-chain + spur line: matrix legs up to the hub before the destination corridor, then km from that hub to the stop.
+ */
+function formatPreTerminalChainSpurSummary({
+  segmentLines,
+  anchorLabel,
+  spurKm,
+  perKm,
+  distCharge,
+  pct,
+  fare,
+  subtotalRoundedHalf,
+}) {
+  const pk = Number(perKm) || 0;
+  const km = Number(spurKm) || 0;
+  const dc = Number(distCharge) || 0;
+  const parts = Array.isArray(segmentLines) ? segmentLines.join(" + ") : "";
+  const spurPart =
+    km > 0 && pk > 0
+      ? `₱${dc.toFixed(2)} (${anchorLabel} → stop: ${formatGeoKmForPerKmLine(km, dc, pk)} km × ₱${pk.toFixed(2)}/km)`
+      : "";
+  let line = parts ? `${parts}${spurPart ? ` + ${spurPart}` : ""}` : spurPart;
+  if (Number(pct) > 0) {
+    line += ` → ₱${Number(subtotalRoundedHalf).toFixed(2)} → ₱${Number(fare).toFixed(2)} after ${Number(pct)}% discount`;
+  } else {
+    line += ` → ₱${Number(fare).toFixed(2)} total`;
+  }
+  return line;
+}
+
+/**
+ * Inter-hub trip alighting before the destination hub terminal (distance_only): use published matrix for each leg
+ * **except the last hub→destination-hub segment**, then add straight-line km from the **previous hub’s terminal** to the stop.
+ * Example: Don Carlos → stop in Valencia before Valencia terminal = (DC→Maramag matrix) + (Maramag terminal → stop × ₱/km).
+ */
+async function tryPreTerminalChainPlusSpur({
+  startRes,
+  endRes,
+  settings,
+  coverages,
+  perKm,
+  pct,
+  cat,
+  clientFare,
+}) {
+  if (!startRes?.cov?._id || !endRes?.cov?._id || !endRes.stop || !startRes.cov.terminal) return null;
+  if (!Number.isFinite(Number(perKm)) || Number(perKm) <= 0) {
+    const n = clientFare != null ? Number(clientFare) : NaN;
+    return {
+      matched: false,
+      fare: Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN,
+      baseFarePesos: null,
+      discountPct: null,
+      categoryUsed: cat,
+      pricingMode: "pre_terminal_chain_needs_per_km",
+      message: "Set Fare per km in Admin to price the segment from the previous major hub to this stop.",
+      preTerminalDestination: true,
+    };
+  }
+
+  const lookup = await loadHubTerminalFareMatrixLookup();
+  const multi = await resolveInterHubMatrixPath(
+    lookup,
+    String(startRes.cov._id),
+    String(endRes.cov._id),
+    coverages,
+    settings
+  );
+  if (!multi || multi.segments.length < 2) return null;
+
+  const withoutLast = multi.segments.slice(0, -1);
+  const matrixBase = withoutLast.reduce((s, seg) => s + Number(seg.basePesos), 0);
+  if (!Number.isFinite(matrixBase) || matrixBase < 0) return null;
+
+  const lastSeg = multi.segments[multi.segments.length - 1];
+  const anchorHubId = String(lastSeg.fromId || "");
+  const anchorCov = coverages.find((c) => String(c._id) === anchorHubId);
+  const anchorTerm = anchorCov?.terminal;
+  const dStop = endRes.stop;
+  if (!anchorTerm || !Number.isFinite(anchorTerm.latitude) || !Number.isFinite(anchorTerm.longitude)) return null;
+  if (!Number.isFinite(dStop.latitude) || !Number.isFinite(dStop.longitude)) return null;
+
+  const spurKm = haversineKm(anchorTerm.latitude, anchorTerm.longitude, dStop.latitude, dStop.longitude);
+  if (!Number.isFinite(spurKm) || spurKm < 0) return null;
+
+  const distanceCharge = perKm * spurKm;
+  const distanceChargePesos = Math.round(distanceCharge * 100) / 100;
+  const subtotalRaw = matrixBase + distanceCharge;
+  const subtotalRoundedHalf = roundFareToNearestHalfPeso(subtotalRaw);
+  const fareAfterDiscount = applyDiscount(subtotalRoundedHalf, pct);
+  const fare = roundFareToNearestHalfPeso(fareAfterDiscount);
+
+  const segmentLines = withoutLast.map((s) => {
+    const tag = segmentPairAbbrev(s.fromLabel, s.toLabel);
+    return `₱${Number(s.basePesos).toFixed(2)} (${tag})`;
+  });
+  const anchorLabel = terminalPointLabel(anchorCov);
+
+  const pricingSummary = formatPreTerminalChainSpurSummary({
+    segmentLines,
+    anchorLabel,
+    spurKm,
+    perKm,
+    distCharge: distanceChargePesos,
+    pct,
+    fare,
+    subtotalRoundedHalf,
+  });
+
+  const kmSpurShown = formatGeoKmForPerKmLine(spurKm, distanceChargePesos, perKm);
+  let fareBreakdownDisplay = segmentLines.length
+    ? `${segmentLines.join(" + ")} + ₱${distanceChargePesos.toFixed(2)} (${kmSpurShown} km × ₱${Number(perKm).toFixed(2)}/km from ${anchorLabel})`
+    : `₱${distanceChargePesos.toFixed(2)} (${kmSpurShown} km × ₱${Number(perKm).toFixed(2)}/km)`;
+  if (Number(pct) > 0) {
+    fareBreakdownDisplay += ` → ₱${Number(fare).toFixed(2)} after ${Number(pct)}% discount`;
+  } else {
+    fareBreakdownDisplay += ` → ₱${Number(fare).toFixed(2)} total`;
+  }
+
+  return {
+    matched: true,
+    fare,
+    baseFarePesos: matrixBase,
+    discountPct: pct,
+    categoryUsed: cat,
+    pricingMode: "pre_terminal_hub_chain_plus_spur",
+    extraDistanceKm: spurKm,
+    distanceChargePesos,
+    farePerKmPesos: perKm,
+    hubStartLabel: withoutLast[0]?.fromLabel || startRes.hubMatrixLabel,
+    hubEndLabel: endRes.hubMatrixLabel,
+    subtotalRoundedHalfPeso: subtotalRoundedHalf,
+    preTerminalDestination: true,
+    originSpurKm: 0,
+    destinationSpurKm: spurKm,
+    segmentFares: withoutLast,
+    fareBreakdownDisplay,
+    pricingSummary,
+  };
 }
 
 function formatIntraHubPricingSummary({ travelKm, perKm, pct, fare, subtotalRoundedHalf }) {
@@ -517,8 +705,35 @@ function resolveLocationAgainstCoverage(cov, labelNorm) {
   if (labelNorm === hubNorm) {
     return { kind: "terminal", stop: null, hubMatrixLabel: hubLabel, extraKm: 0, cov };
   }
+  // Passenger UI often lists coverage.locationName only (e.g. "Maramag") — match before full terminal labels.
+  const rawLoc = String(cov.locationName || "").trim();
+  const locNorm = rawLoc ? normalizeLocationLabel(rawLoc) : "";
+  if (rawLoc && locNorm === labelNorm) {
+    return { kind: "terminal", stop: null, hubMatrixLabel: hubLabel, extraKm: 0, cov };
+  }
+  // e.g. user "Don Carlos" vs admin hub name "Don Carlos, Bukidnon"
+  if (
+    rawLoc &&
+    labelNorm.length >= 5 &&
+    (locNorm.startsWith(`${labelNorm},`) || locNorm.startsWith(`${labelNorm} `))
+  ) {
+    return { kind: "terminal", stop: null, hubMatrixLabel: hubLabel, extraKm: 0, cov };
+  }
   const term = cov.terminal;
   if (term && term.name) {
+    const tnShortNorm = normalizeLocationLabel(shortPlaceLabel(term.name));
+    if (tnShortNorm === labelNorm) {
+      return { kind: "terminal", stop: null, hubMatrixLabel: hubLabel, extraKm: 0, cov };
+    }
+    // Passenger / map UIs often expose the raw terminal.name, including address after a comma
+    // (e.g. "Maramag Integrated Bus Terminal, Purok 5") while matrix keys use terminalPointLabel(cov).
+    const termFullNorm = normalizeLocationLabel(String(term.name).trim());
+    if (termFullNorm && labelNorm === termFullNorm) {
+      return { kind: "terminal", stop: null, hubMatrixLabel: hubLabel, extraKm: 0, cov };
+    }
+    if (tnShortNorm && labelNorm.startsWith(`${tnShortNorm},`)) {
+      return { kind: "terminal", stop: null, hubMatrixLabel: hubLabel, extraKm: 0, cov };
+    }
     const tn = shortPlaceLabel(term.name);
     const loc = String(cov.locationName || "").trim();
     const variants = [
@@ -534,6 +749,27 @@ function resolveLocationAgainstCoverage(cov, labelNorm) {
     if (!Number.isFinite(s.sequence)) continue;
     const full = normalizeLocationLabel(stopPointLabel(cov, s));
     if (full === labelNorm) {
+      return {
+        kind: "stop",
+        stop: s,
+        hubMatrixLabel: hubLabel,
+        extraKm: corridorKmDeltaStopFromTerminal(cov, s),
+        cov,
+      };
+    }
+    const sRaw = String(s.name || "").trim();
+    const sShortNorm = normalizeLocationLabel(shortPlaceLabel(sRaw));
+    const sFullNorm = normalizeLocationLabel(sRaw);
+    if (sShortNorm === labelNorm || sFullNorm === labelNorm) {
+      return {
+        kind: "stop",
+        stop: s,
+        hubMatrixLabel: hubLabel,
+        extraKm: corridorKmDeltaStopFromTerminal(cov, s),
+        cov,
+      };
+    }
+    if (sShortNorm && labelNorm.startsWith(`${sShortNorm},`)) {
       return {
         kind: "stop",
         stop: s,
@@ -595,7 +831,9 @@ async function findMatrixEntryByLabels(startLocation, destination) {
   const sn = normalizeLocationLabel(startLocation);
   const en = normalizeLocationLabel(destination);
   if (!sn || !en) return null;
-  return FareMatrixEntry.findOne({ startNorm: sn, endNorm: en }).lean();
+  const forward = await FareMatrixEntry.findOne({ startNorm: sn, endNorm: en }).lean();
+  if (forward) return forward;
+  return FareMatrixEntry.findOne({ startNorm: en, endNorm: sn }).lean();
 }
 
 /** Matrix rows are keyed by RouteCoverage + terminal/stop — match that first (labels can differ from short UI text). */
@@ -626,11 +864,20 @@ async function findMatrixEntryByResolvedEndpoints(startRes, endRes) {
  */
 async function findMatrixEntryHubTerminalToHubTerminal(startCov, endCov) {
   if (!startCov?._id || !endCov?._id) return null;
-  return FareMatrixEntry.findOne({
+  const forward = await FareMatrixEntry.findOne({
     startCoverageId: startCov._id,
     startKind: "terminal",
     startStopSequence: 0,
     endCoverageId: endCov._id,
+    endKind: "terminal",
+    endStopSequence: 0,
+  }).lean();
+  if (forward) return forward;
+  return FareMatrixEntry.findOne({
+    startCoverageId: endCov._id,
+    startKind: "terminal",
+    startStopSequence: 0,
+    endCoverageId: startCov._id,
     endKind: "terminal",
     endStopSequence: 0,
   }).lean();
@@ -668,6 +915,13 @@ function hubTerminalBaseFromLookup(lookup, fromCov, toCov) {
     terminalPointLabel(toCov)
   )}`;
   if (lookup.byLabel.has(lk)) return lookup.byLabel.get(lk);
+  /** Same corridor leg, opposite direction — one matrix row is enough (symmetric base fare). */
+  const revId = `${String(toCov._id)}|${String(fromCov._id)}`;
+  if (lookup.byPair.has(revId)) return lookup.byPair.get(revId);
+  const revLk = `${normalizeLocationLabel(terminalPointLabel(toCov))}|${normalizeLocationLabel(
+    terminalPointLabel(fromCov)
+  )}`;
+  if (lookup.byLabel.has(revLk)) return lookup.byLabel.get(revLk);
   return null;
 }
 
@@ -853,6 +1107,10 @@ function formatMultiSegmentPricingSummary({
   const totalKm = o + d;
   const pk = Number(perKm) || 0;
   const distP = Number(distanceChargePesos) || 0;
+  const kmDetail =
+    totalKm > 0 && pk > 0
+      ? ` [${formatGeoKmForPerKmLine(totalKm, distP, pk)} km × ₱${pk.toFixed(2)}/km]`
+      : "";
   const equation = formatFareBreakdownEquation({
     segmentLines,
     distanceChargePesos: distP,
@@ -868,8 +1126,6 @@ function formatMultiSegmentPricingSummary({
   } else {
     tail = " total";
   }
-  const kmDetail =
-    totalKm > 0 && pk > 0 ? ` [${totalKm.toFixed(1)} km × ₱${pk.toFixed(2)}/km]` : "";
   if (equation) {
     return `${equation}${kmDetail}${tail}`;
   }
@@ -915,6 +1171,23 @@ async function computeTicketFare({ startLocation, destination, category, clientF
     preTerminalUsesDistanceOnlyPolicy(endRes.cov);
 
   if (preTerminalDest && startRes.cov?.terminal && endRes.stop) {
+    const chainSpur = await tryPreTerminalChainPlusSpur({
+      startRes,
+      endRes,
+      settings,
+      coverages,
+      perKm,
+      pct,
+      cat,
+      clientFare,
+    });
+    if (chainSpur) return chainSpur;
+
+    /**
+     * Single hub hop to destination corridor (e.g. Don Carlos → Camp I before Maramag IBT): do **not** add the
+     * DC→MIBT matrix row — fare is only origin terminal → alighting stop × fare/km. Multi-hop pre-terminal trips
+     * are priced above via `tryPreTerminalChainPlusSpur` (matrix legs except last + spur from previous hub).
+     */
     const oTerm = startRes.cov.terminal;
     const dStop = endRes.stop;
     const fullKm = haversineKm(oTerm.latitude, oTerm.longitude, dStop.latitude, dStop.longitude);
@@ -923,10 +1196,18 @@ async function computeTicketFare({ startLocation, destination, category, clientF
     if (subtotalRaw > 0) {
       hubStartLabel = startRes.hubMatrixLabel;
       hubEndLabel = endRes.hubMatrixLabel;
+      const originLabel = terminalPointLabel(startRes.cov);
       const subtotalRoundedHalf = roundFareToNearestHalfPeso(subtotalRaw);
       const fareAfterDiscount = applyDiscount(subtotalRoundedHalf, pct);
       const fare = roundFareToNearestHalfPeso(fareAfterDiscount);
       const distCharge = perKm > 0 ? Math.round(fullKm * perKm * 100) / 100 : 0;
+      const kmLine = formatGeoKmForPerKmLine(fullKm, distCharge, perKm);
+      let fareBreakdownDisplay = `₱${distCharge.toFixed(2)} (${kmLine} km × ₱${Number(perKm).toFixed(2)}/km from ${originLabel})`;
+      if (Number(pct) > 0) {
+        fareBreakdownDisplay += ` → ₱${Number(fare).toFixed(2)} after ${Number(pct)}% discount`;
+      } else {
+        fareBreakdownDisplay += ` → ₱${Number(fare).toFixed(2)} total`;
+      }
       return {
         matched: true,
         fare,
@@ -943,6 +1224,7 @@ async function computeTicketFare({ startLocation, destination, category, clientF
         preTerminalDestination: true,
         originSpurKm: fullKm,
         destinationSpurKm: 0,
+        fareBreakdownDisplay,
         pricingSummary: formatPreTerminalPricingSummary({
           fullKm,
           perKm,
@@ -1080,17 +1362,13 @@ async function computeTicketFare({ startLocation, destination, category, clientF
 
     if (interHub) {
       const lookup = await loadHubTerminalFareMatrixLookup();
-      let multi = await findMultiSegmentHubPath(lookup, String(startRes.cov._id), String(endRes.cov._id), coverages);
-      if (!multi || !multi.segments.length) {
-        const chainIds = resolveEffectiveHubChainIds(settings, coverages);
-        multi = findLinearHubChainPath(
-          lookup,
-          String(startRes.cov._id),
-          String(endRes.cov._id),
-          coverages,
-          chainIds
-        );
-      }
+      const multi = await resolveInterHubMatrixPath(
+        lookup,
+        String(startRes.cov._id),
+        String(endRes.cov._id),
+        coverages,
+        settings
+      );
       if (multi && multi.segments.length > 0) {
         const sumMatrixBase = multi.totalBase;
         const distanceCharge = perKm * (originKm + destKm);

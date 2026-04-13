@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type MouseEventHandler } 
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { TacticalNotificationSidebar } from "@/components/TacticalNotificationSidebar";
 import { SosResolveModal } from "@/components/SosCriticalOverlay";
+import { SosEmergencyBlockingModal } from "@/components/SosEmergencyBlockingModal";
 import { useTacticalNotifications } from "@/context/TacticalNotificationContext";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useSosInterceptOptional } from "@/context/SosInterceptContext";
@@ -185,7 +186,7 @@ export function AdminLayout() {
   const tactical = useTacticalNotifications();
   const { setSidebarOpen: setTacticalSidebarOpen } = tactical;
   const lastAutoOpenSosId = useRef<string | null>(null);
-  useSessionTimeout(branding.sessionTimeoutMinutes);
+  useSessionTimeout(branding.sessionTimeoutMinutes, branding.securityPolicyApplyAdmin !== false);
   const location = useLocation();
   const isDashboardHome = location.pathname === "/dashboard" || location.pathname === "/dashboard/";
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -215,6 +216,12 @@ export function AdminLayout() {
     }
     if (!id) lastAutoOpenSosId.current = null;
   }, [sos?.activeIncident?.id, setTacticalSidebarOpen]);
+
+  useEffect(() => {
+    const openFeed = () => setTacticalSidebarOpen(true);
+    window.addEventListener("admin-open-tactical-feed", openFeed);
+    return () => window.removeEventListener("admin-open-tactical-feed", openFeed);
+  }, [setTacticalSidebarOpen]);
 
   useEffect(() => {
     const href = branding.faviconUrl?.trim();
@@ -334,6 +341,7 @@ export function AdminLayout() {
         </div>
       </main>
       <TacticalNotificationSidebar />
+      <SosEmergencyBlockingModal />
       <SosResolveModal />
     </div>
   );

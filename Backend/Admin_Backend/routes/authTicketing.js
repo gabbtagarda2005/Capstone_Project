@@ -18,6 +18,7 @@ const AdminOtpCode = require("../models/AdminOtpCode");
 const OperatorPasswordResetOtp = require("../models/OperatorPasswordResetOtp");
 const { sendOtpEmail, sendOperatorPasswordResetOtpEmail } = require("../services/mailer");
 const { verifyFirebaseIdToken } = require("../config/firebaseAdmin");
+const { getPortalSettingsLean } = require("../services/adminPortalSettingsService");
 
 const BUS_ASSIGNMENT_REQUIRED_MSG =
   "No bus assigned to your account. Ask your administrator to assign you to a bus in Management before signing in.";
@@ -192,19 +193,23 @@ function createAuthTicketingRouter() {
       if (!doc.password) {
         return res.status(401).json({ error: "Use Google Login for this account" });
       }
-      const lock = await isLockedOut(email);
-      if (lock.locked) {
-        return res.status(403).json({
-          error: "Account temporarily locked after failed sign-in attempts. Try again later.",
-          lockedUntil: lock.lockedUntil.toISOString(),
-        });
+      const portal = await getPortalSettingsLean();
+      const applyLock = portal.securityPolicyApplyAdmin !== false;
+      if (applyLock) {
+        const lock = await isLockedOut(email, "admin");
+        if (lock.locked) {
+          return res.status(403).json({
+            error: "Account temporarily locked after failed sign-in attempts. Try again later.",
+            lockedUntil: lock.lockedUntil.toISOString(),
+          });
+        }
       }
       const ok = await bcrypt.compare(password, doc.password);
       if (!ok) {
-        await recordFailedLoginAttempt(email);
+        if (applyLock) await recordFailedLoginAttempt(email, "admin");
         return res.status(401).json({ error: "Invalid credentials" });
       }
-      await clearLockoutOnSuccess(email);
+      await clearLockoutOnSuccess(email, "admin");
       const token = signToken(
         { sub: doc._id.toString(), role: doc.role, email: doc.email, authStore: "mongo" },
         secret
@@ -253,7 +258,7 @@ function createAuthTicketingRouter() {
         { upsert: true, new: true }
       );
 
-      await clearLockoutOnSuccess(email);
+      await clearLockoutOnSuccess(email, "admin");
       const token = signToken(
         { sub: doc._id.toString(), role: doc.role, email: doc.email, authStore: "mongo" },
         secret
@@ -287,10 +292,23 @@ function createAuthTicketingRouter() {
       if (!doc || !allowedMongoAttendant) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      const portal = await getPortalSettingsLean();
+      const applyLock = portal.securityPolicyApplyAttendant !== false;
+      if (applyLock) {
+        const lock = await isLockedOut(email, "attendant");
+        if (lock.locked) {
+          return res.status(403).json({
+            error: "Account temporarily locked after failed sign-in attempts. Try again later.",
+            lockedUntil: lock.lockedUntil.toISOString(),
+          });
+        }
+      }
       const ok = await bcrypt.compare(password, doc.password);
       if (!ok) {
+        if (applyLock) await recordFailedLoginAttempt(email, "attendant");
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      await clearLockoutOnSuccess(email, "attendant");
       const assignedBus = await Bus.findOne({ operatorPortalUserId: doc._id }).select("_id status").lean();
       if (!assignedBus) {
         return res.status(403).json({ error: BUS_ASSIGNMENT_REQUIRED_MSG });

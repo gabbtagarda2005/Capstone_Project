@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const Bus = require("../models/Bus");
 const { isAuthorizedAdminEmail, normalizeEmail } = require("../config/adminWhitelist");
-const { ingestAttendantGps, clearAttendantLiveSession } = require("../services/attendantGpsIngest");
+const { ingestAttendantGps, clearAttendantLiveSession, buildOperatorBusQuery } = require("../services/attendantGpsIngest");
 const { broadcastLocationUpdate, broadcastBusAttendantOffline } = require("./socket");
 
 function ticketingUserFromPayload(payload) {
@@ -46,8 +47,27 @@ function attachAttendantLiveGpsSocket(io) {
         if (typeof ack === "function") ack({ ok: false, error: "Invalid or unauthorized token" });
         return;
       }
+      const prevRoom = socket.data.attendantBusRoom;
+      if (prevRoom) {
+        socket.leave(prevRoom);
+        socket.data.attendantBusRoom = null;
+      }
       socket.data.ticketingUser = tu;
       socket.join("buses");
+      socket.data.attendantBusRoom = null;
+      try {
+        const q = buildOperatorBusQuery(tu.sub);
+        if (q) {
+          const b = await Bus.findOne(q).select("busId").lean();
+          if (b?.busId) {
+            const room = `bus:${String(b.busId).trim()}`;
+            socket.join(room);
+            socket.data.attendantBusRoom = room;
+          }
+        }
+      } catch {
+        /* non-fatal — still on buses room */
+      }
       if (typeof ack === "function") ack({ ok: true });
     });
 
@@ -85,14 +105,20 @@ function attachAttendantLiveGpsSocket(io) {
 
     socket.on("attendant_logout", () => {
       const tu = socket.data.ticketingUser;
+      const room = socket.data.attendantBusRoom;
       socket.data.ticketingUser = null;
+      socket.data.attendantBusRoom = null;
+      if (room) socket.leave(room);
       if (!tu?.sub) return;
       void clearAttendantLiveSession(io, broadcastBusAttendantOffline, tu).catch(() => {});
     });
 
     socket.on("disconnect", () => {
       const tu = socket.data.ticketingUser;
+      const room = socket.data.attendantBusRoom;
       socket.data.ticketingUser = null;
+      socket.data.attendantBusRoom = null;
+      if (room) socket.leave(room);
       if (!tu?.sub) return;
       void clearAttendantLiveSession(io, broadcastBusAttendantOffline, tu).catch(() => {});
     });

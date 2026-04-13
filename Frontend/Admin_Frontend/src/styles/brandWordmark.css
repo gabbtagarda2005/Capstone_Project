@@ -1,0 +1,10 @@
+/* Company wordmark: geometric sans similar to Nativera-style logo type (wide, modern).
+   Syne is served from Google Fonts (OFL). To use the official Nativera face instead,
+   add your licensed .woff2 under public/fonts/ and prepend:
+   @font-face { font-family: "BrandWordmark"; src: url("/fonts/nativera-semibold.woff2") format("woff2");
+     font-weight: 100 900; font-style: normal; font-display: swap; }
+   then set --brand-wordmark-family to "BrandWordmark", "Syne", … */
+
+:root {
+  --brand-wordmark-family: "Syne", "Inter", system-ui, sans-serif;
+}

@@ -13,6 +13,7 @@ const PortalUser = require("../models/PortalUser");
 const { buildMongoTicketMatch } = require("../utils/mongoTicketQueryFromQuery");
 const { computeTicketFare } = require("../services/farePricing");
 const { buildOperatorBusQuery } = require("../services/attendantGpsIngest");
+const { sendTicketSMS, normalizePhilippineMobileE164 } = require("../services/smsService");
 
 function isMongoTicketId(s) {
   const t = String(s || "").trim();
@@ -120,6 +121,7 @@ function createTicketsTicketingRouter() {
       issuedByName,
       busNumber,
       passengerCategory,
+      passengerPhone,
     } = req.body || {};
     const pid = String(passengerId || "").trim();
     const start = String(startLocation || "").trim();
@@ -213,10 +215,14 @@ function createTicketsTicketingRouter() {
         }
       }
     }
+    const phoneRaw = passengerPhone != null ? String(passengerPhone).trim() : "";
+    const phoneStored = phoneRaw || null;
+
     try {
       const doc = await IssuedTicketRecord.create({
         passengerId: pid,
         passengerName: String(req.body?.passengerName || "").trim() || "Walk-in Passenger",
+        passengerPhone: phoneStored,
         startLocation: start,
         destination: dest,
         destinationLocation: dest,
@@ -226,6 +232,7 @@ function createTicketsTicketingRouter() {
         issuerMysqlId: Number.isFinite(issuerMysqlId) && issuerMysqlId >= 1 ? issuerMysqlId : null,
         issuedByName: issuedName,
         busNumber: busNorm,
+        boardingStatus: "boarded",
       });
       let busCounter = null;
       if (busNorm) {
@@ -233,11 +240,37 @@ function createTicketsTicketingRouter() {
       }
       const idStr = String(doc._id);
       const opOut = Number.isFinite(issuerMysqlId) && issuerMysqlId >= 1 ? issuerMysqlId : stableNumberFromString(issuerSub);
+
+      let sms = { attempted: false, ok: false };
+      const toE164 = phoneRaw ? normalizePhilippineMobileE164(phoneRaw) : null;
+      if (toE164) {
+        sms.attempted = true;
+        const shortId = idStr.slice(-6).toUpperCase();
+        try {
+          const r = await sendTicketSMS(toE164, {
+            ticketId: shortId,
+            origin: start,
+            destination: dest,
+            fare: fareNumFinal,
+            category: catStore,
+          });
+          sms.ok = r.success === true;
+          if (!r.success && r.error) sms.error = r.error;
+          if (r.skipped) sms.skipped = true;
+        } catch (smsErr) {
+          console.warn("[tickets/issue] SMS failed:", smsErr.message || smsErr);
+          sms.error = smsErr.message || String(smsErr);
+        }
+      } else if (phoneRaw) {
+        sms = { attempted: true, ok: false, error: "Invalid Philippine mobile number" };
+      }
+
       return res.status(201).json({
         id: idStr,
         ticketCode: `TKT-${idStr.slice(-8).toUpperCase()}`,
         passengerId: pid,
         passengerName: doc.passengerName,
+        passengerPhone: phoneStored,
         startLocation: start,
         destination: dest,
         destinationLocation: dest,
@@ -248,6 +281,7 @@ function createTicketsTicketingRouter() {
         issuedByOperatorId: opOut,
         busNumber: busNorm,
         busTicketCounter: busCounter,
+        sms,
       });
     } catch (e) {
       return res.status(500).json({ error: e.message });

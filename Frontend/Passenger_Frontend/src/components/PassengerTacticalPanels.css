@@ -66,6 +66,77 @@
   box-shadow: 0 0 12px rgba(34, 211, 238, 0.55);
 }
 
+/* —— Check buses (same shell + tables as departure board) —— */
+.pd-check-buses .pd-board__wrap + .pd-board__wrap {
+  margin-top: 1rem;
+}
+
+.pd-check-buses__pad {
+  padding: 0.85rem 0.95rem 1rem;
+  box-sizing: border-box;
+}
+
+.pd-check-buses__block-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.5);
+}
+
+.pd-check-buses__block-title--fleet {
+  margin: 1.15rem 0 0.5rem;
+}
+
+.pd-check-buses__dismiss {
+  flex-shrink: 0;
+  padding: 0.42rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--pd-tactical-border);
+  background: #020817;
+  color: rgba(226, 232, 240, 0.92);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pd-check-buses__dismiss:hover {
+  border-color: var(--pd-tactical-cyan);
+  color: var(--pd-tactical-cyan);
+}
+
+.pd-check-buses__live-err {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #fcd34d;
+}
+
+.pd-check-buses__fleet-card-panel {
+  overflow-x: hidden;
+}
+
+.pd-check-buses__fleet-empty {
+  margin: 0;
+  padding: 1rem 1.2rem;
+}
+
+.pd-check-buses__fleet-empty--offline {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.28);
+  border-radius: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  line-height: 1.5;
+}
+
+.pd-check-buses__fleet-empty--offline strong {
+  font-weight: 800;
+}
+
 .pd-board__table--ops .pd-board__mono {
   font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
@@ -324,6 +395,15 @@
 }
 
 /* —— News command feed —— */
+.pd-feed__empty {
+  margin: 0;
+  padding: 0.5rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(248, 250, 252, 0.55);
+  max-width: 36rem;
+}
+
 .pd-feed__timeline {
   list-style: none;
   margin: 0;
@@ -639,6 +719,17 @@
   color: var(--pd-tactical-cyan);
 }
 
+/* Center feedback in tactical main (map area) */
+.pd-tactical.pd-fb {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem 2rem;
+  box-sizing: border-box;
+}
+
 /* —— Feedback: light “Send Feedback” card (Tailwind-inspired, no Tailwind) —— */
 .pd-fb-card {
   display: grid;
@@ -655,6 +746,54 @@
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   box-shadow: 0 10px 40px rgba(15, 23, 42, 0.12);
+}
+
+.pd-fb-card--lg {
+  max-width: min(40rem, 100%);
+  padding: 1.15rem 1.35rem 1.25rem;
+  gap: 0.65rem;
+  font-size: 0.95rem;
+}
+
+.pd-fb-card--lg .pd-fb-card__title {
+  font-size: clamp(1.35rem, 3.5vw, 1.65rem);
+  padding: 0.35rem 0 0.15rem;
+}
+
+.pd-fb-card--lg .pd-fb-card__hint {
+  font-size: 0.82rem;
+  padding-bottom: 0.35rem;
+}
+
+.pd-fb-card--lg .pd-fb-card__field-label {
+  font-size: 0.68rem;
+  margin-top: 0.35rem;
+}
+
+.pd-fb-card--lg .pd-fb-card__select,
+.pd-fb-card--lg .pd-fb-card__input {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.95rem;
+}
+
+.pd-fb-card__textarea--lg {
+  min-height: 10.5rem;
+  height: auto;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+.pd-fb-card--lg .pd-fb-card__textarea--lg {
+  min-height: 12rem;
+}
+
+.pd-fb-card--lg .pd-fb-card__send {
+  min-height: 3rem;
+}
+
+.pd-fb-card--lg .pd-fb-card__send-icon {
+  height: 32px;
+  width: 32px;
 }
 
 .pd-fb-card__title {
@@ -686,6 +825,11 @@
   text-transform: uppercase;
   color: #64748b;
   margin: 0.15rem 0 0;
+}
+
+.pd-fb-card__field-label--center {
+  text-align: center;
+  margin-top: 0.5rem;
 }
 
 .pd-fb-card__select,
@@ -751,6 +895,64 @@
 .pd-fb-card__textarea:focus {
   border-color: #475569;
   box-shadow: 0 0 0 1px rgba(71, 85, 105, 0.2);
+}
+
+.pd-fb-card__stars-block {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.35rem 0 0.15rem;
+}
+
+.pd-fb-card__stars {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.pd-fb-card__star {
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #cbd5e1;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.pd-fb-card__star:hover {
+  border-color: #94a3b8;
+  color: #94a3b8;
+}
+
+.pd-fb-card__star:focus-visible {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.pd-fb-card__star--on {
+  color: #0284c7;
+  border-color: #38bdf8;
+  background: #e0f2fe;
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.2);
+}
+
+.pd-fb-card--lg .pd-fb-card__star {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.35rem;
 }
 
 .pd-fb-card__toolbar {
@@ -876,6 +1078,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pd-fb-card__mood,
+  .pd-fb-card__star,
   .pd-fb-card__send,
   .pd-fb-card__textarea,
   .pd-fb-card__select,

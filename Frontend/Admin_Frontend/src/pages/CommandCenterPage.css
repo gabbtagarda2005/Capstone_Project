@@ -648,6 +648,11 @@
   box-shadow: 0 0 24px rgba(34, 197, 94, 0.25);
 }
 
+.command-center__live:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .command-center__live-dot {
   width: 10px;
   height: 10px;

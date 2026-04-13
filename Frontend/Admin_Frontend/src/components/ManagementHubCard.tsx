@@ -8,6 +8,8 @@ export type ManagementHubCardProps = {
   metricA: string;
   metricB: string;
   metricC: string;
+  /** Third bullet — defaults to an accurate security note (counts above are live from the API). */
+  footnote?: string;
   icon: string;
   onNavigate?: () => void;
 };
@@ -31,6 +33,7 @@ export function ManagementHubCard({
   metricA,
   metricB,
   metricC,
+  footnote = "Live counts · RBAC-protected",
   icon,
   onNavigate,
 }: ManagementHubCardProps) {
@@ -38,7 +41,7 @@ export function ManagementHubCard({
   const line1 = `${metricA} ${metricB}`.trim();
   const line2 = isBusFleetEmpty ? "Awaiting Data" : metricC;
 
-  const listItems = [line1, line2, "Secure workspace · role-based access"];
+  const listItems = [line1, line2, footnote];
 
   return (
     <Link to={to} className="mgmt-bento-card-link" onClick={onNavigate}>

@@ -155,6 +155,28 @@ app.get("/api/public/company-profile", (_req, res) => {
   })();
 });
 
+app.get("/api/public/attendant-session-policy", (_req, res) => {
+  (async () => {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 8000);
+      const upstream = await fetch(`${ADMIN_BACKEND_URL}/api/public/attendant-session-policy`, {
+        signal: ctrl.signal,
+      });
+      clearTimeout(to);
+      const text = await upstream.text();
+      res.status(upstream.status);
+      res.setHeader("Content-Type", "application/json");
+      res.send(text);
+    } catch (e) {
+      res.status(502).json({
+        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
+        detail: e.message || "attendant-session-policy proxy failed",
+      });
+    }
+  })();
+});
+
 app.post("/api/auth/operator-login", (req, res) => {
   (async () => {
     try {
@@ -933,6 +955,11 @@ app.post("/api/live-location/batch", auth, (req, res) => {
 /** End shift / sign-out — removes attendant's bus from Admin live map (gps_logs). */
 app.post("/api/live-session/end", auth, (req, res) => {
   proxyAttendantGpsToAdmin("/api/buses/live-session/end", req, res);
+});
+
+/** Acknowledge return-trip / new segment after server-side auto route flip */
+app.post("/api/trip-segment/ack", auth, (req, res) => {
+  proxyAttendantGpsToAdmin("/api/buses/trip-segment/ack", req, res);
 });
 
 function proxyPostToAdminAttendant(path, req, res) {

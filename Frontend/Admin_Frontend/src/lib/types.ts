@@ -42,7 +42,9 @@ export type FleetHardwareStatusRow = {
   busNumber: string;
   route: string | null;
   source: "staff" | "hardware" | string;
-  activeLink: "wifi" | "lte" | "unknown";
+  activeLink: "wifi" | "lte" | "unknown" | "staff";
+  /** True when hardware uplink was assumed LTE from recent telemetry (T‑A7670E default). */
+  uplinkInferred?: boolean;
   signalStrengthDbm: number | null;
   signalLevel: "good" | "ok" | "warn" | "critical" | "unknown" | string;
   signalLabel: string;
@@ -53,6 +55,8 @@ export type FleetHardwareStatusRow = {
   lastSeenAt: string | null;
   staleSeconds: number | null;
   driverName?: string | null;
+  /** When source is staff: strong | weak | offline from attendant connectivity. */
+  attendantSignalTier?: string | null;
 };
 
 export type BusRow = {
@@ -507,6 +511,8 @@ export type AdminRbacRole = "super_admin" | "fleet_manager" | "auditor";
 /** GET /api/passenger-feedback/dashboard — passenger feedback intelligence payload */
 export type PassengerFeedbackAbout = "bus" | "driver" | "attendant" | "location";
 
+export type PassengerFeedbackEntryKind = "feedback" | "lost_item";
+
 export type PassengerFeedbackIntelRow = {
   id: string;
   passengerName: string;
@@ -523,6 +529,8 @@ export type PassengerFeedbackIntelRow = {
   latitude: number | null;
   longitude: number | null;
   isSos: boolean;
+  /** `lost_item` = Command Center "Left something?" report (also in tactical feed). */
+  entryKind?: PassengerFeedbackEntryKind;
   createdAt: string | null;
 };
 
@@ -574,6 +582,10 @@ export type AdminPortalSettingsDto = {
   reportFooter: string;
   companyEmail?: string | null;
   companyPhone?: string | null;
+  /** Legacy fallback when companyEmail is empty (SOS / lost-item email). */
+  sosEmail?: string | null;
+  /** Legacy fallback when companyPhone is empty (SOS SMS; company preferred). */
+  sosPhoneNumber?: string | null;
   companyLocation?: string | null;
   securityPolicyApplyAdmin?: boolean;
   securityPolicyApplyAttendant?: boolean;
@@ -590,4 +602,24 @@ export type AdminPortalSettingsDto = {
   dailyOpsReportEmailEnabled?: boolean;
   dailyOpsReportEmailTime?: string;
   dailyOpsReportEmailRecipients?: string[];
+  /** When false, Command center is OFFLINE — passenger live map / fleet registry hidden. */
+  operationsDeckLive?: boolean;
+};
+
+/** GET /api/admin/management-hub-stats — live counts for dashboard management cards */
+export type ManagementHubStatsDto = {
+  ticketRecords: number;
+  busesTotal: number;
+  busesActive: number;
+  attendantsRoster: number;
+  attendantsOnActiveBuses: number;
+  driversTotal: number;
+  driversVerified: number;
+  hubs: number;
+  corridorRoutes: number;
+  fareRoutes: number;
+  routeDefinitions: number;
+  tripsPlanned: number;
+  faresMatrix: number;
+  adminAccounts: number;
 };

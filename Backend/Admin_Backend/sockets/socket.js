@@ -87,6 +87,13 @@ function broadcastBusTerminalArrival(io, payload) {
   io.emit("bus_terminal_arrival", payload);
 }
 
+/** Bus Attendant app — automatic round-trip route flip at destination geofence */
+function broadcastAttendantRouteFlip(io, payload) {
+  if (!io || !payload?.busId) return;
+  io.to("buses").emit("attendant_route_flip", payload);
+  io.emit("attendant_route_flip", payload);
+}
+
 function broadcastBusAttendantOffline(io, busId) {
   const bus_id = busId != null ? String(busId).trim() : "";
   if (!bus_id) return;
@@ -143,9 +150,19 @@ function broadcastLocationUpdate(io, payload) {
   broadcastBusLocationUpdate(io, payload);
 }
 
-/** Super Admin / Command Center: attendant SOS, incidents, etc. */
+/** Super Admin / Command Center: attendant SOS, incidents, lost-item, etc. */
 function broadcastCommandAlert(io, payload) {
   io.emit("commandAlert", payload);
+  const kind = payload?.kind != null ? String(payload.kind) : "";
+  const bid = payload?.busId != null ? String(payload.busId).trim() : "";
+  if (kind === "lost_item" && bid && bid !== "UNKNOWN") {
+    io.to(`bus:${bid}`).emit("commandAlert", payload);
+    return;
+  }
+  if (kind === "lost_item") {
+    io.to("buses").emit("commandAlert", payload);
+    return;
+  }
   io.to("buses").emit("commandAlert", payload);
 }
 
@@ -160,6 +177,7 @@ module.exports = {
   broadcastLocationUpdate,
   broadcastBusLocationUpdate,
   broadcastBusTerminalArrival,
+  broadcastAttendantRouteFlip,
   broadcastBusAttendantOffline,
   broadcastCommandAlert,
   broadcastLiveBoard,

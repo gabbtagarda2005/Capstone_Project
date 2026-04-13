@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PassengerLogo } from "@/components/PassengerLogo";
+import { fetchPublicCompanyProfile } from "@/lib/fetchPublicCompanyProfile";
 import { fetchDeployedPoints, type DeployedPointItem } from "@/lib/fetchPassengerMapData";
 import { logPassengerTerminalAffinity } from "@/lib/logPassengerTerminalAffinity";
 import { findNearestDeployedTerminal } from "@/lib/passengerNearestTerminal";
@@ -18,6 +19,8 @@ export function PassengerLocationPage() {
   const [hint, setHint] = useState<string | null>(null);
   const [deployed, setDeployed] = useState<DeployedPointItem[]>([]);
   const deployedRef = useRef<DeployedPointItem[]>([]);
+  const [companyName, setCompanyName] = useState("Bukidnon Transit");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     deployedRef.current = deployed;
@@ -27,6 +30,21 @@ export function PassengerLocationPage() {
     void fetchDeployedPoints()
       .then((rows) => setDeployed(rows))
       .catch(() => setDeployed([]));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicCompanyProfile()
+      .then((p) => {
+        if (!cancelled) {
+          setCompanyName(p.name);
+          setLogoUrl(p.logoUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -98,8 +116,8 @@ export function PassengerLocationPage() {
       <header className="ph-nav ph-nav--transparent ploc__nav">
         <div className="ph__inner ph-nav__inner">
           <Link to="/" className="ph-nav__brand">
-            <PassengerLogo />
-            Bukidnon Transit
+            <PassengerLogo logoUrl={logoUrl} />
+            {companyName}
           </Link>
         </div>
       </header>
@@ -200,7 +218,7 @@ export function PassengerLocationPage() {
 
           <div className="ploc__back">
             <Link to="/" className="ploc__btn ploc__btn--ghost">
-              ← Back to home
+              Back to home
             </Link>
           </div>
         </div>

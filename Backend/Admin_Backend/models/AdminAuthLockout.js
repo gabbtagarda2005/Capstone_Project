@@ -2,7 +2,9 @@ const mongoose = require("mongoose");
 
 const adminAuthLockoutSchema = new mongoose.Schema(
   {
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+    /** `admin:email` or `attendant:email` — separates lockout counters per client. */
+    lockKey: { type: String, required: true, unique: true, trim: true, index: true },
+    email: { type: String, lowercase: true, trim: true },
     failedAttempts: { type: Number, default: 0, min: 0 },
     lockedUntil: { type: Date, default: null },
   },

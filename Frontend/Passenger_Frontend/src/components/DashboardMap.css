@@ -103,6 +103,22 @@
   color: var(--pd-muted, #94a3b8);
 }
 
+.dashboard-map__deck-offline {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.35);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  max-width: 40rem;
+}
+
+.dashboard-map__deck-offline strong {
+  font-weight: 800;
+}
+
 .dashboard-map__frame {
   height: min(52vh, 420px);
   min-height: 280px;

@@ -23,6 +23,8 @@ export type AdminBranding = {
   reportFooter: string;
   /** Mirrored from server security policy for inactivity logout */
   sessionTimeoutMinutes: number;
+  /** When false, admin shell does not auto-logout on idle (Settings → Security). */
+  securityPolicyApplyAdmin: boolean;
 };
 
 export const DEFAULT_ADMIN_BRANDING: AdminBranding = {
@@ -32,6 +34,7 @@ export const DEFAULT_ADMIN_BRANDING: AdminBranding = {
   faviconUrl: null,
   reportFooter: "© 2026 Bukidnon Bus Company - Fleet Management Division",
   sessionTimeoutMinutes: 30,
+  securityPolicyApplyAdmin: true,
 };
 
 function parseStored(): AdminBranding {
@@ -61,7 +64,17 @@ function parseStored(): AdminBranding {
       parsed.sessionTimeoutMinutes >= 5
         ? parsed.sessionTimeoutMinutes
         : DEFAULT_ADMIN_BRANDING.sessionTimeoutMinutes;
-    return { companyName, logoUrl, sidebarLogoUrl, faviconUrl, reportFooter, sessionTimeoutMinutes };
+    const securityPolicyApplyAdmin =
+      parsed.securityPolicyApplyAdmin === undefined ? true : Boolean(parsed.securityPolicyApplyAdmin);
+    return {
+      companyName,
+      logoUrl,
+      sidebarLogoUrl,
+      faviconUrl,
+      reportFooter,
+      sessionTimeoutMinutes,
+      securityPolicyApplyAdmin,
+    };
   } catch {
     return DEFAULT_ADMIN_BRANDING;
   }
@@ -124,7 +137,19 @@ function normalize(next: Partial<AdminBranding>): AdminBranding {
     next.sessionTimeoutMinutes !== undefined
       ? Math.max(5, Math.min(480, next.sessionTimeoutMinutes || 30))
       : memory.sessionTimeoutMinutes;
-  return { companyName, logoUrl, sidebarLogoUrl, faviconUrl, reportFooter, sessionTimeoutMinutes };
+  const securityPolicyApplyAdmin =
+    next.securityPolicyApplyAdmin !== undefined
+      ? Boolean(next.securityPolicyApplyAdmin)
+      : memory.securityPolicyApplyAdmin;
+  return {
+    companyName,
+    logoUrl,
+    sidebarLogoUrl,
+    faviconUrl,
+    reportFooter,
+    sessionTimeoutMinutes,
+    securityPolicyApplyAdmin,
+  };
 }
 
 type Ctx = {
@@ -137,6 +162,7 @@ type Ctx = {
     faviconUrl: string | null;
     reportFooter: string;
     sessionTimeoutMinutes: number;
+    securityPolicyApplyAdmin: boolean;
     geofenceBreachToasts: boolean;
     sensitiveActionConfirmation: boolean;
   }) => void;
@@ -155,6 +181,7 @@ export function AdminBrandingProvider({ children }: { children: ReactNode }) {
       faviconUrl: string | null;
       reportFooter: string;
       sessionTimeoutMinutes: number;
+      securityPolicyApplyAdmin: boolean;
       geofenceBreachToasts: boolean;
       sensitiveActionConfirmation: boolean;
     }) => {
@@ -166,6 +193,7 @@ export function AdminBrandingProvider({ children }: { children: ReactNode }) {
           faviconUrl: s.faviconUrl,
           reportFooter: s.reportFooter,
           sessionTimeoutMinutes: s.sessionTimeoutMinutes,
+          securityPolicyApplyAdmin: s.securityPolicyApplyAdmin,
         })
       );
       writeLsBool(LS_SEC_GEOFENCE_PUSH, s.geofenceBreachToasts !== false);
@@ -193,6 +221,7 @@ export function AdminBrandingProvider({ children }: { children: ReactNode }) {
           faviconUrl: s.faviconUrl,
           reportFooter: s.reportFooter,
           sessionTimeoutMinutes: s.sessionTimeoutMinutes ?? 30,
+          securityPolicyApplyAdmin: s.securityPolicyApplyAdmin !== false,
           geofenceBreachToasts: s.geofenceBreachToasts !== false,
           sensitiveActionConfirmation: s.sensitiveActionConfirmation === true,
         });

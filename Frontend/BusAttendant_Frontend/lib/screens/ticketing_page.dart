@@ -77,6 +77,8 @@ class _TicketingPageState extends State<TicketingPage> {
   int _fareQuoteGen = 0;
   bool _fareQuoteLoading = false;
   String? _fareQuoteError;
+  /// From `/api/fares/quote`: human-readable how the fare was computed.
+  String? _fareQuoteExplanation;
 
   String _normalizeCategory(String raw) {
     final x = raw.toLowerCase().trim();
@@ -108,6 +110,7 @@ class _TicketingPageState extends State<TicketingPage> {
         _tripLeg = _TripLeg.none;
         _routeAreaSummary = null;
         _fareQuoteError = null;
+        _fareQuoteExplanation = null;
       });
       widget.onEditBootstrapConsumed?.call();
     });
@@ -128,6 +131,7 @@ class _TicketingPageState extends State<TicketingPage> {
       _routeAreaSummary = null;
       _tripLeg = _TripLeg.none;
       _fareQuoteError = null;
+      _fareQuoteExplanation = null;
     });
   }
 
@@ -432,6 +436,7 @@ class _TicketingPageState extends State<TicketingPage> {
         _routeAreaSummary = null;
         _tripLeg = _TripLeg.none;
         _fareQuoteError = null;
+        _fareQuoteExplanation = null;
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message ?? 'Issue failed')));
@@ -787,6 +792,7 @@ class _TicketingPageState extends State<TicketingPage> {
         setState(() {
           _fareQuoteLoading = false;
           _fareQuoteError = null;
+          _fareQuoteExplanation = null;
           if (!_editMode) {
             _fare.text = '';
           }
@@ -800,6 +806,7 @@ class _TicketingPageState extends State<TicketingPage> {
       setState(() {
         _fareQuoteLoading = true;
         _fareQuoteError = null;
+        _fareQuoteExplanation = null;
       });
     }
 
@@ -814,16 +821,21 @@ class _TicketingPageState extends State<TicketingPage> {
     if (!mounted || gen != _fareQuoteGen) return;
 
     if (r.ok && r.matched && r.fare != null) {
+      final bd = r.fareBreakdownDisplay?.trim();
+      final ps = r.pricingSummary?.trim();
       setState(() {
         _fareQuoteLoading = false;
         _fareQuoteError = null;
         _fare.text = r.fare!.toStringAsFixed(2);
+        _fareQuoteExplanation =
+            (bd != null && bd.isNotEmpty) ? bd : (ps != null && ps.isNotEmpty ? ps : null);
       });
       return;
     }
 
     setState(() {
       _fareQuoteLoading = false;
+      _fareQuoteExplanation = null;
       if (!_editMode) {
         _fare.text = '';
       }
@@ -1123,6 +1135,18 @@ class _TicketingPageState extends State<TicketingPage> {
                   Text(
                     _fareQuoteError!,
                     style: const TextStyle(color: Color(0xFFFFB4AB), fontSize: 12),
+                  ),
+                ] else if (_fareQuoteExplanation != null && _fareQuoteExplanation!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _fareQuoteExplanation!,
+                      style: t.bodySmall!.copyWith(
+                        color: _kMint.withValues(alpha: isDark ? 0.95 : 0.88),
+                        height: 1.35,
+                      ),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 14),

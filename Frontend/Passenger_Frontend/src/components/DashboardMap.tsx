@@ -11,6 +11,7 @@ import {
   type LiveBusPosition,
 } from "@/lib/fetchPassengerMapData";
 import { fetchPublicFleetBuses, type PublicFleetBus } from "@/lib/fetchPublicFleetBuses";
+import { fetchPublicOperationsDeck } from "@/lib/fetchPublicOperationsDeck";
 import { passengerTileLayer, type PassengerBasemapMode } from "@/lib/passengerMapTiles";
 import { haversineKm } from "@/lib/passengerGeo";
 import { getPassengerLocationSession } from "@/lib/passengerLocationGate";
@@ -157,16 +158,41 @@ export function DashboardMap({ apiBase }: Props) {
   const [liveBuses, setLiveBuses] = useState<LiveBusPosition[]>([]);
   const [fleetById, setFleetById] = useState<Map<string, PublicFleetBus>>(new Map());
   const [dataError, setDataError] = useState<string | null>(null);
+  const [operationsDeckLive, setOperationsDeckLive] = useState(true);
 
   const busIcon = useMemo(() => busDivIcon(), []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const { operationsDeckLive: live } = await fetchPublicOperationsDeck();
+        if (cancelled) return;
+        setOperationsDeckLive(live);
+        if (!live) {
+          setLiveBuses([]);
+          setFleetById(new Map());
+        }
+      } catch {
+        if (!cancelled) setOperationsDeckLive(true);
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 12_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
   const visibleBuses = useMemo(() => {
+    if (!operationsDeckLive) return [];
     if (!nearbyBusesOnly || !userSession) return liveBuses;
     return liveBuses.filter((b) => {
       if (!Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) return false;
       return haversineKm(userSession.lat, userSession.lng, b.latitude, b.longitude) <= NEARBY_BUS_RADIUS_KM;
     });
-  }, [nearbyBusesOnly, userSession, liveBuses]);
+  }, [nearbyBusesOnly, operationsDeckLive, userSession, liveBuses]);
 
   useEffect(() => {
     const base = (apiBase || import.meta.env.VITE_PASSENGER_API_URL || "http://localhost:4000").replace(/\/+$/, "");
@@ -275,6 +301,11 @@ export function DashboardMap({ apiBase }: Props) {
             {cfg.label}
             {dataError ? ` · ${dataError}` : ""}
           </p>
+          {!operationsDeckLive ? (
+            <p className="dashboard-map__deck-offline" role="status">
+              Operations deck is <strong>OFFLINE</strong> — live buses are hidden until operations goes LIVE again.
+            </p>
+          ) : null}
           {userSession ? (
             <p className="dashboard-map__near-you" role="status">
               <span className="dashboard-map__near-you-dot" aria-hidden />

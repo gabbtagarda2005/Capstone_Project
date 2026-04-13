@@ -1,8 +1,30 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PassengerLogo } from "@/components/PassengerLogo";
+import { fetchPublicCompanyProfile } from "@/lib/fetchPublicCompanyProfile";
 import "./PassengerLandingPage.css";
 
 export function PassengerLandingPage() {
+  const [companyName, setCompanyName] = useState("Bukidnon Transit");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicCompanyProfile()
+      .then((p) => {
+        if (!cancelled) {
+          setCompanyName(p.name);
+          setLogoUrl(p.logoUrl);
+        }
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="ph">
       <div className="ph__ribbons" aria-hidden />
@@ -10,8 +32,8 @@ export function PassengerLandingPage() {
       <header className="ph-nav ph-nav--transparent">
         <div className="ph__inner ph-nav__inner">
           <Link to="/" className="ph-nav__brand">
-            <PassengerLogo />
-            Bukidnon Transit
+            <PassengerLogo logoUrl={logoUrl} />
+            {companyName}
           </Link>
         </div>
       </header>
@@ -47,7 +69,9 @@ export function PassengerLandingPage() {
             </div>
           </div>
           <footer className="ph-footer ph-footer--in-part" id="footer">
-            <p>© {new Date().getFullYear()} Bukidnon Transit · Capstone Project.</p>
+            <p>
+              © {new Date().getFullYear()} {companyName} · Capstone Project.
+            </p>
           </footer>
         </section>
       </main>

@@ -44,6 +44,9 @@ type Ctx = {
   liveLng: number | null;
   muted: boolean;
   setMuted: (v: boolean) => void;
+  /** Full-screen emergency modal until admin acknowledges (incident stays active). */
+  emergencyBlockingOpen: boolean;
+  acknowledgeEmergency: () => void;
   resolveIncident: (notes: string) => Promise<void>;
   openResolveModal: () => void;
   closeResolveModal: () => void;
@@ -109,6 +112,8 @@ export function SosInterceptProvider({ children }: { children: ReactNode }) {
   const [muted, setMuted] = useState(false);
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [incidentResponseActive, setIncidentResponseActive] = useState(false);
+  const [emergencyBlockingOpen, setEmergencyBlockingOpen] = useState(false);
+  const prevIncidentIdRef = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const pingTimerRef = useRef<number | null>(null);
   const mutedRef = useRef(muted);
@@ -122,6 +127,17 @@ export function SosInterceptProvider({ children }: { children: ReactNode }) {
       pingTimerRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    const id = activeIncident?.id ?? null;
+    if (!id) {
+      setEmergencyBlockingOpen(false);
+      prevIncidentIdRef.current = null;
+    } else if (prevIncidentIdRef.current !== id) {
+      prevIncidentIdRef.current = id;
+      setEmergencyBlockingOpen(true);
+    }
+  }, [activeIncident?.id]);
 
   useEffect(() => {
     if (!activeIncident) {
@@ -164,6 +180,9 @@ export function SosInterceptProvider({ children }: { children: ReactNode }) {
 
     const onCommand = (raw: CommandAlertPayload) => {
       window.dispatchEvent(new CustomEvent("admin-tactical-command", { detail: raw }));
+      if (raw.kind === "lost_item") {
+        window.dispatchEvent(new CustomEvent("admin-open-tactical-feed"));
+      }
       if (raw.kind === "speed_violation" && raw.busId) {
         window.dispatchEvent(new CustomEvent("admin-speed-violation", { detail: raw }));
       }
@@ -256,6 +275,10 @@ export function SosInterceptProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const acknowledgeEmergency = useCallback(() => {
+    setEmergencyBlockingOpen(false);
+  }, []);
+
   const value = useMemo<Ctx>(
     () => ({
       activeIncident,
@@ -263,6 +286,8 @@ export function SosInterceptProvider({ children }: { children: ReactNode }) {
       liveLng,
       muted,
       setMuted,
+      emergencyBlockingOpen,
+      acknowledgeEmergency,
       resolveIncident,
       openResolveModal: () => setResolveModalOpen(true),
       closeResolveModal: () => setResolveModalOpen(false),
@@ -278,6 +303,8 @@ export function SosInterceptProvider({ children }: { children: ReactNode }) {
       liveLat,
       liveLng,
       muted,
+      emergencyBlockingOpen,
+      acknowledgeEmergency,
       resolveIncident,
       resolveModalOpen,
       incidentResponseActive,

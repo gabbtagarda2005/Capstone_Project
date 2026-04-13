@@ -50,6 +50,8 @@ const DEFAULTS = {
   companyName: "Bukidnon Bus Company",
   companyEmail: null,
   companyPhone: null,
+  sosEmail: null,
+  sosPhoneNumber: null,
   companyLocation: null,
   sidebarLogoUrl: null,
   faviconUrl: null,
@@ -69,6 +71,7 @@ const DEFAULTS = {
   dailyOpsReportEmailEnabled: false,
   dailyOpsReportEmailTime: "06:30",
   dailyOpsReportEmailRecipients: [],
+  operationsDeckLive: true,
 };
 
 function normalizeDailyOpsTime(t) {
@@ -107,9 +110,18 @@ function mergeDefaults(doc) {
   base.passengerAppAccess = normalizePassengerAccess(doc?.passengerAppAccess);
   if (base.companyEmail === undefined) base.companyEmail = null;
   if (base.companyPhone === undefined) base.companyPhone = null;
+  if (base.sosEmail === undefined) base.sosEmail = null;
+  if (base.sosPhoneNumber === undefined) base.sosPhoneNumber = null;
   if (base.companyLocation === undefined) base.companyLocation = null;
   if (base.securityPolicyApplyAdmin === undefined) base.securityPolicyApplyAdmin = true;
   if (base.securityPolicyApplyAttendant === undefined) base.securityPolicyApplyAttendant = true;
+  if (base.operationsDeckLive === undefined) base.operationsDeckLive = true;
+  base.maxLoginAttempts = Math.min(10, Math.max(3, Number(base.maxLoginAttempts) || DEFAULTS.maxLoginAttempts));
+  base.lockoutMinutes = Math.min(1440, Math.max(5, Number(base.lockoutMinutes) || DEFAULTS.lockoutMinutes));
+  base.sessionTimeoutMinutes = Math.min(
+    480,
+    Math.max(5, Number(base.sessionTimeoutMinutes) || DEFAULTS.sessionTimeoutMinutes)
+  );
   return base;
 }
 
@@ -142,6 +154,7 @@ async function getPortalSettingsLean() {
       dailyOpsReportEmailEnabled: false,
       dailyOpsReportEmailTime: "06:30",
       dailyOpsReportEmailRecipients: [],
+      operationsDeckLive: true,
     }).then((d) => d.toObject());
   }
   return mergeDefaults(doc);
@@ -164,6 +177,8 @@ async function updatePortalSettings(patch) {
     "companyName",
     "companyEmail",
     "companyPhone",
+    "sosEmail",
+    "sosPhoneNumber",
     "companyLocation",
     "sidebarLogoUrl",
     "faviconUrl",
@@ -180,6 +195,7 @@ async function updatePortalSettings(patch) {
     "dailyOpsReportEmailEnabled",
     "dailyOpsReportEmailTime",
     "dailyOpsReportEmailRecipients",
+    "operationsDeckLive",
   ];
   const $set = {};
   for (const k of allowed) {
@@ -218,17 +234,27 @@ async function updatePortalSettings(patch) {
       $set[k] = normalizeDailyOpsRecipients(patch[k]);
       continue;
     }
+    if (k === "operationsDeckLive") {
+      $set[k] = Boolean(patch[k]);
+      continue;
+    }
     if (k === "maintenancePassengerLocked" || k === "maintenanceAttendantLocked") {
       $set[k] = Boolean(patch[k]);
       continue;
     }
-    if (k === "companyEmail" || k === "companyPhone" || k === "companyLocation") {
+    if (
+      k === "companyEmail" ||
+      k === "companyPhone" ||
+      k === "sosEmail" ||
+      k === "sosPhoneNumber" ||
+      k === "companyLocation"
+    ) {
       const s = patch[k] == null ? "" : String(patch[k]).trim();
       if (!s.length) {
         $set[k] = null;
-      } else if (k === "companyEmail") {
+      } else if (k === "companyEmail" || k === "sosEmail") {
         $set[k] = s.slice(0, 200);
-      } else if (k === "companyPhone") {
+      } else if (k === "companyPhone" || k === "sosPhoneNumber") {
         $set[k] = s.slice(0, 80);
       } else {
         $set[k] = s.slice(0, 240);
@@ -237,6 +263,21 @@ async function updatePortalSettings(patch) {
     }
     if (k === "securityPolicyApplyAdmin" || k === "securityPolicyApplyAttendant") {
       $set[k] = Boolean(patch[k]);
+      continue;
+    }
+    if (k === "maxLoginAttempts") {
+      const n = Number(patch[k]);
+      $set[k] = Number.isFinite(n) ? Math.min(10, Math.max(3, Math.round(n))) : DEFAULTS.maxLoginAttempts;
+      continue;
+    }
+    if (k === "lockoutMinutes") {
+      const n = Number(patch[k]);
+      $set[k] = Number.isFinite(n) ? Math.min(1440, Math.max(5, Math.round(n))) : DEFAULTS.lockoutMinutes;
+      continue;
+    }
+    if (k === "sessionTimeoutMinutes") {
+      const n = Number(patch[k]);
+      $set[k] = Number.isFinite(n) ? Math.min(480, Math.max(5, Math.round(n))) : DEFAULTS.sessionTimeoutMinutes;
       continue;
     }
     if (k === "attendantAppAccess") {
@@ -283,6 +324,12 @@ function invalidateShieldCache() {
   SHIELD_CACHE.doc = null;
 }
 
+/** False when Command center operations deck is OFFLINE (passenger fleet/map hidden). */
+async function isOperationsDeckLive() {
+  const s = await getPortalSettingsLean();
+  return s.operationsDeckLive !== false;
+}
+
 module.exports = {
   getPortalSettingsLean,
   updatePortalSettings,
@@ -290,4 +337,5 @@ module.exports = {
   invalidateShieldCache,
   normalizeDailyOpsTime,
   normalizeDailyOpsRecipients,
+  isOperationsDeckLive,
 };

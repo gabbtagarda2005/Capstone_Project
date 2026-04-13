@@ -185,6 +185,13 @@
   color: rgba(125, 211, 252, 0.9);
 }
 
+.rte-dossier__module-hint {
+  margin: -0.35rem 0 0.65rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: rgba(148, 163, 184, 0.92);
+}
+
 .rte-dossier__ring-wrap {
   display: flex;
   justify-content: center;

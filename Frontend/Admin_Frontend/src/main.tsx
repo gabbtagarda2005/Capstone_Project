@@ -7,6 +7,7 @@ import { AdminBrandingProvider } from "@/context/AdminBrandingContext";
 import { ToastProvider } from "@/context/ToastContext";
 import App from "@/App";
 import "sweetalert2/dist/sweetalert2.min.css";
+import "@/styles/brandWordmark.css";
 import "@/index.css";
 
 createRoot(document.getElementById("root")!).render(

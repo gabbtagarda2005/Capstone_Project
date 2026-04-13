@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useToast } from "@/context/ToastContext";
 import { ALLOWED_ADMIN_GOOGLE_EMAILS } from "@/lib/adminAllowlist";
-import { api } from "@/lib/api";
+import { api, fetchPublicCompanyProfile, type PublicCompanyProfile } from "@/lib/api";
 import { getFirebaseAuth, getGoogleAuthProvider, isFirebaseAuthConfigured } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
 import { signInWithPopup, signOut } from "firebase/auth";
@@ -58,12 +58,21 @@ export function LoginPage() {
   const [otpStep, setOtpStep] = useState<"email" | "verify" | "reset">("email");
   const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
   const [otpServerHint, setOtpServerHint] = useState<string | null>(null);
-  const companyName = branding.companyName.trim() || "BUKIDNON";
-  const showLogoImg = Boolean(branding.logoUrl && !imgFailed);
+  const [publicCo, setPublicCo] = useState<PublicCompanyProfile | null>(null);
+
+  const companyName = (publicCo?.name || branding.companyName || "Admin portal").trim();
+  const logoSrc = (publicCo?.logoUrl || branding.logoUrl || "").trim();
+  const showLogoImg = Boolean(logoSrc && !imgFailed);
+
+  useEffect(() => {
+    void fetchPublicCompanyProfile()
+      .then((p) => setPublicCo(p))
+      .catch(() => setPublicCo(null));
+  }, []);
 
   useEffect(() => {
     setImgFailed(false);
-  }, [branding.logoUrl]);
+  }, [logoSrc]);
 
   useEffect(() => {
     if (loading || token) return;
@@ -259,13 +268,17 @@ export function LoginPage() {
         <div className="glass-login__logo-wrap">
           <div className="glass-login__logo" aria-hidden>
             {showLogoImg ? (
-              <img src={branding.logoUrl!} alt="" className="glass-login__logo-img" onError={() => setImgFailed(true)} />
+              <img src={logoSrc} alt="" className="glass-login__logo-img" onError={() => setImgFailed(true)} />
             ) : (
               <span className="glass-login__logo-fallback">{companyName.charAt(0).toUpperCase()}</span>
             )}
           </div>
         </div>
-        <h1 className="glass-login__brand">{companyName.toUpperCase()}</h1>
+        <h1
+          className={`glass-login__brand${companyName.length > 28 ? " glass-login__brand--long" : ""}`}
+        >
+          {companyName}
+        </h1>
         <p className="glass-login__welcome">Welcome back, Admin</p>
 
         <form onSubmit={onSubmit} noValidate autoComplete="off">

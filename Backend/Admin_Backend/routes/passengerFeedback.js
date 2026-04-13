@@ -1,7 +1,10 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const PassengerFeedback = require("../models/PassengerFeedback");
+const SecurityLog = require("../models/SecurityLog");
+const Bus = require("../models/Bus");
 const { requireAdminJwt } = require("../middleware/requireAdminJwt");
+const { formatPersonName } = require("../services/passengerLostItemBusContext");
 
 /** Approximate corridor centroids for admin hotspot map when lat/lng omitted */
 const ROUTE_COORD_FALLBACK = {
@@ -120,8 +123,86 @@ function serializeDoc(doc) {
     latitude: doc.latitude != null ? doc.latitude : null,
     longitude: doc.longitude != null ? doc.longitude : null,
     isSos: !!doc.isSos,
+    entryKind: "feedback",
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
   };
+}
+
+/** Passenger web "Left something?" — stored as security_logs; surface in same dashboard as feedback. */
+function securityLogToLostItemRow(doc, busLean) {
+  const msg = String(doc.message || "");
+  const emailMatch = msg.match(/Contact:\s*([^\s]+@[^\s]+)/i);
+  const email = emailMatch ? emailMatch[1].trim() : "";
+  const busId = String(doc.busId || "").trim();
+  const route = String(doc.assignedRoute || "").trim();
+  const comment = msg.trim() || "Lost item report";
+
+  let driverId = "";
+  let driverName = "";
+  let attendantId = "";
+  let attendantName = "";
+  let busPlate = busId && busId !== "UNKNOWN" ? busId : "";
+  let routeName = route || (busId && busId !== "UNKNOWN" ? busId : "");
+
+  if (busLean && typeof busLean === "object") {
+    const bn = (busLean.busNumber != null && String(busLean.busNumber).trim()) || busId;
+    const plate = busLean.plateNumber != null ? String(busLean.plateNumber).trim() : "";
+    busPlate =
+      plate && plate !== "—"
+        ? `${bn || busId} · ${plate}`
+        : (bn || busPlate || busId);
+    routeName =
+      route || (busLean.route != null && String(busLean.route).trim()) || routeName || bn || busId;
+    if (busLean.driverId && typeof busLean.driverId === "object" && busLean.driverId._id) {
+      driverId = String(busLean.driverId._id);
+      driverName = formatPersonName(busLean.driverId.firstName, busLean.driverId.lastName);
+    }
+    if (busLean.operatorPortalUserId && typeof busLean.operatorPortalUserId === "object") {
+      attendantId = busLean.operatorPortalUserId._id ? String(busLean.operatorPortalUserId._id) : "";
+      attendantName = formatPersonName(
+        busLean.operatorPortalUserId.firstName,
+        busLean.operatorPortalUserId.lastName
+      );
+    }
+  }
+
+  return {
+    id: `lost-${String(doc._id)}`,
+    passengerName: email || "Lost item (passenger web)",
+    rating: 5,
+    comment,
+    driverId,
+    driverName,
+    attendantId,
+    attendantName,
+    busPlate,
+    routeName,
+    feedbackAbout: "location",
+    latitude: null,
+    longitude: null,
+    isSos: false,
+    entryKind: "lost_item",
+    createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
+  };
+}
+
+async function mapLostDocsWithBusRegistry(lostDocs) {
+  const ids = [
+    ...new Set(
+      lostDocs.map((d) => String(d.busId || "").trim()).filter((x) => x && x !== "UNKNOWN")
+    ),
+  ];
+  if (ids.length === 0) {
+    return lostDocs.map((d) => securityLogToLostItemRow(d, null));
+  }
+  const buses = await Bus.find({ busId: { $in: ids } })
+    .populate("driverId", "firstName lastName")
+    .populate("operatorPortalUserId", "firstName lastName")
+    .lean();
+  const byBusId = new Map(buses.map((b) => [String(b.busId), b]));
+  return lostDocs.map((d) =>
+    securityLogToLostItemRow(d, byBusId.get(String(d.busId || "").trim()) || null)
+  );
 }
 
 async function handlePublicPassengerFeedbackPost(req, res) {
@@ -294,6 +375,12 @@ function createPassengerFeedbackRouter() {
 
       const serialized = rows.map(serializeDoc);
 
+      const lostDocs = await SecurityLog.find({ type: "passenger_lost_item" })
+        .sort({ createdAt: -1 })
+        .limit(60)
+        .lean();
+      const lostSerialized = await mapLostDocsWithBusRegistry(lostDocs);
+
       const withRating = serialized.filter((r) => r.rating >= 1);
       const positive = withRating.filter((r) => r.rating >= 4).length;
       const overallPositivePct =
@@ -303,9 +390,18 @@ function createPassengerFeedbackRouter() {
         .filter((r) => r.rating < 3 || r.isSos)
         .slice(0, 18);
 
-      const liveSignalFeed = serialized.slice(0, 36);
+      const mergedFeed = [...serialized, ...lostSerialized].sort((a, b) => {
+        const ta = new Date(a.createdAt || 0).getTime();
+        const tb = new Date(b.createdAt || 0).getTime();
+        return tb - ta;
+      });
+      const liveSignalFeed = mergedFeed.slice(0, 48);
 
-      const keywords = extractKeywords(rows);
+      const keywordRows = [
+        ...rows,
+        ...lostDocs.map((d) => ({ comment: String(d.message || "").replace(/\n/g, " ") })),
+      ];
+      const keywords = extractKeywords(keywordRows);
 
       const startOfMonth = new Date();
       startOfMonth.setDate(1);

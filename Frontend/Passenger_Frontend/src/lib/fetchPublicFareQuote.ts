@@ -13,6 +13,8 @@ export type PublicFareQuoteOk = {
   passengerCategory: string;
   pricingMode: string;
   fareBreakdownDisplay: string | null;
+  /** Present when API sends a prose summary (e.g. pre-terminal distance-only trips). */
+  pricingSummary?: string | null;
 };
 
 export type PublicFareQuoteNo = {

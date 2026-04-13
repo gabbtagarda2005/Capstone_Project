@@ -758,6 +758,31 @@ class ApiClient {
     }
   }
 
+  /// After server auto-flips origin/destination at destination geofence — optional ack + refresh assignment.
+  Future<void> postTripSegmentAck({
+    required String attendantToken,
+    required String ticketingToken,
+  }) async {
+    if (ticketingToken.isEmpty) {
+      throw Exception('Missing operator (ticketing) token.');
+    }
+    final uri = Uri.parse('$baseUrl/api/trip-segment/ack');
+    final res = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $attendantToken',
+            'X-Ticket-Issuer-Token': ticketingToken,
+          },
+          body: '{}',
+        )
+        .timeout(const Duration(seconds: 12));
+    if (res.statusCode != 204 && res.statusCode != 200) {
+      throw Exception('Trip segment ack failed (${res.statusCode})');
+    }
+  }
+
   /// Clears this operator's bus from Admin live map (gps_logs). Call on sign-out / end shift.
   Future<void> postEndLiveSession({
     required String attendantToken,
@@ -856,7 +881,7 @@ class ApiClient {
     }
   }
 
-  Future<ApiSimpleActionResult> postAttendantSos({
+  Future<ApiAttendantSosResult> postAttendantSos({
     required String attendantToken,
     required String ticketingToken,
     required double latitude,
@@ -866,7 +891,7 @@ class ApiClient {
     String? note,
   }) async {
     if (ticketingToken.isEmpty) {
-      return ApiSimpleActionResult.failure('Sign in again to refresh your security session.');
+      return ApiAttendantSosResult.failure('Sign in again to refresh your security session.');
     }
     final uri = Uri.parse('$baseUrl/api/bus-attendant-sos');
     final n = note?.trim() ?? '';
@@ -887,17 +912,9 @@ class ApiClient {
             }),
           )
           .timeout(const Duration(seconds: 22));
-      if (res.statusCode == 201) {
-        return ApiSimpleActionResult.ok();
-      }
-      try {
-        final err = jsonDecode(res.body) as Map<String, dynamic>;
-        return ApiSimpleActionResult.failure(err['error']?.toString() ?? 'SOS failed (${res.statusCode})');
-      } catch (_) {
-        return ApiSimpleActionResult.failure('SOS failed (${res.statusCode})');
-      }
+      return ApiAttendantSosResult.fromResponse(res.statusCode, res.body);
     } catch (e) {
-      return ApiSimpleActionResult.failure(mapRequestFailure('SOS', e));
+      return ApiAttendantSosResult.failure(mapRequestFailure('SOS', e));
     }
   }
 
@@ -1067,6 +1084,28 @@ class ApiClient {
     }
     final map = jsonDecode(res.body) as Map<String, dynamic>;
     return ApiStaffEta.fromJson(map);
+  }
+
+  /// Admin portal session policy for attendant idle logout (no auth).
+  Future<ApiAttendantSessionPolicy> fetchAttendantSessionPolicy() async {
+    final uri = Uri.parse('$baseUrl/api/public/attendant-session-policy');
+    http.Response res;
+    try {
+      res = await http.get(uri).timeout(const Duration(seconds: 10));
+    } catch (e) {
+      throw Exception(mapRequestFailure('Session policy', e));
+    }
+    if (res.statusCode != 200) {
+      throw Exception('Could not load session policy (${res.statusCode})');
+    }
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    var minutes = (map['sessionTimeoutMinutes'] as num?)?.toInt() ?? 30;
+    minutes = minutes.clamp(5, 480);
+    final apply = map['securityPolicyApplyAttendant'] != false;
+    return ApiAttendantSessionPolicy(
+      sessionTimeoutMinutes: minutes,
+      securityPolicyApplyAttendant: apply,
+    );
   }
 
   Future<ApiCompanyInfo> fetchPublicCompanyInfo() async {
@@ -1453,6 +1492,16 @@ class ApiProfileMe {
   final String phone;
 }
 
+class ApiAttendantSessionPolicy {
+  const ApiAttendantSessionPolicy({
+    required this.sessionTimeoutMinutes,
+    required this.securityPolicyApplyAttendant,
+  });
+
+  final int sessionTimeoutMinutes;
+  final bool securityPolicyApplyAttendant;
+}
+
 class ApiCompanyInfo {
   const ApiCompanyInfo({
     required this.name,
@@ -1644,6 +1693,70 @@ class ApiSimpleActionResult {
 
   final bool ok;
   final String? message;
+}
+
+/// POST /api/bus-attendant-sos — includes optional `notified.email` / `notified.sms` status from server
+/// (`sms` is `sent` when IPROG SMS queued successfully).
+class ApiAttendantSosResult {
+  const ApiAttendantSosResult({
+    required this.ok,
+    this.message,
+    this.emailNotify,
+    this.smsNotify,
+    this.smsDetail,
+    this.hint,
+  });
+
+  factory ApiAttendantSosResult.failure(String message) =>
+      ApiAttendantSosResult(ok: false, message: message);
+
+  factory ApiAttendantSosResult.fromResponse(int status, String body) {
+    if (status == 201) {
+      try {
+        final m = jsonDecode(body) as Map<String, dynamic>;
+        final n = m['notified'];
+        String? em;
+        String? sm;
+        String? smsDetail;
+        String? hint;
+        if (n is Map) {
+          em = n['email']?.toString();
+          sm = n['sms']?.toString();
+          final rawD = n['smsDetail']?.toString().trim();
+          smsDetail = (rawD != null && rawD.isNotEmpty) ? rawD : null;
+          final rawH = n['hint']?.toString().trim();
+          hint = (rawH != null && rawH.isNotEmpty) ? rawH : null;
+        }
+        return ApiAttendantSosResult(
+          ok: true,
+          emailNotify: em,
+          smsNotify: sm,
+          smsDetail: smsDetail,
+          hint: hint,
+        );
+      } catch (_) {
+        return const ApiAttendantSosResult(ok: true);
+      }
+    }
+    try {
+      final err = jsonDecode(body) as Map<String, dynamic>;
+      return ApiAttendantSosResult(
+        ok: false,
+        message: err['error']?.toString() ?? 'SOS failed ($status)',
+      );
+    } catch (_) {
+      return ApiAttendantSosResult(ok: false, message: 'SOS failed ($status)');
+    }
+  }
+
+  final bool ok;
+  final String? message;
+  final String? emailNotify;
+  final String? smsNotify;
+  /// IPROG / transport hint when `sms` is `failed` (from server).
+  final String? smsDetail;
+  /// When neither email nor SMS was delivered, server may explain what to configure.
+  final String? hint;
 }
 
 class ApiBusAssignment {

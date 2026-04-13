@@ -68,8 +68,10 @@ type SettingsInfoKey =
   | "overview"
   | "appearance"
   | "regional"
-  | "secLogin"
-  | "secSession"
+  | "secLoginAtt"
+  | "secLoginAdm"
+  | "secSessionAtt"
+  | "secSessionAdm"
   | "secIncident"
   | "branding"
   | "roles";
@@ -135,6 +137,8 @@ export function SettingsPage() {
   const [fileHint, setFileHint] = useState<string | null>(null);
   const [toolMsg, setToolMsg] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  /** Security tab: attendant vs admin policy saves (independent spinners). */
+  const [securitySaving, setSecuritySaving] = useState<null | "admin" | "attendant">(null);
   const [clientAppsSaving, setClientAppsSaving] = useState(false);
 
   const [geofencePush, setGeofencePush] = useState(() => readLsBool(LS_SEC_GEOFENCE_PUSH, true));
@@ -256,6 +260,7 @@ export function SettingsPage() {
         faviconUrl: null,
         reportFooter: s.settings.reportFooter,
         sessionTimeoutMinutes: s.settings.sessionTimeoutMinutes ?? 30,
+        securityPolicyApplyAdmin: s.settings.securityPolicyApplyAdmin !== false,
         geofenceBreachToasts: s.settings.geofenceBreachToasts !== false,
         sensitiveActionConfirmation: s.settings.sensitiveActionConfirmation === true,
       });
@@ -371,6 +376,7 @@ export function SettingsPage() {
         faviconUrl: null,
         reportFooter: r.settings.reportFooter,
         sessionTimeoutMinutes: r.settings.sessionTimeoutMinutes ?? 30,
+        securityPolicyApplyAdmin: r.settings.securityPolicyApplyAdmin !== false,
         geofenceBreachToasts: r.settings.geofenceBreachToasts !== false,
         sensitiveActionConfirmation: r.settings.sensitiveActionConfirmation === true,
       });
@@ -407,6 +413,7 @@ export function SettingsPage() {
         faviconUrl: null,
         reportFooter: r.settings.reportFooter,
         sessionTimeoutMinutes: r.settings.sessionTimeoutMinutes ?? 30,
+        securityPolicyApplyAdmin: r.settings.securityPolicyApplyAdmin !== false,
         geofenceBreachToasts: r.settings.geofenceBreachToasts !== false,
         sensitiveActionConfirmation: r.settings.sensitiveActionConfirmation === true,
       });
@@ -424,19 +431,20 @@ export function SettingsPage() {
     }
   };
 
-  const saveSecurity = async (target: "admin" | "attendant" | "both" = "both") => {
+  const saveSecurity = async (target: "admin" | "attendant") => {
     if (isAuditor || !isSuper || !portal) return;
-    setIsSaving(true);
+    setSecuritySaving(target);
     try {
-      const r = await putAdminPortalSettings({
-        security: {
-          maxLoginAttempts: portal.maxLoginAttempts,
-          lockoutMinutes: portal.lockoutMinutes,
-          sessionTimeoutMinutes: portal.sessionTimeoutMinutes,
-          securityPolicyApplyAdmin: portal.securityPolicyApplyAdmin !== false,
-          securityPolicyApplyAttendant: portal.securityPolicyApplyAttendant !== false,
-        },
-      });
+      const base = {
+        maxLoginAttempts: portal.maxLoginAttempts,
+        lockoutMinutes: portal.lockoutMinutes,
+        sessionTimeoutMinutes: portal.sessionTimeoutMinutes,
+      };
+      const security =
+        target === "admin"
+          ? { ...base, securityPolicyApplyAdmin: portal.securityPolicyApplyAdmin !== false }
+          : { ...base, securityPolicyApplyAttendant: portal.securityPolicyApplyAttendant !== false };
+      const r = await putAdminPortalSettings({ security });
       setPortal(r.settings);
       applyServerSettings({
         companyName: r.settings.companyName,
@@ -444,6 +452,7 @@ export function SettingsPage() {
         faviconUrl: null,
         reportFooter: r.settings.reportFooter,
         sessionTimeoutMinutes: r.settings.sessionTimeoutMinutes ?? 30,
+        securityPolicyApplyAdmin: r.settings.securityPolicyApplyAdmin !== false,
         geofenceBreachToasts: r.settings.geofenceBreachToasts !== false,
         sensitiveActionConfirmation: r.settings.sensitiveActionConfirmation === true,
       });
@@ -453,11 +462,7 @@ export function SettingsPage() {
         action: "updated security policy (lockout & session timeout)",
       });
       const msg =
-        target === "admin"
-          ? "Admin security policy saved."
-          : target === "attendant"
-            ? "Attendant security policy saved."
-            : "Security policy saved.";
+        target === "admin" ? "Admin security policy saved." : "Attendant security policy saved.";
       setToolMsg(msg);
       showSuccess(msg);
       window.setTimeout(() => setToolMsg(null), 2400);
@@ -466,7 +471,7 @@ export function SettingsPage() {
       setToolMsg(err);
       showError(err);
     } finally {
-      setIsSaving(false);
+      setSecuritySaving(null);
     }
   };
 
@@ -505,6 +510,7 @@ export function SettingsPage() {
         faviconUrl: null,
         reportFooter: r.settings.reportFooter,
         sessionTimeoutMinutes: r.settings.sessionTimeoutMinutes ?? 30,
+        securityPolicyApplyAdmin: r.settings.securityPolicyApplyAdmin !== false,
         geofenceBreachToasts: r.settings.geofenceBreachToasts !== false,
         sensitiveActionConfirmation: r.settings.sensitiveActionConfirmation === true,
       });
@@ -715,27 +721,29 @@ export function SettingsPage() {
           ) : null}
 
           {tab === "security" ? (
-            <section className="admin-settings__section" aria-labelledby={`${idBase}-sec-h`}>
-              <div className="admin-settings__security-grid">
-                <div className="admin-settings__security-col">
+            <section className="admin-settings__section" aria-label="Security settings">
+              <div className="admin-settings__security-grid admin-settings__security-grid--twin">
+                <div className="admin-settings__security-card admin-settings__security-card--column">
                   <InfoHeadingRow
-                    h2Id={`${idBase}-sec-h`}
+                    h2Id={`${idBase}-sec-login-att`}
                     title="Login protection"
-                    infoKey="secLogin"
-                    panelId={`${idBase}-inf-seclogin`}
+                    infoKey="secLoginAtt"
+                    panelId={`${idBase}-inf-seclogin-att`}
                   >
                     <p>
-                      Enforced on password sign-in. Values are stored in MongoDB and apply to all whitelisted admins.
-                      Adjust max login attempts and lockout duration to balance security with operator convenience.
+                      Failed operator password attempts before a temporary lockout. Values are stored once for the whole
+                      portal (3–10 attempts, 5–1440 minute lockout); the API enforces them only when &quot;Apply policy to
+                      Attendant login&quot; is on. Attendant lockout is tracked separately from admin (same email can have
+                      independent counters).
                     </p>
                   </InfoHeadingRow>
                   <div className="admin-settings__field-row admin-settings__field-row--security-duo">
                     <div className="admin-settings__field">
-                      <label className="admin-settings__label" htmlFor={`${idBase}-max-att`}>
+                      <label className="admin-settings__label" htmlFor={`${idBase}-max-attendant`}>
                         Max login attempts
                       </label>
                       <input
-                        id={`${idBase}-max-att`}
+                        id={`${idBase}-max-attendant`}
                         className="admin-settings__input admin-settings__input--narrow"
                         type="number"
                         min={3}
@@ -750,11 +758,11 @@ export function SettingsPage() {
                       />
                     </div>
                     <div className="admin-settings__field">
-                      <label className="admin-settings__label" htmlFor={`${idBase}-lock-m`}>
+                      <label className="admin-settings__label" htmlFor={`${idBase}-lock-m-attendant`}>
                         Lockout duration (minutes)
                       </label>
                       <input
-                        id={`${idBase}-lock-m`}
+                        id={`${idBase}-lock-m-attendant`}
                         className="admin-settings__input admin-settings__input--narrow"
                         type="number"
                         min={5}
@@ -771,23 +779,23 @@ export function SettingsPage() {
                   </div>
 
                   <InfoHeadingRow
-                    h2Id={`${idBase}-sec-sess-h`}
+                    h2Id={`${idBase}-sec-sess-att`}
                     title="Session management"
-                    infoKey="secSession"
-                    panelId={`${idBase}-inf-secsess`}
+                    infoKey="secSessionAtt"
+                    panelId={`${idBase}-inf-secsess-att`}
                     spaced
                   >
                     <p>
-                      The portal runs an inactivity watcher; when the timer expires you are signed out and returned to
-                      the login screen.
+                      Minutes without activity before the Bus Attendant app signs out (5–480), when its security policy is
+                      on. The app loads this from the public attendant-session-policy endpoint.
                     </p>
                   </InfoHeadingRow>
                   <div className="admin-settings__field">
-                    <label className="admin-settings__label" htmlFor={`${idBase}-sess`}>
+                    <label className="admin-settings__label" htmlFor={`${idBase}-sess-attendant`}>
                       Session timeout (minutes of inactivity)
                     </label>
                     <input
-                      id={`${idBase}-sess`}
+                      id={`${idBase}-sess-attendant`}
                       className="admin-settings__input admin-settings__input--narrow"
                       type="number"
                       min={5}
@@ -803,10 +811,15 @@ export function SettingsPage() {
                       }
                     />
                   </div>
+                  <p className="admin-settings__hint admin-settings__hint--tight">
+                    Use the toggle below to turn session timeout on or off for this app, then save this column.
+                  </p>
 
+                  <h3 className="admin-settings__h3 admin-settings__h3--security-app">Attendant (operator) app</h3>
                   <SwitchRow
                     id={`${idBase}-sec-apply-attendant`}
                     label="Apply policy to Attendant login"
+                    hint="Lockout, attempts, and session timeout above when enabled."
                     checked={portal?.securityPolicyApplyAttendant !== false}
                     disabled={isAuditor || !isSuper || !portal}
                     onChange={(v) => setPortal((p) => (p ? { ...p, securityPolicyApplyAttendant: v } : p))}
@@ -816,32 +829,33 @@ export function SettingsPage() {
                       type="button"
                       className="admin-settings__btn admin-settings__btn--primary"
                       onClick={() => void saveSecurity("attendant")}
-                      disabled={isSaving || isAuditor || !isSuper || !portal}
+                      disabled={securitySaving !== null || isAuditor || !isSuper || !portal}
                     >
-                      {isSaving ? "Saving…" : "Save attendants security policy"}
+                      {securitySaving === "attendant" ? "Saving…" : "Save attendants security policy"}
                     </button>
                   </div>
                 </div>
 
-                <div className="admin-settings__security-col">
+                <div className="admin-settings__security-card admin-settings__security-card--column">
                   <InfoHeadingRow
-                    h2Id={`${idBase}-sec-h-right`}
+                    h2Id={`${idBase}-sec-login-adm`}
                     title="Login protection"
-                    infoKey="secLogin"
-                    panelId={`${idBase}-inf-seclogin-right`}
+                    infoKey="secLoginAdm"
+                    panelId={`${idBase}-inf-seclogin-adm`}
                   >
                     <p>
-                      Enforced on password sign-in. Values are stored in MongoDB and apply to all whitelisted admins.
-                      Adjust max login attempts and lockout duration to balance security with operator convenience.
+                      Failed admin password attempts before a temporary lockout. Same stored limits as the attendant column
+                      (3–10, 5–1440 minutes); enforced only when &quot;Apply policy to Admin login&quot; is on. Google
+                      sign-in is not blocked by lockout counters.
                     </p>
                   </InfoHeadingRow>
                   <div className="admin-settings__field-row admin-settings__field-row--security-duo">
                     <div className="admin-settings__field">
-                      <label className="admin-settings__label" htmlFor={`${idBase}-max-att-right`}>
+                      <label className="admin-settings__label" htmlFor={`${idBase}-max-admin`}>
                         Max login attempts
                       </label>
                       <input
-                        id={`${idBase}-max-att-right`}
+                        id={`${idBase}-max-admin`}
                         className="admin-settings__input admin-settings__input--narrow"
                         type="number"
                         min={3}
@@ -856,11 +870,11 @@ export function SettingsPage() {
                       />
                     </div>
                     <div className="admin-settings__field">
-                      <label className="admin-settings__label" htmlFor={`${idBase}-lock-m-right`}>
+                      <label className="admin-settings__label" htmlFor={`${idBase}-lock-m-admin`}>
                         Lockout duration (minutes)
                       </label>
                       <input
-                        id={`${idBase}-lock-m-right`}
+                        id={`${idBase}-lock-m-admin`}
                         className="admin-settings__input admin-settings__input--narrow"
                         type="number"
                         min={5}
@@ -877,23 +891,23 @@ export function SettingsPage() {
                   </div>
 
                   <InfoHeadingRow
-                    h2Id={`${idBase}-sec-sess-h-right`}
+                    h2Id={`${idBase}-sec-sess-adm`}
                     title="Session management"
-                    infoKey="secSession"
-                    panelId={`${idBase}-inf-secsess-right`}
+                    infoKey="secSessionAdm"
+                    panelId={`${idBase}-inf-secsess-adm`}
                     spaced
                   >
                     <p>
-                      The portal runs an inactivity watcher; when the timer expires you are signed out and returned to
-                      the login screen.
+                      Minutes without activity before the Admin portal signs out (5–480), when its security policy is on.
+                      Turning the policy off stops idle logout until you turn it on again.
                     </p>
                   </InfoHeadingRow>
                   <div className="admin-settings__field">
-                    <label className="admin-settings__label" htmlFor={`${idBase}-sess-right`}>
+                    <label className="admin-settings__label" htmlFor={`${idBase}-sess-admin`}>
                       Session timeout (minutes of inactivity)
                     </label>
                     <input
-                      id={`${idBase}-sess-right`}
+                      id={`${idBase}-sess-admin`}
                       className="admin-settings__input admin-settings__input--narrow"
                       type="number"
                       min={5}
@@ -909,10 +923,15 @@ export function SettingsPage() {
                       }
                     />
                   </div>
+                  <p className="admin-settings__hint admin-settings__hint--tight">
+                    Use the toggle below to turn session timeout on or off for this app, then save this column.
+                  </p>
 
+                  <h3 className="admin-settings__h3 admin-settings__h3--security-app">Admin portal</h3>
                   <SwitchRow
                     id={`${idBase}-sec-apply-admin`}
                     label="Apply policy to Admin login"
+                    hint="Lockout, attempts, and session timeout above when enabled."
                     checked={portal?.securityPolicyApplyAdmin !== false}
                     disabled={isAuditor || !isSuper || !portal}
                     onChange={(v) => setPortal((p) => (p ? { ...p, securityPolicyApplyAdmin: v } : p))}
@@ -922,9 +941,9 @@ export function SettingsPage() {
                       type="button"
                       className="admin-settings__btn admin-settings__btn--primary"
                       onClick={() => void saveSecurity("admin")}
-                      disabled={isSaving || isAuditor || !isSuper || !portal}
+                      disabled={securitySaving !== null || isAuditor || !isSuper || !portal}
                     >
-                      {isSaving ? "Saving…" : "Save admin security policy"}
+                      {securitySaving === "admin" ? "Saving…" : "Save admin security policy"}
                     </button>
                   </div>
                 </div>
@@ -999,8 +1018,10 @@ export function SettingsPage() {
                   <strong>Company name</strong> — Shown in the sidebar, login, and previews across the admin portal.
                 </p>
                 <p>
-                  <strong>Contact</strong> — Company email and phone are stored for display and future passenger-facing
-                  screens.
+                  <strong>Contact</strong> — Company email and phone are shown where needed and are used for attendant SOS
+                  (email via Nodemailer, SMS via IPROG). If you previously stored numbers only in legacy SOS fields, those
+                  still work as a fallback until you fill company contact here. Optional extra SMS:{" "}
+                  <code>IPROG_SOS_TO</code> in the Admin backend <code>.env</code>.
                 </p>
                 <p>
                   <strong>Company&apos;s logo</strong> — Shown next to the company name in the sidebar. Upload a file or

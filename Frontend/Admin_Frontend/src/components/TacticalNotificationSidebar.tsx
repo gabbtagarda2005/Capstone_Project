@@ -22,6 +22,8 @@ function kindMeta(kind: TacticalVisualKind): { emoji: string; tag: string; cardC
       return { emoji: "🔵", tag: "SYSTEM SYNC", cardClass: "tactical-side__card--sys" };
     case "maintenance":
       return { emoji: "🟠", tag: "MAINTENANCE", cardClass: "tactical-side__card--maint" };
+    case "lost":
+      return { emoji: "🧳", tag: "LOST & FOUND", cardClass: "tactical-side__card--maint" };
     default:
       return { emoji: "•", tag: "ALERT", cardClass: "" };
   }

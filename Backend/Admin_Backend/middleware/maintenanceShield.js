@@ -57,7 +57,10 @@ async function maintenanceShieldMiddleware(req, res, next) {
     path === "/health" ||
     path === "/api/public/maintenance-status" ||
     path === "/api/public/broadcast/passenger" ||
-    path === "/api/public/broadcast/attendant"
+    path === "/api/public/broadcast/attendant" ||
+    path === "/api/public/command-feed" ||
+    path === "/api/public/passenger-feedback" ||
+    path === "/api/public/passenger-lost-item"
   ) {
     return next();
   }

@@ -26,6 +26,17 @@ const busSchema = new mongoose.Schema(
     operatorPortalUserId: { type: mongoose.Schema.Types.ObjectId, ref: "PortalUser", default: null, index: true },
     driverId: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
     route: { type: String, default: null },
+    /**
+     * Linear hub labels for the current direction (outbound leg). Reversed automatically when the bus
+     * reaches the destination terminal geofence (round-trip flip).
+     */
+    hubOrderLabels: { type: [String], default: [] },
+    /** Last auto route flip (origin/destination swap) — 15m cooldown vs repeat flips while idling in-fence. */
+    lastRouteFlipAt: { type: Date, default: null },
+    /** Passengers issued before this time are ignored for live seat intel (new trip segment after flip). */
+    tripSegmentStartedAt: { type: Date, default: null },
+    /** Optional manual counter; reset to 0 on auto flip (ticket-based intel still uses trip segment). */
+    currentOccupancy: { type: Number, default: null, min: 0, max: 500 },
     /** If true, ticketing allowed only inside authorized terminal/stop geofences. */
     /** When true, future features may restrict issuance to geofenced stops; ticketing does not enforce this by default. */
     strictPickup: { type: Boolean, default: false },

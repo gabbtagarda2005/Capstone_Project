@@ -13,6 +13,35 @@ import "./RouteTacticalDossier.css";
 
 const OID_RE = /^[a-f0-9]{24}$/i;
 
+function normalizeRouteKeyLoose(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[–—−]/g, "-")
+    .replace(/→|➔|⇒|->/g, " -> ");
+}
+
+function busKeyAlnum(s: string | null | undefined): string {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function manilaTodayBoundsMs(): { startMs: number; endMs: number } {
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const startMs = new Date(`${ymd}T00:00:00+08:00`).getTime();
+  const endMs = new Date(`${ymd}T23:59:59.999+08:00`).getTime();
+  return { startMs, endMs };
+}
+
 /** Split route titles like "A → B → C" so middle segments show when no via hubs are stored. */
 function parseCorridorDisplayPath(displayName: string): string[] {
   const t = displayName.trim();
@@ -131,9 +160,29 @@ export function RouteDetailPage() {
   }, [sortedStops]);
 
   const busesOnCorridor = useMemo(() => {
-    if (!routeKey) return [];
-    return buses.filter((b) => b.route && b.route.trim().toLowerCase() === routeKey);
-  }, [buses, routeKey]);
+    if (!route) return [];
+    const disp = normalizeRouteKeyLoose(displayCorridorName);
+    const origin = normalizeRouteKeyLoose(route.originLabel);
+    const dest = normalizeRouteKeyLoose(route.destLabel);
+    const oC = origin.replace(/[^a-z0-9]/g, "");
+    const dC = dest.replace(/[^a-z0-9]/g, "");
+
+    return buses.filter((b) => {
+      const br = b.route?.trim();
+      if (!br) return false;
+      const bn = normalizeRouteKeyLoose(br);
+      const bLower = br.trim().toLowerCase();
+      if (routeKey && bLower === routeKey) return true;
+      if (disp && bn === disp) return true;
+      if (disp.length >= 8 && bn.includes(disp)) return true;
+      if (disp.length >= 8 && disp.includes(bn) && bn.length >= 8) return true;
+      if (oC.length >= 4 && dC.length >= 4) {
+        const bCompact = bn.replace(/[^a-z0-9]/g, "");
+        if (bCompact.includes(oC) && bCompact.includes(dC)) return true;
+      }
+      return false;
+    });
+  }, [buses, route, displayCorridorName, routeKey]);
 
   const liveOnCorridor = useMemo(() => {
     const ids = new Set(busesOnCorridor.map((b) => b.busId));
@@ -141,26 +190,30 @@ export function RouteDetailPage() {
   }, [busesOnCorridor, liveRows]);
 
   const efficiencyPct = useMemo(() => {
-    if (!route) return 0;
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = today.getMonth();
-    const d = today.getDate();
-    const busNumbers = new Set(
-      busesOnCorridor.map((b) => String(b.busNumber || "").trim()).filter(Boolean)
+    if (!route || busesOnCorridor.length === 0) return 0;
+    const { startMs, endMs } = manilaTodayBoundsMs();
+    const busKeys = new Set<string>();
+    for (const b of busesOnCorridor) {
+      const k = busKeyAlnum(b.busNumber) || busKeyAlnum(b.busId);
+      if (k) busKeys.add(k);
+    }
+    if (busKeys.size === 0) return 0;
+
+    let todayTickets = 0;
+    for (const t of tickets) {
+      const tk = busKeyAlnum(t.busNumber ?? "");
+      if (!tk || !busKeys.has(tk)) continue;
+      const ts = new Date(t.createdAt).getTime();
+      if (ts >= startMs && ts <= endMs) todayTickets += 1;
+    }
+
+    const nominalSeats = busesOnCorridor.reduce(
+      (sum, b) => sum + (b.seatCapacity && b.seatCapacity > 0 ? b.seatCapacity : 50),
+      0,
     );
-    const todayTickets = tickets.filter((t) => {
-      const bn = String(t.busNumber || "").trim();
-      if (!bn || !busNumbers.has(bn)) return false;
-      const dt = new Date(t.createdAt);
-      return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d;
-    }).length;
-    const nominalSeats = busesOnCorridor.reduce((sum, b) => sum + (b.seatCapacity && b.seatCapacity > 0 ? b.seatCapacity : 50), 0);
     if (nominalSeats <= 0) return 0;
-    const loadPct = Math.min(100, (todayTickets / nominalSeats) * 100);
-    const liveSignalBoost = Math.min(8, liveOnCorridor.length * 2);
-    return Math.max(0, Math.min(99, Math.round(loadPct + liveSignalBoost)));
-  }, [route, busesOnCorridor, liveOnCorridor.length, tickets]);
+    return Math.max(0, Math.min(100, Math.round((todayTickets / nominalSeats) * 100)));
+  }, [route, busesOnCorridor, tickets]);
 
   const trackedLive = liveOnCorridor.length > 0;
   const isSuspended = route?.suspended === true;
@@ -275,8 +328,14 @@ export function RouteDetailPage() {
             </section>
             <section className="rte-dossier__module">
               <h2 className="rte-dossier__module-title">Passenger efficiency</h2>
+              <p className="rte-dossier__module-hint">
+                Today (Asia/Manila): tickets issued on buses assigned to this corridor ÷ combined seat capacity of those
+                buses. Buses match if the route label includes both corridor endpoints (outbound or return). Live GPS
+                arrival at the destination terminal can auto-flip the bus assignment to the reverse direction — the
+                passenger app then shows the updated leg.
+              </p>
               <div className="rte-dossier__ring-wrap">
-                <RouteCorridorEfficiencyRing efficiencyPct={efficiencyPct} caption="Passenger efficiency" />
+                <RouteCorridorEfficiencyRing efficiencyPct={efficiencyPct} caption="Seat use today" />
               </div>
             </section>
           </div>

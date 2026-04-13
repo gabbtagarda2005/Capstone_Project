@@ -912,8 +912,16 @@
 }
 
 .reports-hub__charts-grid--split-row .reports-hub__chart-shell--donut .reports-hub__chart-canvas {
-  flex: 1;
-  min-height: 220px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 260px;
+  height: 260px;
+}
+
+/* Recharts 3: ResponsiveContainer renders nothing until it measures a positive box */
+.reports-hub__chart-shell .recharts-responsive-container,
+.reports-hub__hourly-volume-canvas .recharts-responsive-container {
+  min-height: 200px;
 }
 
 @media (max-width: 900px) {

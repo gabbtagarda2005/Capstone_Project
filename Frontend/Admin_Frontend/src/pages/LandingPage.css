@@ -35,14 +35,35 @@
   backdrop-filter: blur(8px);
 }
 
+.landing-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.landing-nav__logo {
+  height: 34px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
 .landing-logo {
+  font-family: var(--brand-wordmark-family);
   font-weight: 800;
   font-size: 1.05rem;
-  letter-spacing: -0.03em;
+  letter-spacing: 0.02em;
   background: linear-gradient(90deg, #fff, #94a3b8);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(52vw, 420px);
 }
 
 .landing-nav__cta {
@@ -140,6 +161,8 @@
 }
 
 .landing-hero__title span {
+  font-family: var(--brand-wordmark-family);
+  letter-spacing: 0.02em;
   background: linear-gradient(120deg, #fff 0%, #22d3ee 50%, #60a5fa 100%);
   -webkit-background-clip: text;
   background-clip: text;

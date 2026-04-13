@@ -4,6 +4,16 @@ const { requireSuperAdmin } = require("../middleware/requireSuperAdmin");
 const { ADMIN_EMAIL_WHITELIST, normalizeEmail } = require("../config/adminWhitelist");
 const AdminAuditLog = require("../models/AdminAuditLog");
 const AdminRbacAssignment = require("../models/AdminRbacAssignment");
+const AttendantRegistry = require("../models/AttendantRegistry");
+const Bus = require("../models/Bus");
+const CorridorRoute = require("../models/CorridorRoute");
+const Driver = require("../models/Driver");
+const FareMatrixEntry = require("../models/FareMatrixEntry");
+const FareRoute = require("../models/FareRoute");
+const IssuedTicketRecord = require("../models/IssuedTicketRecord");
+const PortalUser = require("../models/PortalUser");
+const RouteCoverage = require("../models/RouteCoverage");
+const liveDispatchStore = require("../services/liveDispatchStore");
 const { getPortalSettingsLean, updatePortalSettings } = require("../services/adminPortalSettingsService");
 const { getRbacRoleForEmail } = require("../services/adminRbac");
 const {
@@ -20,6 +30,90 @@ function createAdminPortalRouter() {
     try {
       const settings = await getPortalSettingsLean();
       res.json({ settings });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  /**
+   * Live counts for Management hub cards (dashboard grid).
+   */
+  router.get("/management-hub-stats", requireAdminJwt, async (_req, res) => {
+    try {
+      const manilaToday = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+
+      const safeCount = (p) =>
+        p.catch(() => 0);
+
+      const [
+        ticketRecords,
+        busesTotal,
+        busesActive,
+        attendantsPortal,
+        attendantsRegistry,
+        driversTotal,
+        driversVerified,
+        hubs,
+        corridorRoutes,
+        fareRoutes,
+        faresMatrix,
+        rbacAdmins,
+        portalAdminUsers,
+      ] = await Promise.all([
+        safeCount(IssuedTicketRecord.countDocuments({})),
+        safeCount(Bus.countDocuments({})),
+        safeCount(Bus.countDocuments({ status: "Active" })),
+        safeCount(PortalUser.countDocuments({ role: "BusAttendant" })),
+        safeCount(AttendantRegistry.countDocuments({})),
+        safeCount(Driver.countDocuments({ active: { $ne: false } })),
+        safeCount(Driver.countDocuments({ verifiedViaOtpAt: { $ne: null }, active: { $ne: false } })),
+        safeCount(RouteCoverage.countDocuments({})),
+        safeCount(CorridorRoute.countDocuments({ suspended: { $ne: true } })),
+        safeCount(FareRoute.countDocuments({ suspended: { $ne: true } })),
+        safeCount(FareMatrixEntry.countDocuments({})),
+        safeCount(AdminRbacAssignment.countDocuments({})),
+        safeCount(PortalUser.countDocuments({ role: "Admin" })),
+      ]);
+
+      const assignedIds = await Bus.distinct("operatorPortalUserId", {
+        status: "Active",
+        operatorPortalUserId: { $ne: null },
+      }).catch(() => []);
+      const attendantsOnActiveBuses = (assignedIds || []).filter(Boolean).length;
+
+      const blocks = liveDispatchStore.listBlocks();
+      const tripsPlanned = blocks.filter((b) => {
+        if (String(b.status || "").toLowerCase() === "cancelled") return false;
+        const sd = b.serviceDate != null && String(b.serviceDate).trim() ? String(b.serviceDate).trim().slice(0, 10) : "";
+        return !sd || sd === manilaToday;
+      }).length;
+
+      const staffRoster = Math.max(attendantsPortal, attendantsRegistry);
+      const routeDefinitions = corridorRoutes + fareRoutes;
+      const adminAccounts = Math.max(rbacAdmins, portalAdminUsers);
+
+      res.setHeader("Cache-Control", "no-store");
+      res.json({
+        ticketRecords,
+        busesTotal,
+        busesActive,
+        attendantsRoster: staffRoster,
+        attendantsOnActiveBuses,
+        driversTotal,
+        driversVerified,
+        hubs,
+        corridorRoutes,
+        fareRoutes,
+        routeDefinitions,
+        tripsPlanned,
+        faresMatrix,
+        adminAccounts,
+      });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -51,6 +145,8 @@ function createAdminPortalRouter() {
         "companyName",
         "companyEmail",
         "companyPhone",
+        "sosEmail",
+        "sosPhoneNumber",
         "companyLocation",
         "sidebarLogoUrl",
         "faviconUrl",
@@ -89,6 +185,15 @@ function createAdminPortalRouter() {
           patch.passengerAppAccess = body.clientApps.passengerAppAccess;
         }
       }
+      if (body.commandCenter && typeof body.commandCenter === "object") {
+        if (req.admin.rbacRole === "auditor") {
+          return res.status(403).json({ error: "Read-only role cannot change command center" });
+        }
+        if (body.commandCenter.operationsDeckLive !== undefined) {
+          patch.operationsDeckLive = Boolean(body.commandCenter.operationsDeckLive);
+        }
+      }
+
       if (body.maintenance && typeof body.maintenance === "object") {
         if (!isSuper) {
           return res.status(403).json({ error: "Only Super Admin can change maintenance shield" });

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sparkline } from "@/components/Sparkline";
+import { useAuth } from "@/context/AuthContext";
 import { isFirebaseAuthConfigured } from "@/lib/firebase";
-import { api } from "@/lib/api";
+import { api, fetchAdminPortalSettings, putAdminPortalSettings } from "@/lib/api";
 import {
   COMMAND_CENTER_BROADCAST,
   COMMAND_CENTER_FLEET_SENSORS,
@@ -41,14 +42,21 @@ function defaultWeatherSpots(): CommandCenterWeatherSpot[] {
   }));
 }
 
-function seedSparkline(base: number, len: number): number[] {
-  return Array.from({ length: len }, (_, i) => Math.max(8, base + Math.sin(i / 4.2) * 22 + (Math.random() - 0.5) * 14));
+function padSparkHistory(hist: number[], len: number, fallback: number): number[] {
+  const h = hist.slice(-len);
+  if (h.length >= len) return h;
+  const pad = len - h.length;
+  const f: number = h.length > 0 ? (h[0] ?? fallback) : fallback;
+  return [...Array.from({ length: pad }, (): number => f), ...h];
 }
 
 export function CommandCenterPage() {
   const id = useId();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAuditor = user?.rbacRole === "auditor";
   const [live, setLive] = useState(true);
+  const [deckLoading, setDeckLoading] = useState(true);
   const [sentFlash, setSentFlash] = useState<string | null>(null);
   const [health, setHealth] = useState<Health>({
     api: "unknown",
@@ -58,12 +66,51 @@ export function CommandCenterPage() {
     smtpProvider: null,
   });
   const [dbPingMs, setDbPingMs] = useState<number | null>(null);
-  const [apiSpark, setApiSpark] = useState(() => seedSparkline(55, SPARK_LEN));
-  const [mongoSpark, setMongoSpark] = useState(() => seedSparkline(48, SPARK_LEN));
-  const [fbSpark, setFbSpark] = useState(() => seedSparkline(32, SPARK_LEN));
-  const [smtpSpark, setSmtpSpark] = useState(() => seedSparkline(40, SPARK_LEN));
+  const [apiSpark, setApiSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
+  const [mongoSpark, setMongoSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
+  const [fbSpark, setFbSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
+  const [smtpSpark, setSmtpSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
+  const apiHistRef = useRef<number[]>([]);
+  const mongoHistRef = useRef<number[]>([]);
+  const fbHistRef = useRef<number[]>([]);
+  const smtpHistRef = useRef<number[]>([]);
   const [weather, setWeather] = useState<Record<string, CommandWeatherRow>>({});
   const [weatherSpots, setWeatherSpots] = useState<CommandCenterWeatherSpot[]>(defaultWeatherSpots);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { settings } = await fetchAdminPortalSettings();
+        if (!cancelled) setLive(settings.operationsDeckLive !== false);
+      } catch {
+        /* default LIVE */
+      } finally {
+        if (!cancelled) setDeckLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleOperationsDeck = useCallback(async () => {
+    if (isAuditor || deckLoading) return;
+    const next = !live;
+    setLive(next);
+    setSentFlash(
+      next
+        ? "Passengers can see live buses on the map and fleet registry again."
+        : "Passengers no longer see live buses on the map or the fleet registry until you go LIVE."
+    );
+    try {
+      await putAdminPortalSettings({ commandCenter: { operationsDeckLive: next } });
+    } catch (e) {
+      setLive(!next);
+      setSentFlash(e instanceof Error ? e.message : "Could not save operations deck.");
+    }
+    window.setTimeout(() => setSentFlash(null), 4200);
+  }, [deckLoading, isAuditor, live]);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,18 +189,12 @@ export function CommandCenterPage() {
     };
   }, [weatherSpots]);
 
-  const pushSparkSamples = useCallback(
-    (ping: number | null, apiOk: boolean, mongoOk: boolean, fbOk: boolean, smtpOk: boolean) => {
-      const p = ping ?? 160;
-      setApiSpark((prev) => [...prev.slice(1), Math.min(800, Math.max(12, p + (apiOk ? 0 : 120)))]);
-      setMongoSpark((prev) => [...prev.slice(1), Math.min(800, Math.max(12, p * 0.92 + (mongoOk ? -4 : 95) + Math.random() * 8))]);
-      setFbSpark((prev) => [...prev.slice(1), Math.min(120, Math.max(14, 28 + (fbOk ? 0 : 40) + Math.random() * 6))]);
-      setSmtpSpark((prev) => [...prev.slice(1), Math.min(100, Math.max(16, 36 + (smtpOk ? 0 : 38) + Math.random() * 5))]);
-    },
-    []
-  );
-
   useEffect(() => {
+    const roll = (ref: { current: number[] }, sample: number) => {
+      ref.current = [...ref.current, sample].slice(-SPARK_LEN);
+      return padSparkHistory(ref.current, SPARK_LEN, sample);
+    };
+
     const pullHealth = async () => {
       try {
         const t0 = performance.now();
@@ -186,7 +227,14 @@ export function CommandCenterPage() {
         });
         const fbOk =
           isFirebaseAuthConfigured() && (rtdb === "connected" || rtdb === "disabled");
-        pushSparkSamples(ms, apiOk, mongoOk, fbOk, smtpConfigured);
+        const apiSample = Math.min(2500, Math.max(5, apiOk ? ms : ms + 220));
+        const mongoSample = Math.min(2500, Math.max(5, mongoOk ? Math.round(ms * 0.98) : ms + 180));
+        const fbSample = Math.min(2500, Math.max(5, fbOk ? Math.round(ms * 0.42) : ms + 140));
+        const smtpSample = Math.min(2500, Math.max(5, smtpConfigured ? Math.round(ms * 0.22) : ms + 160));
+        setApiSpark(roll(apiHistRef, apiSample));
+        setMongoSpark(roll(mongoHistRef, mongoSample));
+        setFbSpark(roll(fbHistRef, fbSample));
+        setSmtpSpark(roll(smtpHistRef, smtpSample));
       } catch {
         setHealth({
           api: "offline",
@@ -196,15 +244,17 @@ export function CommandCenterPage() {
           smtpProvider: null,
         });
         setDbPingMs(null);
-        pushSparkSamples(null, false, false, false, false);
+        const bad = 888;
+        setApiSpark(roll(apiHistRef, bad));
+        setMongoSpark(roll(mongoHistRef, bad));
+        setFbSpark(roll(fbHistRef, bad));
+        setSmtpSpark(roll(smtpHistRef, bad));
       }
     };
     void pullHealth();
-    const idInt = window.setInterval(() => {
-      if (live) void pullHealth();
-    }, 8000);
+    const idInt = window.setInterval(() => void pullHealth(), 8000);
     return () => window.clearInterval(idInt);
-  }, [live, pushSparkSamples]);
+  }, []);
 
   const firebaseOnline = isFirebaseAuthConfigured();
 
@@ -235,11 +285,17 @@ export function CommandCenterPage() {
           <button
             type="button"
             className={"command-center__live" + (live ? " command-center__live--on" : "")}
-            onClick={() => setLive((v) => !v)}
+            onClick={() => void toggleOperationsDeck()}
             aria-pressed={live}
+            disabled={isAuditor || deckLoading}
+            title={
+              isAuditor
+                ? "Auditors cannot change the operations deck."
+                : "When OFFLINE, passengers do not see live buses on the map or buses in Check buses · Fleet registry."
+            }
           >
             <span className="command-center__live-dot" aria-hidden />
-            {live ? "LIVE" : "OFFLINE"}
+            {deckLoading ? "…" : live ? "LIVE" : "OFFLINE"}
           </button>
         </div>
       </header>

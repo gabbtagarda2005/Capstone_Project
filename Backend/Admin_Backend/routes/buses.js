@@ -15,6 +15,7 @@ const {
 } = require("../services/attendantGpsIngest");
 const { getFreeEtaMinutes, resolveNextTerminalForBus } = require("../services/freeEtaEngine");
 const { getPortalSettingsLean } = require("../services/adminPortalSettingsService");
+const { notifyAdminsOfSos } = require("../services/sosAdminNotify");
 
 function normalizePlateForApi(raw) {
   const s = raw == null ? "" : String(raw).trim();
@@ -67,6 +68,11 @@ function mapBus(b) {
     lastSeenAt: b.lastSeenAt || null,
     createdAt: b.createdAt || null,
     seatCapacity: typeof b.seatCapacity === "number" && Number.isFinite(b.seatCapacity) && b.seatCapacity > 0 ? b.seatCapacity : 50,
+    hubOrderLabels: Array.isArray(b.hubOrderLabels)
+      ? b.hubOrderLabels.map((x) => String(x || "").trim()).filter(Boolean)
+      : [],
+    tripSegmentStartedAt: b.tripSegmentStartedAt || null,
+    lastRouteFlipAt: b.lastRouteFlipAt || null,
   };
 }
 
@@ -152,6 +158,25 @@ function createBusesRouter(io) {
   });
 
   /**
+   * Operator JWT: acknowledge a new trip segment after automatic route flip (optional analytics / UX).
+   */
+  router.post("/trip-segment/ack", requireTicketIssuerJwt, async (req, res) => {
+    const q = buildOperatorBusQuery(req.ticketingUser?.sub);
+    if (!q) {
+      return res.status(400).json({ error: "Could not resolve operator id from token" });
+    }
+    try {
+      const b = await Bus.findOne(q).select("busId").lean();
+      if (!b?.busId) {
+        return res.status(403).json({ error: "No bus assignment for this operator" });
+      }
+      res.status(204).send();
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  /**
    * Operator JWT: drop this attendant's bus from live map (gps_logs) + notify admins.
    * Use on sign-out / end shift so View Location does not show a stale "active" pin for minutes.
    */
@@ -190,12 +215,14 @@ function createBusesRouter(io) {
     try {
       const b = await Bus.findOne(q)
         .populate("driverId", "firstName lastName")
-        .select("busId plateNumber route")
+        .select("busId busNumber plateNumber route")
         .lean();
       if (!b?.busId) {
         return res.status(403).json({ error: "No bus assignment for this operator" });
       }
       const busId = String(b.busId);
+      const busNumberDisplay =
+        b.busNumber != null && String(b.busNumber).trim() ? String(b.busNumber).trim() : busId;
       const plate = b.plateNumber != null ? String(b.plateNumber) : "—";
       let driverDisplayName = "—";
       if (b.driverId && typeof b.driverId === "object" && b.driverId.firstName != null) {
@@ -238,7 +265,25 @@ function createBusesRouter(io) {
         createdAt: doc.createdAt.toISOString(),
       };
       broadcastCommandAlert(io, alertPayload);
-      res.status(201).json({ ok: true, id: String(doc._id) });
+      let notified = { email: "error", sms: "error" };
+      try {
+        notified = await notifyAdminsOfSos({
+          levelLabel,
+          message,
+          busId,
+          busNumber: busNumberDisplay,
+          plate,
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          docId: String(doc._id),
+          createdAtIso: doc.createdAt.toISOString(),
+          attendantDisplayName,
+          note: note || null,
+        });
+      } catch (err) {
+        console.warn("[attendant-sos] admin email/SMS notify:", err.message || err);
+      }
+      res.status(201).json({ ok: true, id: String(doc._id), notified });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -302,6 +347,10 @@ function createBusesRouter(io) {
   /** Latest positions for admin / passenger maps */
   router.get("/live", async (_req, res) => {
     try {
+      const portal = await getPortalSettingsLean().catch(() => null);
+      if (portal && portal.operationsDeckLive === false) {
+        return res.json({ items: [] });
+      }
       const inactiveRows = await Bus.find({ status: "Inactive" })
         .select("busId")
         .lean()

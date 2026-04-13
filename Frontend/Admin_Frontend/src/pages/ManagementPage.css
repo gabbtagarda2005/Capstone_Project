@@ -1,5 +1,15 @@
 /* Module entry cards (management hub) — classic layout */
 
+.mgmt-hub-stats-err {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.35);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
 .mgmt-module-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

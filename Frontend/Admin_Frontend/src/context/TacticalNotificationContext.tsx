@@ -11,7 +11,7 @@ import {
 import { GEOFENCE_BREACH_EVENT, type GeofenceBreachDetail } from "@/lib/geofenceEvents";
 import { tacticalMapFlyTo } from "@/lib/tacticalMapFlyTo";
 
-export type TacticalVisualKind = "sos" | "geofence" | "system" | "maintenance";
+export type TacticalVisualKind = "sos" | "geofence" | "system" | "maintenance" | "lost";
 
 export type TacticalFeedItem = {
   id: string;
@@ -67,6 +67,30 @@ function itemFromGeofence(d: GeofenceBreachDetail): TacticalFeedItem {
   };
 }
 
+function itemFromLostItem(raw: CommandAlertPayload): TacticalFeedItem | null {
+  if (raw.kind !== "lost_item" || !raw.id) return null;
+  const email =
+    (raw as { passengerEmail?: string }).passengerEmail != null
+      ? String((raw as { passengerEmail?: string }).passengerEmail).trim()
+      : "";
+  const full = (raw as { fullMessage?: string }).fullMessage;
+  const title = email ? `${email} · LOST` : "Lost item (passenger)";
+  const sub =
+    (typeof full === "string" && full.trim()
+      ? full.trim()
+      : String(raw.message || "New report from passenger web app")) || "";
+  return {
+    id: `lost-${raw.id}`,
+    kind: "lost",
+    title,
+    subtitle: sub.slice(0, 520),
+    busId: raw.busId ? String(raw.busId) : undefined,
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+    priority: 2,
+    dismissable: true,
+  };
+}
+
 function itemFromIncident(raw: CommandAlertPayload): TacticalFeedItem | null {
   if (raw.kind !== "incident" || !raw.id || !raw.busId) return null;
   const la = Number(raw.latitude);
@@ -117,6 +141,8 @@ export function TacticalNotificationProvider({ children }: { children: ReactNode
       const raw = ce.detail;
       if (!raw) return;
       if (raw.kind === "sos") return;
+      const lost = itemFromLostItem(raw);
+      if (lost) pushUnique(lost);
       const inc = itemFromIncident(raw);
       if (inc) pushUnique(inc);
     };

@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'tactical_pulse_dot.dart';
 
-enum TacticalNotifCategory { routeSync, schedule, emergency }
+enum TacticalNotifCategory { routeSync, schedule, emergency, lostFound }
 
 class TacticalNotificationItem {
   const TacticalNotificationItem({
@@ -31,6 +31,8 @@ Color _categoryAccent(TacticalNotifCategory c) {
       return TacticalColors.amberSignal;
     case TacticalNotifCategory.emergency:
       return TacticalColors.alertRed;
+    case TacticalNotifCategory.lostFound:
+      return TacticalColors.slideOceanBlue;
   }
 }
 

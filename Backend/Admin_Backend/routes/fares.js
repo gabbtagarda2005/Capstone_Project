@@ -9,6 +9,7 @@ const FareChangeLog = require("../models/FareChangeLog");
 const {
   getGlobalSettingsLean,
   findMatrixEntryByLabels,
+  normalizeLocationLabel,
   resolveEndpointToken,
   listFareLocationOptions,
   listFareLocationEndpointPairs,
@@ -342,6 +343,14 @@ function createFaresRouter() {
       }
 
       const entry = await findMatrixEntryByLabels(start, dest);
+      const sn = normalizeLocationLabel(start);
+      const en = normalizeLocationLabel(dest);
+      const entryLabelsForTicket =
+        entry && entry.startNorm === sn && entry.endNorm === en
+          ? { startLabel: entry.startLabel, endLabel: entry.endLabel }
+          : entry
+            ? { startLabel: start, endLabel: dest }
+            : null;
       const matrixLabels =
         (pricing.pricingMode === "hub_matrix_plus_distance" ||
           pricing.pricingMode === "hub_multi_segment_matrix" ||
@@ -351,9 +360,7 @@ function createFaresRouter() {
           ? { startLabel: pricing.hubStartLabel, endLabel: pricing.hubEndLabel }
           : pricing.pricingMode === "intra_hub_per_km"
             ? { startLabel: start, endLabel: dest }
-            : entry
-              ? { startLabel: entry.startLabel, endLabel: entry.endLabel }
-              : { startLabel: start, endLabel: dest };
+            : entryLabelsForTicket || { startLabel: start, endLabel: dest };
 
       res.json({
         matched: true,

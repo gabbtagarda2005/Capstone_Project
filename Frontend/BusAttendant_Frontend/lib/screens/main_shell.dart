@@ -18,6 +18,7 @@ import '../services/network_signal_tier.dart';
 import '../services/session_store.dart';
 import '../config/app_branding.dart';
 import '../theme/app_colors.dart';
+import '../widgets/attendant_inactivity_watcher.dart';
 import '../widgets/beacon_lock_handshake.dart';
 import '../widgets/gps_visibility_lost_overlay.dart';
 import '../widgets/location_access_intro_dialog.dart';
@@ -92,9 +93,19 @@ class _MainShellState extends State<MainShell> {
   int _passengerTicketsEpoch = 0;
   AppBroadcastState? _broadcastState;
   Timer? _broadcastPollTimer;
+  /// Passenger web “Left something?” — shown in tactical feed (socket `commandAlert` / `lost_item`).
+  final List<TacticalNotificationItem> _lostItemAlerts = [];
 
   /// Gates `_onGoLive` until the tactical tracking intro has run (or permission was already granted).
   bool _locationIntroComplete = false;
+
+  /// Admin Settings → Session management (when “Apply policy to Attendant login” is on).
+  Timer? _sessionPolicyPollTimer;
+  int _sessionTimeoutMinutes = 30;
+  bool _sessionPolicyApplyAttendant = true;
+
+  /// Admin portal **Company name** (Settings) via GET /api/staff-profile → `company.name`.
+  String _companyTitle = kAppCompanyName;
 
   LocationSettings _pingLocationSettings({required bool precision}) {
     if (kIsWeb) {
@@ -173,6 +184,8 @@ class _MainShellState extends State<MainShell> {
   void dispose() {
     _pingTimer?.cancel();
     _gpsWatchTimer?.cancel();
+    _sessionPolicyPollTimer?.cancel();
+    _sessionPolicyPollTimer = null;
     _connectivitySub?.cancel();
     _connectivitySub = null;
     _stopWebGpsStream();
@@ -214,7 +227,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   List<TacticalNotificationItem> _notificationItems() {
-    final items = <TacticalNotificationItem>[];
+    final items = <TacticalNotificationItem>[..._lostItemAlerts];
     final s = _broadcastState;
     if (s != null && s.visible) {
       TacticalNotifCategory cat;
@@ -251,6 +264,93 @@ class _MainShellState extends State<MainShell> {
     return items;
   }
 
+  void _onCommandAlert(Map<String, dynamic> data) {
+    if (data['kind']?.toString() != 'lost_item') return;
+    final id = data['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final busId = data['busId']?.toString().trim() ?? '';
+    final mine = (_assignment?.bus?.busId ?? '').trim();
+    final unknown = busId.isEmpty || busId == 'UNKNOWN';
+    if (!unknown && mine.isNotEmpty && busId != mine) return;
+
+    final email = data['passengerEmail']?.toString().trim() ?? '';
+    final fullMessage = data['fullMessage']?.toString().trim();
+    final staffLine = data['staffLine']?.toString().trim();
+    final driverId = data['driverId']?.toString().trim() ?? '';
+    final driverName = data['driverName']?.toString().trim() ?? '';
+    final busNumber = data['busNumber']?.toString().trim() ?? '';
+    final busPlate = data['busPlate']?.toString().trim() ?? '';
+    final routeName =
+        data['routeName']?.toString().trim() ?? data['busLabel']?.toString().trim() ?? '';
+
+    final drv = driverId.isNotEmpty
+        ? driverId
+        : (driverName.isNotEmpty ? driverName : '—');
+    final bus = busNumber.isNotEmpty
+        ? busNumber
+        : (busPlate.isNotEmpty && busPlate != '—' ? busPlate : (busId.isNotEmpty && busId != 'UNKNOWN' ? busId : '—'));
+    final rte = routeName.isNotEmpty ? routeName : '—';
+    final staff = staffLine != null && staffLine.isNotEmpty ? staffLine : '—';
+
+    final registryBlock = StringBuffer()
+      ..writeln('Left something?')
+      ..writeln('Lost item / registry')
+      ..writeln()
+      ..writeln(
+        fullMessage?.isNotEmpty == true
+            ? fullMessage!
+            : (data['message']?.toString().trim().isNotEmpty == true
+                ? data['message']!.toString().trim()
+                : 'No details in message.'),
+      )
+      ..writeln()
+      ..writeln('Staff — $staff')
+      ..writeln('DRV $drv')
+      ..writeln('BUS $bus')
+      ..writeln('RTE $rte');
+
+    final title = email.isNotEmpty
+        ? '$email · LOST'
+        : (unknown ? 'Lost item (passenger)' : 'Lost item — your bus');
+    final body = registryBlock.toString().trim();
+    final at = DateTime.tryParse(data['createdAt']?.toString() ?? '') ?? DateTime.now();
+
+    if (!mounted) return;
+    setState(() {
+      final lid = 'lost-$id';
+      _lostItemAlerts.removeWhere((x) => x.id == lid);
+      _lostItemAlerts.insert(
+        0,
+        TacticalNotificationItem(
+          id: lid,
+          title: title,
+          body: body,
+          at: at,
+          category: TacticalNotifCategory.lostFound,
+        ),
+      );
+      while (_lostItemAlerts.length > 20) {
+        _lostItemAlerts.removeLast();
+      }
+    });
+
+    if (!unknown && mine.isNotEmpty && busId == mine) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Lost item report for your bus ($mine). Open the tactical feed (bell).',
+              style: const TextStyle(fontSize: 13),
+            ),
+            duration: const Duration(seconds: 8),
+            backgroundColor: TacticalColors.obsidianElevated,
+          ),
+        );
+      });
+    }
+  }
+
   void _startConnectivityWatch() {
     _connectivitySub?.cancel();
     _connectivitySub = null;
@@ -283,20 +383,75 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  /// Admin Command Center Socket.io — same ingest as POST /api/buses/live-location.
-  Future<void> _ensureLiveFleetSocket() async {
+  /// Admin Command Center Socket.io — GPS ingest + lost-item alerts + route flip.
+  Future<void> _reauthenticateLiveFleetSocket() async {
     if (_ticketing.isEmpty) return;
     try {
       _liveFleet ??= LiveFleetSocket();
       if (!_liveFleet!.isConnected) {
         await _liveFleet!.connect();
       }
-      if (_liveFleet!.isConnected && !_liveFleet!.isAuthenticated) {
-        await _liveFleet!.authenticate(_ticketing);
-      }
+      if (!_liveFleet!.isConnected) return;
+      final ok = await _liveFleet!.authenticate(_ticketing);
+      if (!ok) return;
+      _liveFleet!.ensureAttendantRouteFlipListener(_onAttendantRouteFlip);
+      _liveFleet!.ensureCommandAlertListener(_onCommandAlert);
     } catch (_) {
       /* REST fallback still runs */
     }
+  }
+
+  Future<void> _ensureLiveFleetSocket() async {
+    await _reauthenticateLiveFleetSocket();
+  }
+
+  void _onAttendantRouteFlip(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final busId = data['busId']?.toString() ?? '';
+    final mine = _assignment?.bus?.busId ?? '';
+    if (busId.isEmpty || mine.isEmpty || busId != mine) return;
+    final termRaw = data['terminalName']?.toString().trim() ?? '';
+    final term = termRaw.isNotEmpty ? termRaw : 'Terminal';
+    final ret = data['returnToward']?.toString().trim() ?? '';
+    final msgRaw = data['message']?.toString().trim() ?? '';
+    final msg = msgRaw.isNotEmpty
+        ? msgRaw
+        : 'Welcome to $term! Route flipped. Ready for return trip${ret.isNotEmpty ? ' to $ret' : ''}?';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Arrival confirmed'),
+          content: Text(msg, style: const TextStyle(fontSize: 15, height: 1.35)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Later'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                final t = _token ?? '';
+                final tick = _ticketing;
+                if (t.isNotEmpty && tick.isNotEmpty) {
+                  try {
+                    await _api.postTripSegmentAck(
+                      attendantToken: t,
+                      ticketingToken: tick,
+                    );
+                  } catch (_) {}
+                  await _resolveAssignment(t, tick);
+                }
+              },
+              child: const Text('Start new trip'),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Future<void> _loadToken() async {
@@ -309,6 +464,9 @@ class _MainShellState extends State<MainShell> {
       _booting = false;
     });
     if (t != null && t.isNotEmpty) {
+      if (tick.isNotEmpty) {
+        unawaited(_refreshCompanyTitleFromAdmin());
+      }
       if (tick.isEmpty && mounted) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -324,11 +482,54 @@ class _MainShellState extends State<MainShell> {
         });
       }
       unawaited(_resolveAssignment(t, tick));
+      unawaited(_refreshAttendantSessionPolicy());
+      _startAttendantSessionPolicyPolling();
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         unawaited(_runLocationAccessPreface());
       });
     }
+  }
+
+  Future<void> _refreshAttendantSessionPolicy() async {
+    try {
+      final p = await _api.fetchAttendantSessionPolicy();
+      if (!mounted) return;
+      setState(() {
+        _sessionTimeoutMinutes = p.sessionTimeoutMinutes;
+        _sessionPolicyApplyAttendant = p.securityPolicyApplyAttendant;
+      });
+    } catch (_) {}
+  }
+
+  void _startAttendantSessionPolicyPolling() {
+    _sessionPolicyPollTimer?.cancel();
+    _sessionPolicyPollTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (_token == null || _token!.isEmpty) return;
+      unawaited(_refreshAttendantSessionPolicy());
+    });
+  }
+
+  void _stopAttendantSessionPolicyPolling() {
+    _sessionPolicyPollTimer?.cancel();
+    _sessionPolicyPollTimer = null;
+  }
+
+  void _onInactivitySessionExpired() {
+    unawaited(_signOutDueToIdle());
+  }
+
+  Future<void> _signOutDueToIdle() async {
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        content: Text('Signed out — idle session limit reached (admin policy).'),
+        duration: Duration(seconds: 4),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    await _signOut();
   }
 
   void _markLocationIntroComplete() {
@@ -422,6 +623,27 @@ class _MainShellState extends State<MainShell> {
           unawaited(_tryStartLiveAfterLocationIntro());
         });
       }
+    }
+    if (mounted && ticketingToken.isNotEmpty) {
+      unawaited(_reauthenticateLiveFleetSocket());
+      unawaited(_refreshCompanyTitleFromAdmin());
+    }
+  }
+
+  Future<void> _refreshCompanyTitleFromAdmin() async {
+    final t = _token ?? '';
+    final tick = _ticketing;
+    if (t.isEmpty || tick.isEmpty) return;
+    try {
+      final hud = await _api.fetchStaffProfileHud(attendantToken: t, ticketingToken: tick);
+      final name = hud.company.name.trim();
+      if (!mounted) return;
+      setState(() {
+        _companyTitle = name.isNotEmpty ? name : kAppCompanyName;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _companyTitle = kAppCompanyName);
     }
   }
 
@@ -716,6 +938,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> _signOut() async {
     final t = _token ?? '';
     final tick = _ticketing;
+    _stopAttendantSessionPolicyPolling();
     _pingTimer?.cancel();
     _gpsWatchTimer?.cancel();
     _pingTimer = null;
@@ -759,6 +982,27 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  /// Maps Admin_Backend `notified.email` / `notified.sms` codes for the SOS confirmation dialog.
+  static String _sosChannelLabel(String? code) {
+    switch (code) {
+      case 'sent':
+        return 'Sent (IPROG)';
+      case 'trial_limit':
+        return 'Not sent';
+      case 'failed':
+        return 'Failed';
+      case 'not_configured':
+      case 'skipped_unconfigured':
+        return 'Not configured';
+      case 'skipped_invalid':
+        return 'Invalid number';
+      case 'settings_error':
+        return 'Settings error';
+      default:
+        return (code == null || code.isEmpty) ? '—' : code;
+    }
+  }
+
   Future<void> _sendSos(
     BuildContext context, {
     required String level,
@@ -790,14 +1034,65 @@ class _MainShellState extends State<MainShell> {
         note: note.isEmpty ? null : note,
       );
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            r.ok ? 'SOS delivered — $kAppCompanyName / Command notified' : (r.message ?? 'SOS failed'),
+      if (r.ok) {
+        final emailOk = r.emailNotify == 'sent';
+        final smsOk = r.smsNotify == 'sent';
+        final iconColor = smsOk
+            ? MintObsidian.mint
+            : (emailOk ? TacticalColors.amberSignal : TacticalColors.alertRed);
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          builder: (ctx) => AlertDialog(
+            icon: Icon(
+              Icons.warning_amber_rounded,
+              color: iconColor,
+              size: 48,
+            ),
+            title: const Text('SOS sent'),
+            content: Text(
+              () {
+                final b = StringBuffer(
+                  smsOk
+                      ? 'SOS Sent. Admin notified via IPROG SMS.'
+                      : 'SOS Sent. Help is on the way.',
+                );
+                if (r.emailNotify != null || r.smsNotify != null) {
+                  b.write(
+                    '\n\nStatus — email: ${_sosChannelLabel(r.emailNotify)}, SMS: ${_sosChannelLabel(r.smsNotify)}.',
+                  );
+                }
+                if (emailOk && !smsOk) {
+                  b.write(
+                    '\n\nOperators were also emailed when mail is configured; they can respond from the dashboard even if IPROG SMS did not go through.',
+                  );
+                }
+                if (r.smsDetail != null && r.smsDetail!.trim().isNotEmpty) {
+                  b.write('\n\n${r.smsDetail!.trim()}');
+                }
+                if (r.hint != null && r.hint!.trim().isNotEmpty) {
+                  b.write('\n\n${r.hint!.trim()}');
+                }
+                return b.toString();
+              }(),
+              style: GoogleFonts.plusJakartaSans(fontSize: 15, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-          backgroundColor: r.ok ? null : TacticalColors.alertRed,
-        ),
-      );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(r.message ?? 'SOS failed'),
+            backgroundColor: TacticalColors.alertRed,
+          ),
+        );
+      }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -855,28 +1150,34 @@ class _MainShellState extends State<MainShell> {
       ],
     );
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
+    return AttendantInactivityWatcher(
+      enabled: _sessionPolicyApplyAttendant,
+      inactivityMinutes: _sessionTimeoutMinutes,
+      onInactiveTimeout: _onInactivitySessionExpired,
+      child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        title: Text(
-          kAppCompanyName,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
-        actions: [
-          TacticalNotificationAction(
-            hasActiveAlert: (_broadcastState?.visible == true) || WeatherAdvisoryController.instance.hasAlerts,
-            onPressed: () => TacticalNotificationPanel.open(
-              context,
-              items: _notificationItems(),
-            ),
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
+          title: Text(
+            _companyTitle,
+            style: GoogleFonts.syne(fontWeight: FontWeight.w700, fontSize: 18, letterSpacing: 0.6),
           ),
-        ],
-      ),
-      body: Column(
+          actions: [
+            TacticalNotificationAction(
+              hasActiveAlert: (_broadcastState?.visible == true) ||
+                  WeatherAdvisoryController.instance.hasAlerts ||
+                  _lostItemAlerts.isNotEmpty,
+              onPressed: () => TacticalNotificationPanel.open(
+                context,
+                items: _notificationItems(),
+              ),
+            ),
+          ],
+        ),
+        body: Column(
         children: [
           Expanded(
             child: Stack(
@@ -1005,6 +1306,7 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

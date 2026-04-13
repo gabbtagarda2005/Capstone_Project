@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { fetchPublicCompanyProfile } from "@/lib/api";
 import img1 from "@/Image/1.jpg";
 import img2 from "@/Image/2.jpg";
 import img3 from "@/Image/3.jpg";
@@ -97,10 +99,42 @@ const ROADMAP_STEPS = [
 ];
 
 export function LandingPage() {
+  const [companyName, setCompanyName] = useState("Transit operations");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicCompanyProfile()
+      .then((p) => {
+        if (cancelled) return;
+        const n = String(p.name || "").trim();
+        if (n) setCompanyName(n);
+        setLogoUrl(p.logoUrl && String(p.logoUrl).trim() ? String(p.logoUrl).trim() : null);
+        setLogoFailed(false);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const year = new Date().getFullYear();
+
   return (
     <div className="landing-page">
       <header className="landing-nav">
-        <span className="landing-logo">Bukidnon Transport</span>
+        <div className="landing-nav__brand">
+          {logoUrl && !logoFailed ? (
+            <img
+              className="landing-nav__logo"
+              src={logoUrl}
+              alt=""
+              onError={() => setLogoFailed(true)}
+            />
+          ) : null}
+          <span className="landing-logo">{companyName}</span>
+        </div>
         <Link to="/login" className="landing-nav__cta">
           Sign in
         </Link>
@@ -112,11 +146,11 @@ export function LandingPage() {
             <div className="landing-hero__copy">
               <p className="landing-hero__eyebrow">Real-time · IoT · Operations</p>
               <h1 className="landing-hero__title">
-                Welcome to <span>Bukidnon Bus Command</span>
+                Welcome to <span>{companyName}</span>
               </h1>
               <p className="landing-hero__desc">
-                A distributed transport platform for Bukidnon: LilyGo GPS ingestion, live fleet maps, Bus Attendant
-                ticketing, and admin oversight, built so passengers, drivers, and control room stay in sync.
+                A distributed transport operations platform: LilyGo GPS ingestion, live fleet maps, Bus Attendant
+                ticketing, and admin oversight — keeping passengers, drivers, and control room in sync.
               </p>
               <div className="landing-hero__actions">
                 <Link to="/login" className="landing-hero__go">
@@ -258,7 +292,9 @@ export function LandingPage() {
           </section>
 
           <footer className="landing-footer">
-            <p className="landing-footer__copy">© 2026 Bukidnon Transit · Capstone Project.</p>
+            <p className="landing-footer__copy">
+              © {year} {companyName}
+            </p>
           </footer>
         </div>
       </section>

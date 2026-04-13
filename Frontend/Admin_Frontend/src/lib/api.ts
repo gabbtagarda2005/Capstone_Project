@@ -19,6 +19,7 @@ import type {
   DailyOperationsReportDto,
   DailyOpsSnapshotListDto,
   ReportsAnalyticsDto,
+  ManagementHubStatsDto,
 } from "@/lib/types";
 
 const RAW_ADMIN_API = (import.meta.env.VITE_ADMIN_API_URL as string | undefined)?.trim();
@@ -628,6 +629,8 @@ export async function putAdminPortalSettings(body: {
       | "companyName"
       | "companyEmail"
       | "companyPhone"
+      | "sosEmail"
+      | "sosPhoneNumber"
       | "companyLocation"
       | "sidebarLogoUrl"
       | "faviconUrl"
@@ -654,12 +657,30 @@ export async function putAdminPortalSettings(body: {
     /** Merge logged-in admin email into recipients (server-side). */
     includeSavingAdminEmail?: boolean;
   };
+  commandCenter?: Partial<Pick<AdminPortalSettingsDto, "operationsDeckLive">>;
 }): Promise<{ settings: AdminPortalSettingsDto }> {
   return api("/api/admin/settings", { method: "PUT", json: body });
 }
 
 export async function fetchAdminRbac(): Promise<{ items: { email: string; role: AdminRbacRole }[] }> {
   return api("/api/admin/rbac");
+}
+
+export type PublicCompanyProfile = {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  logoUrl: string | null;
+};
+
+/** No JWT — same payload passenger/attendant apps use for company header. */
+export async function fetchPublicCompanyProfile(): Promise<PublicCompanyProfile> {
+  return api<PublicCompanyProfile>("/api/public/company-profile", { authToken: null });
+}
+
+export async function fetchManagementHubStats(): Promise<ManagementHubStatsDto> {
+  return api<ManagementHubStatsDto>("/api/admin/management-hub-stats");
 }
 
 export async function putAdminRbac(items: { email: string; role: AdminRbacRole }[]): Promise<{

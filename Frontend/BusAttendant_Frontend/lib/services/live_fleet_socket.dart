@@ -11,6 +11,8 @@ class LiveFleetSocket {
   final String _origin;
   io.Socket? _socket;
   bool _authenticated = false;
+  bool _routeFlipListenerAttached = false;
+  bool _commandAlertListenerAttached = false;
 
   bool get isConnected => _socket?.connected == true;
   bool get isAuthenticated => _authenticated;
@@ -36,11 +38,13 @@ class LiveFleetSocket {
     await Future<void>.delayed(const Duration(milliseconds: 500));
   }
 
+  /// Safe to call again after bus reassignment — server re-joins the `bus:{busId}` room.
   Future<bool> authenticate(String ticketingToken) async {
     final s = _socket;
     if (s == null || !s.connected) return false;
     final tok = ticketingToken.trim();
     if (tok.isEmpty) return false;
+    _authenticated = false;
     final completer = Completer<bool>();
     var done = false;
     s.emitWithAck('live_fleet_authenticate', {'token': tok}, ack: (dynamic data) {
@@ -91,8 +95,36 @@ class LiveFleetSocket {
 
   void disconnect() {
     _authenticated = false;
+    _routeFlipListenerAttached = false;
+    _commandAlertListenerAttached = false;
+    _socket?.off('attendant_route_flip');
+    _socket?.off('commandAlert');
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
+  }
+
+  /// Command Center alerts (e.g. passenger lost-item) pushed only to relevant bus rooms / fleet.
+  void ensureCommandAlertListener(void Function(Map<String, dynamic> data) onAlert) {
+    final s = _socket;
+    if (s == null || _commandAlertListenerAttached) return;
+    _commandAlertListenerAttached = true;
+    s.on('commandAlert', (dynamic raw) {
+      if (raw is Map) {
+        onAlert(Map<String, dynamic>.from(raw));
+      }
+    });
+  }
+
+  /// Fires when the bus enters the destination terminal geofence and the server flips origin/destination.
+  void ensureAttendantRouteFlipListener(void Function(Map<String, dynamic> data) onFlip) {
+    final s = _socket;
+    if (s == null || _routeFlipListenerAttached) return;
+    _routeFlipListenerAttached = true;
+    s.on('attendant_route_flip', (dynamic raw) {
+      if (raw is Map) {
+        onFlip(Map<String, dynamic>.from(raw));
+      }
+    });
   }
 }

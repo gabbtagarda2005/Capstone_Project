@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
-const Bus = require("../models/Bus");
-const RouteCoverage = require("../models/RouteCoverage");
 const store = require("./liveDispatchStore");
-const { broadcastLiveBoard, broadcastBusTerminalArrival } = require("../sockets/socket");
+const { broadcastLiveBoard, broadcastBusTerminalArrival, broadcastAttendantRouteFlip } = require("../sockets/socket");
 const { buildPublicPayload } = require("../routes/liveDispatch");
+const RouteCoverage = require("../models/RouteCoverage");
+const { tryAutoRouteFlipForBusHit } = require("./autoRouteFlip");
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -56,14 +56,6 @@ function namesMatchTerminal(block, doc) {
   return false;
 }
 
-function splitRouteLabel(routeLabel) {
-  const s = String(routeLabel || "").trim();
-  if (!s) return null;
-  const parts = s.split(/\s*[→➔>–—-]\s*/).map((v) => v.trim()).filter(Boolean);
-  if (parts.length < 2) return null;
-  return { from: parts[0], to: parts[parts.length - 1] };
-}
-
 let terminalCache = { at: 0, rows: [] };
 const CACHE_MS = 45_000;
 
@@ -77,7 +69,8 @@ async function loadTerminalDocs() {
 }
 
 /**
- * When live GPS enters an admin-configured terminal geofence, mark matching live-dispatch blocks as ARRIVING.
+ * When live GPS enters an admin-configured terminal geofence, mark matching live-dispatch blocks as ARRIVING
+ * and optionally auto-flip the bus route for the return leg (destination geofence radius from RouteCoverage).
  */
 async function onBusGpsForTerminalArrival(io, busId, lat, lng) {
   if (mongoose.connection.readyState !== 1 || !io) return;
@@ -108,7 +101,6 @@ async function onBusGpsForTerminalArrival(io, busId, lat, lng) {
   if (!hits.length) return;
 
   const blocks = store.listBlocks().filter((b) => String(b.busId) === String(busId) && b.status !== "cancelled");
-  if (!blocks.length) return;
 
   const now = new Date();
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -132,16 +124,6 @@ async function onBusGpsForTerminalArrival(io, busId, lat, lng) {
       if (block.status === "arriving" && String(block.arrivalTerminalName || "") === terminalDisplay) {
         continue;
       }
-      const routeParts = splitRouteLabel(block.routeLabel);
-      if (routeParts && norm(routeParts.to) === norm(terminalDisplay)) {
-        // Docked at destination terminal -> flip to return leg automatically.
-        const flippedLabel = `${routeParts.to} → ${routeParts.from}`;
-        await Bus.updateOne({ busId: String(block.busId) }, { route: flippedLabel }).catch(() => {});
-        store.updateBlock(block.id, {
-          routeLabel: flippedLabel,
-          departurePoint: routeParts.to,
-        });
-      }
       store.updateBlock(block.id, {
         status: "arriving",
         arrivalDetectedAt: now.toISOString(),
@@ -154,6 +136,16 @@ async function onBusGpsForTerminalArrival(io, busId, lat, lng) {
     }
   }
 
+  let flipMeta = null;
+  for (const hit of hits) {
+    const r = await tryAutoRouteFlipForBusHit(busId, hit);
+    if (r.flipped) {
+      flipMeta = r;
+      changed = true;
+      break;
+    }
+  }
+
   if (!changed) return;
 
   const primary = hits[0];
@@ -162,12 +154,27 @@ async function onBusGpsForTerminalArrival(io, busId, lat, lng) {
     ((primary.doc.terminal && String(primary.doc.terminal.name || "").trim()) ||
       String(primary.doc.locationName || "").trim() ||
       "Terminal");
-  if (primary && terminalLabel) {
+  const terminalForBroadcast =
+    (flipMeta && String(flipMeta.terminalName || "").trim()) || terminalLabel || "";
+  if (terminalForBroadcast) {
     broadcastBusTerminalArrival(io, {
       bus_id: String(busId),
-      terminalName: terminalLabel,
+      terminalName: terminalForBroadcast,
       latitude: la,
       longitude: ln,
+      recordedAt: now.toISOString(),
+    });
+  }
+
+  if (flipMeta?.flipped) {
+    const term = String(flipMeta.terminalName || "").trim() || "Terminal";
+    const dest = String(flipMeta.returnToward || "").trim() || "origin";
+    broadcastAttendantRouteFlip(io, {
+      busId: String(busId),
+      terminalName: term,
+      newRoute: String(flipMeta.newRoute || ""),
+      returnToward: dest,
+      message: `Welcome to ${term}! Route flipped for return trip to ${dest}.`,
       recordedAt: now.toISOString(),
     });
   }

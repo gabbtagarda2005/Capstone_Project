@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { io, type Socket } from "socket.io-client";
+import { fetchPublicCommandFeed } from "@/lib/fetchPublicCommandFeed";
 import { submitPassengerFeedback, type PassengerFeedbackAbout } from "@/lib/submitPassengerFeedback";
 import "./PassengerTacticalPanels.css";
 
@@ -38,6 +39,28 @@ function manilaYmdClient(): string {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+/** Display like "Apr 13, 2026, 12:00 AM" — always Asia/Manila. */
+function formatManilaFeedTime(d: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+}
+
+function useNowInterval(intervalMs: number): number {
+  const [t, setT] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setT(Date.now()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return t;
 }
 
 function tripDisplayId(orderIndex: number): string {
@@ -115,47 +138,40 @@ const DEMO_BLOCKS: LiveBoardBlock[] = [
 
 type NewsItem = {
   id: string;
-  category: "Road closure" | "Weather alert" | "Terminal notice";
+  category: string;
   title: string;
   body: string;
   publishedAt: Date;
 };
 
-function newsSeed(): NewsItem[] {
-  const now = Date.now();
-  return [
-    {
-      id: "1",
-      category: "Road closure",
-      title: "Sayre Highway — single-lane near Tankulan",
-      body: "Expect 10–15 min delays 06:00–18:00. Detour signage posted northbound.",
-      publishedAt: new Date(now - 25 * 60 * 1000),
-    },
-    {
-      id: "2",
-      category: "Weather alert",
-      title: "Reduced visibility — upland routes",
-      body: "Light fog on Impasug-ong segment. Drivers advised reduced speed; all lines running.",
-      publishedAt: new Date(now - 50 * 60 * 1000),
-    },
-    {
-      id: "3",
-      category: "Terminal notice",
-      title: "Malaybalay South — Gate B maintenance",
-      body: "Boarding for Valencia expresses temporarily at Gate A through Friday.",
-      publishedAt: new Date(now - 3 * 60 * 60 * 1000),
-    },
-    {
-      id: "4",
-      category: "Terminal notice",
-      title: "Valencia hub — cashless top-up kiosk",
-      body: "New reload station live near waiting lounge; Beep cards accepted.",
-      publishedAt: new Date(now - 26 * 60 * 60 * 1000),
-    },
-  ];
+/** Operator / terminal posts — LIVE when very recent. */
+const LIVE_TERMINAL_MS = 90 * 60 * 1000;
+/** Weather snapshot — refreshed ~10 min; keep badge warm for half a day. */
+const LIVE_WEATHER_MS = 30 * 60 * 60 * 1000;
+/** Delay / GPS hints from live board. */
+const LIVE_TRAFFIC_MS = 2 * 60 * 60 * 1000;
+/** Ticket + affinity demand cards. */
+const LIVE_DEMAND_MS = 36 * 60 * 60 * 1000;
+
+function commandFeedItemIsLive(item: NewsItem, nowMs: number): boolean {
+  const t = item.publishedAt.getTime();
+  if (!Number.isFinite(t)) return false;
+  const age = nowMs - t;
+  if (age < 0) return false;
+  if (item.category === "Terminal notice" || item.category === "Operations") return age < LIVE_TERMINAL_MS;
+  if (item.category === "Traffic & delays") return age < LIVE_TRAFFIC_MS;
+  if (item.category === "Passenger demand") return age < LIVE_DEMAND_MS;
+  if (item.category === "Weather alert") return age < LIVE_WEATHER_MS;
+  return age < LIVE_WEATHER_MS;
 }
 
-const LIVE_MS = 60 * 60 * 1000;
+function liveBadgeTitle(category: string): string {
+  if (category === "Terminal notice" || category === "Operations") return "Posted within the last 90 minutes";
+  if (category === "Traffic & delays") return "Based on live dispatch in the last 2 hours";
+  if (category === "Passenger demand") return "Demand signal from the last 36 hours";
+  if (category === "Weather alert") return "Weather snapshot is recent (refreshed about every 10 minutes)";
+  return "Active advisory";
+}
 
 export function PassengerDepartureBoard() {
   const [blocks, setBlocks] = useState<LiveBoardBlock[]>(DEMO_BLOCKS);
@@ -300,43 +316,80 @@ export function PassengerDepartureBoard() {
 }
 
 export function PassengerNewsFeed() {
-  const items = useMemo(() => newsSeed(), []);
+  const [items, setItems] = useState<NewsItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const nowMs = useNowInterval(30_000);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const raw = await fetchPublicCommandFeed();
+      if (cancelled) return;
+      const mapped: NewsItem[] = raw.map((r) => ({
+        id: r.id,
+        category: r.category,
+        title: r.title,
+        body: r.body,
+        publishedAt: new Date(r.publishedAt),
+      }));
+      setItems(mapped);
+      setLoaded(true);
+    }
+    void load();
+    const id = window.setInterval(() => void load(), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   return (
     <div className="pd-tactical pd-feed" role="region" aria-label="News and updates">
       <header className="pd-tactical__head">
         <h1 className="pd-tactical__title">Command feed</h1>
-        <p className="pd-tactical__sub">Road · weather · terminal</p>
+        <p className="pd-tactical__sub">
+          Weather for every admin-defined hub and stop, trip delays, busy terminals, and operator messages · Philippines
+          (PHT). Rain alerts remind you to bring an umbrella and allow extra time for buses.
+        </p>
       </header>
-      <ol className="pd-feed__timeline">
-        {items.map((item) => {
-          const live = Date.now() - item.publishedAt.getTime() < LIVE_MS;
-          return (
-            <li key={item.id} className="pd-feed__item">
-              <span className="pd-feed__rail" aria-hidden />
-              <article className="pd-feed__card">
-                <div className="pd-feed__card-head">
-                  {live ? (
-                    <span className="pd-feed__live" title="Published within the last hour">
-                      <span className="pd-feed__live-dot" aria-hidden />
-                      LIVE
-                    </span>
+      {!loaded ? (
+        <p className="pd-feed__empty">Loading operational updates…</p>
+      ) : items.length === 0 ? (
+        <p className="pd-feed__empty">
+          No advisories right now. After admins add locations, weather for each point appears here. When it rains, you will
+          see umbrella and delay guidance; trip delays, busy terminals, and operations messages also show automatically.
+        </p>
+      ) : (
+        <ol className="pd-feed__timeline">
+          {items.map((item) => {
+            const live = commandFeedItemIsLive(item, nowMs);
+            const iso = Number.isFinite(item.publishedAt.getTime()) ? item.publishedAt.toISOString() : "";
+            return (
+              <li key={item.id} className="pd-feed__item">
+                <span className="pd-feed__rail" aria-hidden />
+                <article className="pd-feed__card">
+                  <div className="pd-feed__card-head">
+                    {live ? (
+                      <span className="pd-feed__live" title={liveBadgeTitle(item.category)}>
+                        <span className="pd-feed__live-dot" aria-hidden />
+                        LIVE
+                      </span>
+                    ) : null}
+                    <span className="pd-feed__category">{item.category}</span>
+                  </div>
+                  <h2 className="pd-feed__card-title">{item.title}</h2>
+                  {item.body ? <p className="pd-feed__card-body">{item.body}</p> : null}
+                  {iso ? (
+                    <time className="pd-feed__time" dateTime={iso}>
+                      {formatManilaFeedTime(item.publishedAt)}
+                    </time>
                   ) : null}
-                  <span className="pd-feed__category">{item.category}</span>
-                </div>
-                <h2 className="pd-feed__card-title">{item.title}</h2>
-                <p className="pd-feed__card-body">{item.body}</p>
-                <time className="pd-feed__time" dateTime={item.publishedAt.toISOString()}>
-                  {item.publishedAt.toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </time>
-              </article>
-            </li>
-          );
-        })}
-      </ol>
+                </article>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }
@@ -354,7 +407,7 @@ export function PassengerFeedbackConsole() {
     e.preventDefault();
     setFormError(null);
     if (rating < 1) {
-      setFormError("Tap a face to show how you felt about the trip.");
+      setFormError("Select a star rating.");
       return;
     }
     if (rating < 4 && comment.trim().length < 4) {
@@ -400,7 +453,7 @@ export function PassengerFeedbackConsole() {
 
   return (
     <div className="pd-tactical pd-fb pd-tactical--centered" role="region" aria-label="Feedback">
-      <form className="pd-fb-card" onSubmit={(ev) => void submit(ev)}>
+      <form className="pd-fb-card pd-fb-card--lg" onSubmit={(ev) => void submit(ev)}>
         <h1 className="pd-fb-card__title">Send Feedback</h1>
 
         <label className="pd-fb-card__field-label" htmlFor="pd-fb-about">
@@ -439,36 +492,35 @@ export function PassengerFeedbackConsole() {
         </label>
         <textarea
           id="pd-fb-comment"
-          className="pd-fb-card__textarea"
-          rows={5}
+          className="pd-fb-card__textarea pd-fb-card__textarea--lg"
+          rows={6}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Your feedback…"
         />
 
-        <div className="pd-fb-card__toolbar" role="group" aria-label="How was your experience">
-          <button
-            type="button"
-            className={"pd-fb-card__mood" + (rating === 5 ? " pd-fb-card__mood--on" : "")}
-            aria-label="Good experience"
-            aria-pressed={rating === 5}
-            onClick={() => setRating(5)}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 512 512" className="pd-fb-card__mood-svg" aria-hidden>
-              <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm177.6 62.1C192.8 334.5 218.8 352 256 352s63.2-17.5 78.4-33.9c9-9.7 24.2-10.4 33.9-1.4s10.4 24.2 1.4 33.9c-22 23.8-60 49.4-113.6 49.4s-91.7-25.5-113.6-49.4c-9-9.7-8.4-24.9 1.4-33.9s24.9-8.4 33.9 1.4zM144.4 208a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm192-32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className={"pd-fb-card__mood" + (rating === 2 ? " pd-fb-card__mood--on" : "")}
-            aria-label="Poor experience"
-            aria-pressed={rating === 2}
-            onClick={() => setRating(2)}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 512 512" className="pd-fb-card__mood-svg" aria-hidden>
-              <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM174.6 384.1c-4.5 12.5-18.2 18.9-30.7 14.4s-18.9-18.2-14.4-30.7C146.9 319.4 198.9 288 256 288s109.1 31.4 126.6 79.9c4.5 12.5-2 26.2-14.4 30.7s-26.2-2-30.7-14.4C328.2 358.5 297.2 336 256 336s-72.2 22.5-81.4 48.1zM144.4 208a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm192-32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z" />
-            </svg>
-          </button>
+        <div className="pd-fb-card__stars-block">
+          <span className="pd-fb-card__field-label pd-fb-card__field-label--center" id="pd-fb-stars-label">
+            Star rating
+          </span>
+          <div className="pd-fb-card__stars" role="group" aria-labelledby="pd-fb-stars-label">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={"pd-fb-card__star" + (rating >= n ? " pd-fb-card__star--on" : "")}
+                aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                aria-pressed={rating >= n}
+                onClick={() => setRating(n)}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pd-fb-card__toolbar" role="group" aria-label="Submit feedback">
+          <span className="pd-fb-card__spacer" aria-hidden />
           <span className="pd-fb-card__spacer" aria-hidden />
           <button type="submit" className="pd-fb-card__send" disabled={pending} aria-label="Send feedback">
             {pending ? (

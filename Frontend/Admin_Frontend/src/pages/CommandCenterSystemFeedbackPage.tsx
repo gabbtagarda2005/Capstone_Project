@@ -64,6 +64,7 @@ function StarRow({ rating }: { rating: number }) {
 function FeedbackIntelTile({ row, variant }: { row: PassengerFeedbackIntelRow; variant: "critical" | "feed" }) {
   const driverLink = row.driverId && isMongoObjectId(row.driverId) ? `/dashboard/management/drivers/${row.driverId}` : null;
   const about = (row.feedbackAbout ?? "location") as PassengerFeedbackAbout;
+  const isLost = row.entryKind === "lost_item";
 
   const staffLabel = [row.driverName, row.attendantName].filter(Boolean).join(" · ") || "Staff —";
 
@@ -71,7 +72,7 @@ function FeedbackIntelTile({ row, variant }: { row: PassengerFeedbackIntelRow; v
     "sfi-tile" +
     (variant === "critical"
       ? " sfi-tile--critical"
-      : row.rating < 3 || row.isSos
+      : !isLost && (row.rating < 3 || row.isSos)
         ? " sfi-tile--low"
         : "");
 
@@ -80,16 +81,30 @@ function FeedbackIntelTile({ row, variant }: { row: PassengerFeedbackIntelRow; v
       <div className="sfi-tile__head">
         <h3 className="sfi-tile__name">
           {row.passengerName}
+          {isLost ? (
+            <>
+              {" "}
+              <span className="sfi-tile__lost-badge" title="Lost & found report from passenger web">
+                LOST
+              </span>
+            </>
+          ) : null}
           {row.isSos ? (
             <span className="sfi-tile__sos" title="Passenger flagged SOS">
               SOS
             </span>
           ) : null}
         </h3>
-        <StarRow rating={row.rating} />
+        {isLost ? (
+          <span className="sfi-tile__lost-stars" title="Not a star rating">
+            Left something?
+          </span>
+        ) : (
+          <StarRow rating={row.rating} />
+        )}
       </div>
       <p className="sfi-tile__about" title="What this feedback is mainly about">
-        {FEEDBACK_ABOUT_LABELS[about]}
+        {isLost ? "Lost item / registry" : FEEDBACK_ABOUT_LABELS[about]}
       </p>
       {row.comment ? <p className="sfi-tile__comment">{row.comment}</p> : null}
       <div className="sfi-tile__meta">
@@ -163,7 +178,9 @@ export function CommandCenterSystemFeedbackPage() {
       <CommandCenterSubPageShell page="feedback">
         <header className="command-center__sub-head">
           <h1 className="command-center__sub-title">Feedback intelligence</h1>
-          <p className="command-center__sub-lead">Passenger ratings, comments, and route context from the fleet network.</p>
+          <p className="command-center__sub-lead">
+            Passenger ratings, comments, route context, and &quot;Left something?&quot; lost-item reports from the web app.
+          </p>
         </header>
 
         <div className="sentiment-cmd">
@@ -214,7 +231,7 @@ export function CommandCenterSystemFeedbackPage() {
           <div className="sentiment-cmd__feed-list">
             {(data?.liveSignalFeed ?? []).length === 0 && !loading ? (
               <p className="sentiment-cmd__empty">
-                No passenger feedback yet. Ratings and comments from passengers using the trip feedback flow will show up here.
+                No passenger feedback yet. Trip feedback, lost-item reports (Left something?), and ratings will show here.
               </p>
             ) : null}
             {(data?.liveSignalFeed ?? []).length > 0 && filteredFeed.length === 0 && !loading ? (

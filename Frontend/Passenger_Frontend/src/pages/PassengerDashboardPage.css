@@ -1368,10 +1368,12 @@ a.pd-card:hover {
 }
 
 .pd-sidebar.pd-sidebar--adminlike .pd-sidebar__brand-text {
+  font-family: var(--brand-wordmark-family);
   font-size: 0.95rem;
   font-weight: 800;
   line-height: 1.2;
   text-align: left;
+  letter-spacing: 0.03em;
 }
 
 /* Keep admin-like sidebar static and fully visible (no hover motion) */

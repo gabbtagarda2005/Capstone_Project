@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentProps } from "react";
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -55,6 +55,15 @@ const hubBarActive = {
   strokeWidth: 2,
   style: { filter: "drop-shadow(0 0 14px rgba(74, 107, 190, 0.9))" },
 };
+
+/** Recharts 3 skips rendering until width/height are positive; min sizes avoid 0×0 flex measurement. */
+function HubChartContainer({ children }: { children: ReactNode }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={48} debounce={32}>
+      {children}
+    </ResponsiveContainer>
+  );
+}
 
 function LeadingEdgeBarShape(props: {
   x?: number;
@@ -181,7 +190,7 @@ function HourlyTicketsVolumeChart({
     <div className="reports-hub__hourly-volume-chart">
       <p className="reports-hub__hourly-volume-legend">{legend}</p>
       <div className="reports-hub__hourly-volume-canvas" role="img" aria-label="Tickets by hour bar and line chart">
-        <ResponsiveContainer width="100%" height="100%">
+        <HubChartContainer>
           <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
             <XAxis dataKey="hourLabel" stroke={hubAxisStroke} tick={{ ...hubAxisTick, fontSize: 8 }} interval={3} />
@@ -212,7 +221,7 @@ function HourlyTicketsVolumeChart({
               activeDot={{ r: 5, stroke: lineColor, fill: "#fff" }}
             />
           </ComposedChart>
-        </ResponsiveContainer>
+        </HubChartContainer>
       </div>
     </div>
   );
@@ -762,7 +771,7 @@ export function ReportsIntelligenceHub({
                             {emptyDaily ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={daily} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   {hubSvgGlowDefs()}
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -780,7 +789,7 @@ export function ReportsIntelligenceHub({
                                     ))}
                                   </Bar>
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · route delay sentiment — ${sentimentLabel}`} />
@@ -792,7 +801,7 @@ export function ReportsIntelligenceHub({
                             {emptyMonthly ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={monthly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="label" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -800,7 +809,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} />
                                   <Bar dataKey="tickets" fill={PASSENGER_ORANGE_2} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · route delay sentiment — ${sentimentLabel}`} />
@@ -812,7 +821,7 @@ export function ReportsIntelligenceHub({
                             {emptyYearly ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={yearly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="year" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -820,7 +829,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} />
                                   <Bar dataKey="tickets" fill={PASSENGER_ORANGE} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · route delay sentiment — ${sentimentLabel}`} />
@@ -870,7 +879,7 @@ export function ReportsIntelligenceHub({
                             {emptyCongestion ? (
                               <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={hourlyRevData} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="hourLabel" stroke={hubAxisStroke} tick={{ ...hubAxisTick, fontSize: 8 }} interval={3} />
@@ -886,7 +895,7 @@ export function ReportsIntelligenceHub({
                                   ) : null}
                                   <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · route delay sentiment — ${sentimentLabel}`} />
@@ -898,7 +907,7 @@ export function ReportsIntelligenceHub({
                             {emptyDaily ? (
                               <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={daily} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="date" tickFormatter={(v) => String(v).slice(5)} stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -906,7 +915,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
                                   <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · route delay sentiment — ${sentimentLabel}`} />
@@ -918,7 +927,7 @@ export function ReportsIntelligenceHub({
                             {emptyMonthly ? (
                               <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={monthly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="label" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -926,7 +935,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
                                   <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · route delay sentiment — ${sentimentLabel}`} />
@@ -938,7 +947,7 @@ export function ReportsIntelligenceHub({
                             {emptyYearly ? (
                               <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={yearly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="year" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -946,7 +955,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
                                   <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · route delay sentiment — ${sentimentLabel}`} />
@@ -966,7 +975,7 @@ export function ReportsIntelligenceHub({
                         {attendantsBar.length === 0 ? (
                           <p className="reports-hub__placeholder">Awaiting live feed…</p>
                         ) : (
-                          <ResponsiveContainer width="100%" height="100%">
+                          <HubChartContainer>
                             <BarChart data={attendantsBar} margin={{ top: 10, right: 8, left: 0, bottom: 40 }}>
                               {hubSvgGlowDefs()}
                               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -986,7 +995,7 @@ export function ReportsIntelligenceHub({
                                 ))}
                               </Bar>
                             </BarChart>
-                          </ResponsiveContainer>
+                          </HubChartContainer>
                         )}
                       </div>
                       <LedRow text={`Live sync · attendant throughput — ${sentimentLabel}`} />
@@ -1077,7 +1086,7 @@ export function ReportsIntelligenceHub({
                             {emptyDaily ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={daily} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   {hubSvgGlowDefs()}
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -1095,7 +1104,7 @@ export function ReportsIntelligenceHub({
                                     ))}
                                   </Bar>
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · fleet demand — ${sentimentLabel}`} />
@@ -1107,7 +1116,7 @@ export function ReportsIntelligenceHub({
                             {emptyMonthly ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={monthly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="label" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -1115,7 +1124,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} />
                                   <Bar dataKey="tickets" fill={FLEET_GREEN_2} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · fleet demand — ${sentimentLabel}`} />
@@ -1127,7 +1136,7 @@ export function ReportsIntelligenceHub({
                             {emptyYearly ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={yearly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="year" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -1135,7 +1144,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} />
                                   <Bar dataKey="tickets" fill={FLEET_GREEN} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · fleet demand — ${sentimentLabel}`} />
@@ -1150,7 +1159,7 @@ export function ReportsIntelligenceHub({
                         {busPie.length === 0 ? (
                           <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
                         ) : (
-                          <ResponsiveContainer width="100%" height="100%">
+                          <HubChartContainer>
                             <PieChart>
                               {hubSvgGlowDefs()}
                               <Pie
@@ -1171,7 +1180,7 @@ export function ReportsIntelligenceHub({
                               </Pie>
                               <Tooltip formatter={(v) => `₱${Number(v ?? 0).toFixed(2)}`} contentStyle={hubTooltipStyle} />
                             </PieChart>
-                          </ResponsiveContainer>
+                          </HubChartContainer>
                         )}
                       </div>
                       {busPie.length > 0 ? (
@@ -1232,7 +1241,7 @@ export function ReportsIntelligenceHub({
                             {emptyCongestion ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={hourlyRevData} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   {hubSvgGlowDefs()}
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -1249,7 +1258,7 @@ export function ReportsIntelligenceHub({
                                   ) : null}
                                   <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · corridor demand — ${sentimentLabel}`} />
@@ -1261,7 +1270,7 @@ export function ReportsIntelligenceHub({
                             {emptyDaily ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={daily} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   {hubSvgGlowDefs()}
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -1270,7 +1279,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
                                   <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} shape={LeadingEdgeBarShape} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · corridor demand — ${sentimentLabel}`} />
@@ -1282,7 +1291,7 @@ export function ReportsIntelligenceHub({
                             {emptyMonthly ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={monthly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="label" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -1290,7 +1299,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
                                   <Bar dataKey="revenue" fill={SLATE_SECONDARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · corridor demand — ${sentimentLabel}`} />
@@ -1302,7 +1311,7 @@ export function ReportsIntelligenceHub({
                             {emptyYearly ? (
                               <p className="reports-hub__placeholder">Awaiting live feed…</p>
                             ) : (
-                              <ResponsiveContainer width="100%" height="100%">
+                              <HubChartContainer>
                                 <BarChart data={yearly} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                                   <XAxis dataKey="year" stroke={hubAxisStroke} tick={hubAxisTick} />
@@ -1310,7 +1319,7 @@ export function ReportsIntelligenceHub({
                                   <Tooltip contentStyle={hubTooltipStyle} formatter={(v) => [`₱${Number(v).toFixed(2)}`, "Revenue"]} />
                                   <Bar dataKey="revenue" fill={SLATE_PRIMARY} radius={[6, 6, 0, 0]} activeBar={hubBarActive} />
                                 </BarChart>
-                              </ResponsiveContainer>
+                              </HubChartContainer>
                             )}
                           </div>
                           <LedRow text={`Live sync · corridor demand — ${sentimentLabel}`} />
@@ -1325,7 +1334,7 @@ export function ReportsIntelligenceHub({
                         {routePie.length === 0 ? (
                           <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
                         ) : (
-                          <ResponsiveContainer width="100%" height="100%">
+                          <HubChartContainer>
                             <PieChart>
                               {hubSvgGlowDefs()}
                               <Pie
@@ -1346,7 +1355,7 @@ export function ReportsIntelligenceHub({
                               </Pie>
                               <Tooltip formatter={(v) => `₱${Number(v ?? 0).toFixed(2)}`} contentStyle={hubTooltipStyle} />
                             </PieChart>
-                          </ResponsiveContainer>
+                          </HubChartContainer>
                         )}
                       </div>
                     </div>

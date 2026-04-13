@@ -7,17 +7,17 @@
       "routeLabel": "Don Carlos → Malaybalay",
       "departurePoint": "Don Carlos Integrated Bus Terminal, Rizal Street, Don Carlos Sur, Pinamaloy, Don Carlos, Bukidnon, Northern Mindanao, 8712, Philippines",
       "scheduledDeparture": "06:00",
-      "serviceDate": "2026-04-12",
+      "serviceDate": "2026-04-13",
       "status": "arriving",
       "createdAt": "2026-04-06T01:05:58.008Z",
-      "updatedAt": "2026-04-12T00:28:19.158Z",
+      "updatedAt": "2026-04-12T23:59:22.376Z",
       "etaMinutes": 0,
       "nextTerminal": "Malaybalay Integrated Bus Terminal, Barangay 9",
-      "arrivalDetectedAt": "2026-04-12T00:25:15.205Z",
+      "arrivalDetectedAt": "2026-04-12T23:57:02.720Z",
       "arrivalTerminalName": "Malaybalay Integrated Bus Terminal, Barangay 9",
       "gate": "Malaybalay Integrated Bus Terminal, Barangay 9",
       "currentTerminalGate": "Malaybalay Integrated Bus Terminal, Barangay 9",
-      "arrivalLockedEta": "08:25"
+      "arrivalLockedEta": "07:57"
     }
   ],
   "holidayBanner": null

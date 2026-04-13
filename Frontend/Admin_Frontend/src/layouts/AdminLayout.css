@@ -143,6 +143,7 @@
 }
 
 .admin-sidebar__brand-text {
+  font-family: var(--brand-wordmark-family);
   font-size: 1.04rem;
   line-height: 1.25;
   color: var(--neo-muted);
@@ -150,6 +151,7 @@
   white-space: normal;
   word-break: break-word;
   font-weight: 800;
+  letter-spacing: 0.03em;
 }
 
 .admin-sidebar:not(.admin-sidebar--open) .admin-sidebar__brand-text {

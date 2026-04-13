@@ -53,10 +53,11 @@ export function CommandCenterFleetSensorsPage() {
   }, []);
 
   const summary = useMemo(() => {
-    const wifi = rows.filter((r) => r.activeLink === "wifi").length;
-    const lte = rows.filter((r) => r.activeLink === "lte").length;
+    const hw = rows.filter((r) => String(r.source).toLowerCase() === "hardware");
+    const wifi = hw.filter((r) => r.activeLink === "wifi").length;
+    const lte = hw.filter((r) => r.activeLink === "lte").length;
     const alerts = rows.filter((r) => r.alertRedPulse).length;
-    return { wifi, lte, alerts };
+    return { wifi, lte, alerts, staffGps: rows.filter((r) => r.activeLink === "staff").length };
   }, [rows, nowTick]);
 
   return (
@@ -71,16 +72,24 @@ export function CommandCenterFleetSensorsPage() {
 
       <section className="fleet-sensors__kpis">
         <div className="fleet-sensors__kpi">
-          <span>Wi-Fi links</span>
+          <span>Wi‑Fi links</span>
           <strong>{summary.wifi}</strong>
+          <small className="fleet-sensors__kpi-sub">LILYGO hardware reporting Wi‑Fi</small>
         </div>
         <div className="fleet-sensors__kpi">
           <span>LTE links</span>
           <strong>{summary.lte}</strong>
+          <small className="fleet-sensors__kpi-sub">Hardware on cellular / inferred uplink</small>
+        </div>
+        <div className="fleet-sensors__kpi">
+          <span>Attendant GPS</span>
+          <strong>{summary.staffGps}</strong>
+          <small className="fleet-sensors__kpi-sub">Live via attendant app (not LILYGO)</small>
         </div>
         <div className={"fleet-sensors__kpi" + (summary.alerts > 0 ? " fleet-sensors__kpi--alert" : "")}>
           <span>Critical alerts</span>
           <strong>{summary.alerts}</strong>
+          <small className="fleet-sensors__kpi-sub">Weak LTE or low battery</small>
         </div>
       </section>
 
@@ -99,13 +108,24 @@ export function CommandCenterFleetSensorsPage() {
             {rows.map((r) => {
               const vp = voltagePct(r.voltage);
               const sp = signalPct(r.signalStrengthDbm);
-              const linkLabel = r.activeLink === "wifi" ? "Wi-Fi" : r.activeLink === "lte" ? "LTE / SIM" : "Searching";
+              const linkLabel =
+                r.activeLink === "wifi"
+                  ? "Wi‑Fi"
+                  : r.activeLink === "lte"
+                    ? r.uplinkInferred
+                      ? "LTE / SIM (inferred)"
+                      : "LTE / SIM"
+                    : r.activeLink === "staff"
+                      ? "Attendant app"
+                      : "Uplink unknown";
               const linkClass =
                 r.activeLink === "wifi"
                   ? "fleet-sensors__link--wifi"
                   : r.activeLink === "lte"
                     ? "fleet-sensors__link--lte"
-                    : "fleet-sensors__link--down";
+                    : r.activeLink === "staff"
+                      ? "fleet-sensors__link--staff"
+                      : "fleet-sensors__link--down";
               const rowClass = r.alertRedPulse ? " fleet-sensors__row--alert" : "";
               return (
                 <tr key={r.busId} className={rowClass}>
@@ -139,7 +159,12 @@ export function CommandCenterFleetSensorsPage() {
                         })}
                       </div>
                       <small className={"fleet-sensors__badge fleet-sensors__badge--" + r.signalLevel}>
-                        {r.signalStrengthDbm != null ? `${r.signalStrengthDbm} dBm` : "—"} · {r.signalLabel}
+                        {r.activeLink === "staff" && r.attendantSignalTier
+                          ? `${String(r.attendantSignalTier)} (app est.)`
+                          : r.signalStrengthDbm != null
+                            ? `${r.signalStrengthDbm} dBm`
+                            : "—"}{" "}
+                        · {r.signalLabel}
                       </small>
                     </div>
                   </td>

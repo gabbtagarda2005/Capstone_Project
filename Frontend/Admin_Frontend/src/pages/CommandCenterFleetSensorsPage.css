@@ -23,9 +23,15 @@
 
 .fleet-sensors__kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.7rem;
   margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .fleet-sensors__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .fleet-sensors__kpi {
@@ -44,6 +50,15 @@
   display: block;
   font-size: 1.2rem;
   margin-top: 0.25rem;
+}
+
+.fleet-sensors__kpi-sub {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: rgba(147, 197, 253, 0.72);
+  font-weight: 500;
 }
 
 .fleet-sensors__kpi--alert {
@@ -119,6 +134,10 @@
 .fleet-sensors__link--lte {
   color: #bbf7d0;
   background: rgba(22, 163, 74, 0.35);
+}
+.fleet-sensors__link--staff {
+  color: #ede9fe;
+  background: rgba(109, 40, 217, 0.38);
 }
 .fleet-sensors__link--down {
   color: #fecaca;

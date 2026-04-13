@@ -5,8 +5,9 @@ import { getFirebaseAuth } from "@/lib/firebase";
 /**
  * Logs out after `timeoutMinutes` of no pointer/keyboard/scroll/touch activity.
  * Uses Firebase sign-out when configured, then clears storage and redirects to /login.
+ * When `enabled` is false (Admin Settings → Security → policy off), timers are not started.
  */
-export function useSessionTimeout(timeoutMinutes: number) {
+export function useSessionTimeout(timeoutMinutes: number, enabled = true) {
   const minutesRef = useRef(Math.max(5, Math.min(480, timeoutMinutes || 30)));
 
   useEffect(() => {
@@ -32,6 +33,12 @@ export function useSessionTimeout(timeoutMinutes: number) {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
+    if (!enabled) {
+      return () => {
+        if (timer) clearTimeout(timer);
+      };
+    }
+
     const schedule = () => {
       if (timer) clearTimeout(timer);
       const ms = minutesRef.current * 60 * 1000;
@@ -48,5 +55,5 @@ export function useSessionTimeout(timeoutMinutes: number) {
       events.forEach((ev) => window.removeEventListener(ev, reset));
       if (timer) clearTimeout(timer);
     };
-  }, [logout, timeoutMinutes]);
+  }, [logout, timeoutMinutes, enabled]);
 }

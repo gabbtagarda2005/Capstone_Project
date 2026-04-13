@@ -7,8 +7,10 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const RouteCoverage = require("./models/RouteCoverage");
+const CorridorRoute = require("./models/CorridorRoute");
 const Bus = require("./models/Bus");
 const GpsLog = require("./models/GpsLog");
+const { enrichPublicFleetBuses } = require("./services/passengerFleetIntel");
 const { Server } = require("socket.io");
 
 const { registerSocketHandlers, setLiveBoardSnapshotProvider, broadcastLocationUpdate } = require("./sockets/socket");
@@ -38,8 +40,10 @@ const {
   createPassengerFeedbackRouter,
   handlePublicPassengerFeedbackPost,
 } = require("./routes/passengerFeedback");
+const { createHandlePostPassengerLostItem } = require("./routes/passengerLostItemPublic");
 const { handleGetPublicBroadcast, createPostAdminBroadcastHandler } = require("./routes/appBroadcast");
 const { handleGetWeatherAdvisories, startWeatherAdvisoryPoller } = require("./services/weatherLocationAdvisories");
+const { handleGetPassengerCommandFeed } = require("./services/passengerCommandFeed");
 const {
   createLiveDispatchRouter,
   createPublicLiveBoardHandler,
@@ -52,9 +56,46 @@ const { ingestDeviceGps } = require("./services/attendantGpsIngest");
 const app = express();
 const server = http.createServer(app);
 
-const corsOrigin = process.env.CORS_ORIGIN || "*";
+/**
+ * CORS: comma-separated origins in CORS_ORIGIN, or "*" for all.
+ * CORS_ALLOW_LOCALHOST=true also allows any http(s)://localhost:* and 127.0.0.1:* (Flutter web uses random ports).
+ */
+function buildCorsOriginOption() {
+  const raw = (process.env.CORS_ORIGIN || "").trim();
+  const allowLocal =
+    process.env.CORS_ALLOW_LOCALHOST === "1" || process.env.CORS_ALLOW_LOCALHOST === "true";
+  if (!raw || raw === "*") {
+    return true;
+  }
+  const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!allowLocal) {
+    return list;
+  }
+  return (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    if (list.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    try {
+      const u = new URL(origin);
+      const h = u.hostname.toLowerCase();
+      if ((h === "localhost" || h === "127.0.0.1") && (u.protocol === "http:" || u.protocol === "https:")) {
+        callback(null, true);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    callback(new Error("Not allowed by CORS"));
+  };
+}
+
 const corsOptions = {
-  origin: corsOrigin === "*" ? true : corsOrigin.split(",").map((s) => s.trim()),
+  origin: buildCorsOriginOption(),
 };
 
 app.use(cors(corsOptions));
@@ -66,6 +107,12 @@ app.use((err, _req, res, next) => {
   return next(err);
 });
 
+/** Before any route needs `io` (e.g. passenger-lost-item → commandAlert). */
+const io = new Server(server, { cors: corsOptions });
+registerSocketHandlers(io);
+attachAttendantLiveGpsSocket(io);
+setLiveBoardSnapshotProvider(buildPublicPayload);
+
 app.get("/api/public/broadcast/passenger", (_req, res) => {
   handleGetPublicBroadcast("passenger", res);
 });
@@ -75,6 +122,9 @@ app.get("/api/public/broadcast/attendant", (_req, res) => {
 
 /** Rain / wet-condition advisories for terminal hubs in Location Management (Open-Meteo, no API key). */
 app.get("/api/public/weather-advisories", handleGetWeatherAdvisories);
+
+/** Passenger tactical hub — dynamic command feed (weather, delays, demand, broadcasts). */
+app.get("/api/public/command-feed", handleGetPassengerCommandFeed);
 
 // Operator/Attendant read-only profile (source of truth for attendant app HUD)
 app.use("/api", createStaffProfileRouter());
@@ -183,6 +233,27 @@ app.get("/api/public/company-profile", async (_req, res) => {
   }
 });
 
+/** Bus Attendant app: idle logout aligns with Admin Settings → Session timeout when securityPolicyApplyAttendant is on. */
+app.get("/api/public/attendant-session-policy", async (_req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({
+        sessionTimeoutMinutes: 30,
+        securityPolicyApplyAttendant: true,
+      });
+    }
+    const { getPortalSettingsLean } = require("./services/adminPortalSettingsService");
+    const s = await getPortalSettingsLean();
+    let minutes = Number(s.sessionTimeoutMinutes);
+    if (!Number.isFinite(minutes)) minutes = 30;
+    minutes = Math.min(480, Math.max(5, minutes));
+    const apply = s.securityPolicyApplyAttendant !== false;
+    return res.json({ sessionTimeoutMinutes: minutes, securityPolicyApplyAttendant: apply });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "attendant session policy failed" });
+  }
+});
+
 app.use(maintenanceShieldMiddleware);
 app.use(adminAuditLogger);
 
@@ -195,11 +266,6 @@ app.get("/", (_req, res) => {
     health: "/health",
   });
 });
-
-const io = new Server(server, { cors: corsOptions });
-registerSocketHandlers(io);
-attachAttendantLiveGpsSocket(io);
-setLiveBoardSnapshotProvider(buildPublicPayload);
 
 app.get("/health", async (_req, res) => {
   const { getFirebaseRtdbHealth } = require("./config/firebaseAdmin");
@@ -347,29 +413,136 @@ app.get("/api/public/deployed-points", async (_req, res) => {
   }
 });
 
+/** Passenger: whether Command center operations deck is LIVE (fleet/map allowed). */
+app.get("/api/public/operations-deck", async (_req, res) => {
+  try {
+    const { getPortalSettingsLean } = require("./services/adminPortalSettingsService");
+    const s = await getPortalSettingsLean();
+    const live = s.operationsDeckLive !== false;
+    res.setHeader("Cache-Control", "public, max-age=5");
+    res.json({ operationsDeckLive: live });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "operations-deck failed" });
+  }
+});
+
 /**
  * Passenger app: read-only fleet registry (buses created in admin), no JWT.
  * Omits internal operator/driver linkage and device ids.
  */
-app.get("/api/public/fleet-buses", async (_req, res) => {
+app.get("/api/public/fleet-buses", async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: "Database unavailable" });
     }
+    const { isOperationsDeckLive } = require("./services/adminPortalSettingsService");
+    if (!(await isOperationsDeckLive())) {
+      res.setHeader("Cache-Control", "public, max-age=5");
+      return res.json({ items: [] });
+    }
+    function hubLabel(cov) {
+      if (!cov || typeof cov !== "object") return null;
+      const t = cov.terminal && String(cov.terminal.name || "").trim();
+      if (t) return t;
+      const ln = String(cov.locationName || "").trim();
+      return ln || null;
+    }
+    function normRouteKey(s) {
+      return String(s || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/[–—−]/g, "-")
+        .replace(/↔/g, "->")
+        .replace(/\u2194/g, "->")
+        .replace(/\u2192/g, "->");
+    }
+    const corridorDocs = await CorridorRoute.find()
+      .populate("originCoverageId")
+      .populate("destinationCoverageId")
+      .lean();
+    const corridorMetas = corridorDocs.map((doc) => {
+      const start = hubLabel(doc.originCoverageId);
+      const end = hubLabel(doc.destinationCoverageId);
+      const display =
+        (doc.displayName && String(doc.displayName).trim()) || (start && end ? `${start} → ${end}` : null);
+      return { start, end, display };
+    });
+    const sortedForRouteIndex = [...corridorMetas].sort((a, b) =>
+      (a.display || "").localeCompare(b.display || "", undefined, { sensitivity: "base" })
+    );
+
+    function matchRouteEndpoints(routeStr) {
+      const raw = String(routeStr || "").trim();
+      if (!raw) return { routeStart: null, routeEnd: null };
+      const n = normRouteKey(raw);
+      for (const m of corridorMetas) {
+        if (!m.display) continue;
+        if (normRouteKey(m.display) === n && m.start && m.end) return { routeStart: m.start, routeEnd: m.end };
+        if (m.start && m.end) {
+          const arrow = normRouteKey(`${m.start} → ${m.end}`);
+          const dash = normRouteKey(`${m.start} - ${m.end}`);
+          const bi = normRouteKey(`${m.start} ↔ ${m.end}`);
+          if (arrow === n || dash === n || bi === n) return { routeStart: m.start, routeEnd: m.end };
+        }
+      }
+      const idxMatch = /^route\s*(\d+)\s*$/i.exec(raw);
+      if (idxMatch) {
+        const idx = parseInt(idxMatch[1], 10) - 1;
+        if (idx >= 0 && idx < sortedForRouteIndex.length) {
+          const hit = sortedForRouteIndex[idx];
+          if (hit.start && hit.end) return { routeStart: hit.start, routeEnd: hit.end };
+        }
+      }
+      const parts = raw.split(/\s*(?:→|->|—>|–>)\s*/);
+      if (parts.length >= 2) {
+        const a = parts[0].trim();
+        const b = parts.slice(1).join(" → ").trim();
+        if (a && b) return { routeStart: a, routeEnd: b };
+      }
+      return { routeStart: null, routeEnd: null };
+    }
+
     const rows = await Bus.find().sort({ busId: 1 }).lean();
-    const items = rows.map((b) => ({
-      busId: b.busId,
-      busNumber: b.busNumber || b.busId,
-      plateNumber: b.plateNumber && String(b.plateNumber).trim() ? String(b.plateNumber).trim() : null,
-      route: b.route && String(b.route).trim() ? String(b.route).trim() : null,
-      status: b.status || "Active",
-      seatCapacity:
-        typeof b.seatCapacity === "number" && Number.isFinite(b.seatCapacity) && b.seatCapacity > 0
-          ? b.seatCapacity
-          : 50,
-    }));
+    const items = rows.map((b) => {
+      const route = b.route && String(b.route).trim() ? String(b.route).trim() : null;
+      const { routeStart, routeEnd } = matchRouteEndpoints(route);
+      const hubOrderLabels = Array.isArray(b.hubOrderLabels)
+        ? b.hubOrderLabels.map((x) => String(x || "").trim()).filter(Boolean)
+        : [];
+      return {
+        busId: b.busId,
+        busNumber: b.busNumber || b.busId,
+        plateNumber: b.plateNumber && String(b.plateNumber).trim() ? String(b.plateNumber).trim() : null,
+        route,
+        routeStart,
+        routeEnd,
+        hubOrderLabels,
+        tripSegmentStartedAt: b.tripSegmentStartedAt
+          ? new Date(b.tripSegmentStartedAt).toISOString()
+          : null,
+        status: b.status || "Active",
+        seatCapacity:
+          typeof b.seatCapacity === "number" && Number.isFinite(b.seatCapacity) && b.seatCapacity > 0
+            ? b.seatCapacity
+            : 50,
+      };
+    });
+    const viewerHub = String(req.query?.viewerHub || "").trim();
+    const userLat = parseFloat(String(req.query?.userLat ?? ""));
+    const userLng = parseFloat(String(req.query?.userLng ?? ""));
+    let enriched = items;
+    try {
+      enriched = await enrichPublicFleetBuses(items, {
+        viewerHub,
+        userLat: Number.isFinite(userLat) ? userLat : undefined,
+        userLng: Number.isFinite(userLng) ? userLng : undefined,
+      });
+    } catch (e) {
+      console.warn("[fleet-buses] enrich failed:", e.message || e);
+    }
     res.setHeader("Cache-Control", "public, max-age=15");
-    res.json({ items });
+    res.json({ items: enriched });
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to list fleet buses" });
   }
@@ -434,6 +607,10 @@ app.post("/api/public/fare-quote", async (req, res) => {
       passengerCategory: pricing.categoryUsed,
       pricingMode: pricing.pricingMode,
       fareBreakdownDisplay: pricing.fareBreakdownDisplay || null,
+      pricingSummary:
+        typeof pricing.pricingSummary === "string" && pricing.pricingSummary.trim()
+          ? pricing.pricingSummary.trim()
+          : null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message || "Fare quote failed" });
@@ -460,11 +637,16 @@ app.put("/api/schedules/:trip_id", requireAdminJwt, async (req, res) => {
 
 app.use("/api/live-dispatch", requireAdminJwt, createLiveDispatchRouter(io));
 
-/** Passenger app: submit trip feedback (no JWT). Stored in MongoDB for admin Sentiment Command Center. */
-app.post("/api/public/passenger-feedback", handlePublicPassengerFeedbackPost);
 app.use("/api/passenger-feedback", createPassengerFeedbackRouter());
 
 app.post("/api/admin/broadcast", requireAdminJwt, createPostAdminBroadcastHandler(io));
+
+/**
+ * Passenger web JSON POSTs — registered here (before the `/api` JSON 404) so paths are never swallowed.
+ * Same handlers as historically mounted on `express.Router()` under `/api/public`.
+ */
+app.post("/api/public/passenger-feedback", handlePublicPassengerFeedbackPost);
+app.post("/api/public/passenger-lost-item", createHandlePostPassengerLostItem(io));
 
 /** JSON 404s so clients (e.g. Flutter) never get HTML that breaks jsonDecode. */
 app.use("/api", (req, res) => {
@@ -488,6 +670,12 @@ mongoose
   .connect(uri, { serverSelectionTimeoutMS: 30_000 })
   .then(async () => {
     console.log("MongoDB connected (admin-api)");
+    try {
+      const { initAdminAuthLockout } = require("./services/adminAuthLockout");
+      await initAdminAuthLockout();
+    } catch (e) {
+      console.warn("AdminAuthLockout init:", e.message);
+    }
     try {
       await seedRbacAssignments();
     } catch (e) {
@@ -513,6 +701,8 @@ mongoose
       console.log(`admin-api listening on http://localhost:${port}`);
       console.log(`  GET  /api/buses/live`);
       console.log(`  GET  /api/public/deployed-points`);
+      console.log(`  GET  /api/public/command-feed`);
+      console.log(`  GET  /api/public/operations-deck`);
       console.log(`  GET  /api/public/fleet-buses`);
       console.log(`  POST /api/buses/ping`);
       console.log(`  POST /api/tickets/issue (operator JWT)`);

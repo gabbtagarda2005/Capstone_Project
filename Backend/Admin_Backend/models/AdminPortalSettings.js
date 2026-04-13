@@ -40,6 +40,10 @@ const adminPortalSettingsSchema = new mongoose.Schema(
     companyName: { type: String, default: "Bukidnon Bus Company" },
     companyEmail: { type: String, default: null, trim: true },
     companyPhone: { type: String, default: null, trim: true },
+    /** Used when companyEmail is empty (SOS / lost-item email fallback). */
+    sosEmail: { type: String, default: null, trim: true },
+    /** Used when companyPhone is empty (SOS SMS fallback, after company + env). */
+    sosPhoneNumber: { type: String, default: null, trim: true },
     companyLocation: { type: String, default: null, trim: true },
     /** Data URL or https URL for circular sidebar mark */
     sidebarLogoUrl: { type: String, default: null },
@@ -94,6 +98,11 @@ const adminPortalSettingsSchema = new mongoose.Schema(
     dailyOpsReportEmailTime: { type: String, default: "06:30" },
     /** Recipient inboxes for automated daily operational log */
     dailyOpsReportEmailRecipients: { type: [String], default: [] },
+    /**
+     * When false, Command center is "OFFLINE": passenger app hides live buses on the map,
+     * fleet registry, and live-board rows (public endpoints return empty).
+     */
+    operationsDeckLive: { type: Boolean, default: true },
   },
   { timestamps: true, collection: "admin_portal_settings" }
 );

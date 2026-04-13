@@ -401,7 +401,17 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
   const nextLng = hwLng;
   const nextSource = "hardware";
   const netRaw = String(body?.net ?? body?.network ?? "").trim().toLowerCase();
-  const net = netRaw === "wifi" || netRaw === "4g" ? netRaw : "unknown";
+  /** Stored on GpsLog as `wifi` | `4g` | `unknown` — fleet UI maps 4g → LTE. */
+  function normalizeHardwareNetwork(r) {
+    if (!r || r === "unknown") return "unknown";
+    if (["wifi", "wlan", "ethernet"].includes(r)) return "wifi";
+    if (["4g", "lte", "5g", "3g", "gsm", "cell", "cellular", "mobile", "nbiot", "nb-iot"].includes(r)) return "4g";
+    if (r.includes("wifi") || r.includes("wlan")) return "wifi";
+    if (r.includes("lte") || r.includes("4g") || r.includes("5g") || r.includes("cell") || r.includes("gsm"))
+      return "4g";
+    return "unknown";
+  }
+  const net = normalizeHardwareNetwork(netRaw);
   const sigRaw = body?.signal_strength ?? body?.signalStrength ?? body?.rssi ?? null;
   const sigStrength = sigRaw != null && Number.isFinite(Number(sigRaw)) ? Number(sigRaw) : null;
   const voltRaw = body?.voltage ?? body?.vbat ?? body?.batteryVoltage ?? null;

@@ -77,32 +77,9 @@ app.post("/api/passenger/terminal-affinity", async (req, res) => {
   }
 });
 
+/** Legacy stub — passenger web uses Admin live-board + broadcast via fetchPassengerNotificationFeed. */
 app.get("/api/passenger/notifications", (_req, res) => {
-  res.json({
-    items: [
-      {
-        id: "n1",
-        title: "Route MLY–VLC",
-        body: "Bus BUK-709 approaching Valencia — ETA ~12 min",
-        time: "2 min ago",
-        unread: true,
-      },
-      {
-        id: "n2",
-        title: "Schedule advisory",
-        body: "Extra southbound trip today 5:10 PM from Malaybalay terminal",
-        time: "1 hr ago",
-        unread: true,
-      },
-      {
-        id: "n3",
-        title: "Terminal tip",
-        body: "Gate B queue shorter for Don Carlos corridor",
-        time: "Yesterday",
-        unread: false,
-      },
-    ],
-  });
+  res.json({ items: [] });
 });
 
 /** Proxy selected Admin routes so the web app can use VITE_PASSENGER_API_URL only (avoids CORS and wrong-port 404s). */
@@ -130,11 +107,15 @@ async function proxyAdminPublic(req, res) {
   }
 }
 
+app.get("/api/public/operations-deck", proxyAdminPublic);
+app.get("/api/public/company-profile", proxyAdminPublic);
 app.get("/api/public/fleet-buses", proxyAdminPublic);
 app.get("/api/public/live-board", proxyAdminPublic);
+app.get("/api/public/command-feed", proxyAdminPublic);
 app.get("/api/public/deployed-points", proxyAdminPublic);
 app.post("/api/public/fare-quote", proxyAdminPublic);
 app.post("/api/public/passenger-feedback", proxyAdminPublic);
+app.post("/api/public/passenger-lost-item", proxyAdminPublic);
 app.get("/api/buses/live", proxyAdminPublic);
 
 function startHttp() {

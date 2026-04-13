@@ -10,6 +10,7 @@ import {
 import { PassengerSidebarDashboardIcon } from "@/components/PassengerSidebarDashboardIcon";
 import { PassengerTopBar } from "@/components/PassengerTopBar";
 import { PassengerLostFound, PassengerRouteCalculator } from "@/components/PassengerTacticalHub";
+import { fetchPublicCompanyProfile } from "@/lib/fetchPublicCompanyProfile";
 import { clearPassengerLocationGate } from "@/lib/passengerLocationGate";
 import { fetchPassengerNotificationFeed, type PassengerNotificationItem } from "@/lib/passengerNotifications";
 import "./PassengerLandingPage.css";
@@ -18,8 +19,6 @@ import "./PassengerDashboardPage.css";
 type MainPanel = TacticalPanelId | "dashboard" | "buses" | "lost";
 
 const API_BASE = (import.meta.env.VITE_PASSENGER_API_URL || "http://localhost:4000").replace(/\/+$/, "");
-const COMPANY_NAME = "Bukidnon Transit";
-const COMPANY_LOGO_URL = (import.meta.env.VITE_PASSENGER_COMPANY_LOGO_URL as string | undefined)?.trim() || "";
 
 export function PassengerDashboardPage() {
   const navigate = useNavigate();
@@ -28,6 +27,9 @@ export function PassengerDashboardPage() {
   const [mainPanel, setMainPanel] = useState<MainPanel>("buses");
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<PassengerNotificationItem[]>([]);
+  const [companyName, setCompanyName] = useState("Bukidnon Transit");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [logoBroken, setLogoBroken] = useState(false);
   const dashboardActive = mainPanel === "dashboard";
 
   function handleLogout() {
@@ -54,6 +56,22 @@ export function PassengerDashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicCompanyProfile()
+      .then((p) => {
+        if (!cancelled) {
+          setCompanyName(p.name);
+          setCompanyLogoUrl(p.logoUrl);
+          setLogoBroken(false);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className={"pd" + (darkMode ? "" : " pd--light")}>
       <div className="pd__glow" aria-hidden />
@@ -74,13 +92,20 @@ export function PassengerDashboardPage() {
             <div className="pd-console">
               <button type="button" className="pd-sidebar__brand-btn" aria-label="Toggle sidebar">
                 <span className="pd-sidebar__logo">
-                  {COMPANY_LOGO_URL ? (
-                    <img src={COMPANY_LOGO_URL} alt="" className="pd-sidebar__logo-img" />
+                  {companyLogoUrl && !logoBroken ? (
+                    <img
+                      src={companyLogoUrl}
+                      alt=""
+                      className="pd-sidebar__logo-img"
+                      onError={() => setLogoBroken(true)}
+                    />
                   ) : (
-                    <span className="pd-sidebar__logo-fallback">{(COMPANY_NAME.charAt(0) || "B").toUpperCase()}</span>
+                    <span className="pd-sidebar__logo-fallback">
+                      {(companyName.charAt(0) || "B").toUpperCase()}
+                    </span>
                   )}
                 </span>
-                <span className="pd-sidebar__brand-text">{COMPANY_NAME}</span>
+                <span className="pd-sidebar__brand-text">{companyName}</span>
               </button>
               <div
                 className="pd-util-list pd-console__section pd-sidebar__scroll"
