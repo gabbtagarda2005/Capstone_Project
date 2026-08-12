@@ -148,6 +148,26 @@ html:has(.ph) #root {
   text-shadow: 0 2px 20px rgba(0, 0, 0, 0.35);
 }
 
+/* Top-left wordmark — purple lead + white tail (reference: Fintech-style) */
+.ph-nav--transparent .ph-nav__brand.ph-brand-wordmark {
+  gap: 0;
+  align-items: baseline;
+  letter-spacing: -0.035em;
+  font-size: clamp(1.18rem, 3.1vw, 1.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.ph-brand-wordmark__lead {
+  color: #a78bfa;
+  text-shadow: 0 0 32px rgba(167, 139, 250, 0.45);
+}
+
+.ph-brand-wordmark__rest {
+  color: #f8fafc;
+  font-weight: 800;
+}
+
 .ph-nav--transparent .ph-nav__logo {
   width: 52px;
   height: 52px;
@@ -215,7 +235,7 @@ html:has(.ph) #root {
   width: 100%;
   position: relative;
   z-index: 1;
-  padding-top: 4.25rem;
+  padding-top: clamp(3.75rem, 10vw, 4.85rem);
   padding-bottom: 0.5rem;
   overflow: hidden;
 }
@@ -290,6 +310,19 @@ html:has(.ph) #root {
   margin: 0 auto 1.1rem;
   padding: 0.65rem 1.5rem;
   font-size: 0.95rem;
+}
+
+.ph-hero__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.ph-hero__cta--ghost {
+  margin-left: 0;
+  margin-right: 0;
 }
 
 /* Stats bar */

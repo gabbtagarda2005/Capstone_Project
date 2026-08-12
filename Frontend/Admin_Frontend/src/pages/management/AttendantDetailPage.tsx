@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AttendantPerformanceRing } from "@/components/AttendantPerformanceRing";
 import { EditAttendantModal } from "@/components/EditAttendantModal";
-import { api } from "@/lib/api";
+import { api, fetchAttendantAssignmentHistory } from "@/lib/api";
 import { swalConfirm } from "@/lib/swal";
 import { useToast } from "@/context/ToastContext";
 import type {
+  AttendantAssignmentPeriod,
   AttendantVerifiedSummary,
   BusLiveLogRow,
   BusRow,
@@ -120,6 +121,132 @@ function AssignedUnitTile({ assignedBus }: { assignedBus: BusRow | null }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function localTodayYmd(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatYmdLabel(ymd: string): string {
+  const d = new Date(`${ymd}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatAssignmentTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function formatAssignmentPeriod(p: AttendantAssignmentPeriod): string {
+  const from = formatAssignmentTimestamp(p.assignedAt);
+  const to = p.unassignedAt ? formatAssignmentTimestamp(p.unassignedAt) : "now";
+  return `${from} → ${to}`;
+}
+
+/** "What bus was this attendant on, day by day" — full history list plus a date search. */
+function AttendantAssignmentHistoryPanel({ attendantId }: { attendantId: string }) {
+  const [items, setItems] = useState<AttendantAssignmentPeriod[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchDate, setSearchDate] = useState("");
+  const [activeOnDate, setActiveOnDate] = useState<AttendantAssignmentPeriod | null | undefined>(undefined);
+  const [dateSearched, setDateSearched] = useState("");
+  const [dateLoading, setDateLoading] = useState(false);
+
+  useEffect(() => {
+    if (!attendantId) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchAttendantAssignmentHistory(attendantId)
+      .then((r) => {
+        if (!cancelled) setItems(r.items);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Could not load assignment history.");
+        setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attendantId]);
+
+  async function handleSearchDate(e: FormEvent) {
+    e.preventDefault();
+    if (!searchDate || !attendantId) return;
+    setDateLoading(true);
+    try {
+      const r = await fetchAttendantAssignmentHistory(attendantId, searchDate);
+      setActiveOnDate(r.activeOnDate);
+      setDateSearched(searchDate);
+    } catch {
+      setActiveOnDate(null);
+      setDateSearched(searchDate);
+    } finally {
+      setDateLoading(false);
+    }
+  }
+
+  return (
+    <section className="att-dossier__module">
+      <h2 className="att-dossier__module-title">Assignment history</h2>
+      <form className="att-dossier__assign-search" onSubmit={(e) => void handleSearchDate(e)}>
+        <label>
+          <span>Find bus on a date</span>
+          <input
+            type="date"
+            value={searchDate}
+            max={localTodayYmd()}
+            onChange={(e) => setSearchDate(e.target.value)}
+          />
+        </label>
+        <button type="submit" disabled={!searchDate || dateLoading}>
+          {dateLoading ? "Searching…" : "Search"}
+        </button>
+      </form>
+      {activeOnDate !== undefined ? (
+        <p className="att-dossier__assign-result">
+          {activeOnDate ? (
+            <>
+              On {formatYmdLabel(dateSearched)}, assigned to <strong>{activeOnDate.busNumber || activeOnDate.busId}</strong>.
+            </>
+          ) : (
+            <>No bus assignment recorded for {formatYmdLabel(dateSearched)}.</>
+          )}
+        </p>
+      ) : null}
+
+      {loading ? <p className="att-dossier__assign-empty">Loading…</p> : null}
+      {!loading && error ? <p className="att-dossier__assign-empty">{error}</p> : null}
+      {!loading && !error && items.length === 0 ? (
+        <p className="att-dossier__assign-empty">No assignment history recorded yet.</p>
+      ) : null}
+      {!loading && !error && items.length > 0 ? (
+        <ul className="att-dossier__assign-list">
+          {items.slice(0, 30).map((p, i) => (
+            <li
+              key={`${p.busId}-${p.assignedAt}-${i}`}
+              className={"att-dossier__assign-row" + (!p.unassignedAt ? " att-dossier__assign-row--active" : "")}
+            >
+              <span className="att-dossier__assign-bus">{p.busNumber || p.busId}</span>
+              <span className="att-dossier__assign-range">{formatAssignmentPeriod(p)}</span>
+              {!p.unassignedAt ? <span className="att-dossier__assign-badge">Current</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
 
@@ -679,6 +806,8 @@ export function AttendantDetailPage() {
               <AssignedUnitTile assignedBus={assignedBus} />
             </div>
 
+            <AttendantAssignmentHistoryPanel attendantId={attendantId} />
+
             {stats ? (
               <div className="att-dossier__stats-row">
                 <div className="att-dossier__stat-chip">
@@ -872,6 +1001,8 @@ export function AttendantDetailPage() {
           <div className="att-dossier__grid att-dossier__grid--assigned-slot">
             <AssignedUnitTile assignedBus={assignedBus} />
           </div>
+
+          <AttendantAssignmentHistoryPanel attendantId={attendantId} />
 
           {stats ? (
             <div className="att-dossier__stats-row">

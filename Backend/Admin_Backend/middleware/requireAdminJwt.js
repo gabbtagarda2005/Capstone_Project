@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
-const { isAuthorizedAdminEmail, normalizeEmail } = require("../config/adminWhitelist");
+const { normalizeEmail } = require("../config/adminWhitelist");
 const { getAdminTier } = require("../config/adminRoles");
-const { getRbacRoleForEmail } = require("../services/adminRbac");
+const { getRbacRoleForEmail, isAuthorizedAdminEmailDynamic } = require("../services/adminRbac");
 
 async function requireAdminJwt(req, res, next) {
   const secret = process.env.JWT_SECRET;
@@ -20,7 +20,7 @@ async function requireAdminJwt(req, res, next) {
       return res.status(403).json({ error: "Admin access only" });
     }
     const email = normalizeEmail(payload.email);
-    if (!isAuthorizedAdminEmail(email)) {
+    if (!(await isAuthorizedAdminEmailDynamic(email))) {
       return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
     }
     const rbacRole = await getRbacRoleForEmail(email);

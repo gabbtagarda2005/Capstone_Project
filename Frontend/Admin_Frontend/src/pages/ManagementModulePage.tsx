@@ -5,6 +5,7 @@ import L from "leaflet";
 import { Circle, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { AddAttendantWizard } from "@/components/AddAttendantWizard";
+import { AddAdminModal } from "@/components/AddAdminModal";
 import "@/components/AttendantGlassCard.css";
 import { AttendantGlassCard } from "@/components/AttendantGlassCard";
 import { FleetBusGlassCard } from "@/components/FleetBusGlassCard";
@@ -13,6 +14,7 @@ import { EditAttendantModal } from "@/components/EditAttendantModal";
 import { AddDriverWizard } from "@/components/AddDriverWizard";
 import { EditDriverModal } from "@/components/EditDriverModal";
 import { AddBusModal, type AddBusFormState } from "@/components/AddBusModal";
+import { AdminAuditTechnicalModal } from "@/components/AdminAuditTechnicalModal";
 import { RouteManagementPanel } from "@/components/RouteManagementPanel";
 import { ScheduleManagementPanel } from "@/components/ScheduleManagementPanel";
 import { FareManagementPanel } from "@/components/FareManagementPanel";
@@ -20,6 +22,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { LiveTicketOperationsTable } from "@/components/LiveTicketOperationsTable";
 import { PassengerBentoStats } from "@/components/PassengerBentoStats";
 import { api, fetchAdminAuditLog, fetchCorridorRoutes } from "@/lib/api";
+import { auditTimelineEmoji, formatRelativeAuditTime, humanizeAdminAuditSentence } from "@/lib/humanizeAdminAudit";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useToast } from "@/context/ToastContext";
 import { filterTickets, sumFare, type FilterState } from "@/lib/filterTickets";
@@ -2548,6 +2551,10 @@ function AdminManagementActivityPanel() {
   const [logs, setLogs] = useState<AdminAuditLogRowDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [techRow, setTechRow] = useState<AdminAuditLogRowDto | null>(null);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityModule, setActivityModule] = useState<string>("all");
+  const [addAdminOpen, setAddAdminOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2556,7 +2563,7 @@ function AdminManagementActivityPanel() {
       const res = await fetchAdminAuditLog(250);
       const filtered = (res.items ?? []).filter((row) => {
         const action = String(row.action || "").toUpperCase();
-        return action === "ADD" || action === "EDIT" || action === "DELETE" || action === "BROADCAST";
+        return action === "ADD" || action === "EDIT" || action === "DELETE" || action === "BROADCAST" || action === "LOGIN";
       });
       setLogs(filtered);
     } catch (e) {
@@ -2571,13 +2578,42 @@ function AdminManagementActivityPanel() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    setActivitySearch("");
+    setActivityModule("all");
+  }, [selectedEmail]);
+
   const selectedLogs = useMemo(
     () => logs.filter((row) => row.email.trim().toLowerCase() === selectedEmail.trim().toLowerCase()),
     [logs, selectedEmail]
   );
 
+  const activityModuleOptions = useMemo(() => {
+    const set = new Set(selectedLogs.map((r) => r.module).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [selectedLogs]);
+
+  const filteredActivityLogs = useMemo(() => {
+    const q = activitySearch.trim().toLowerCase();
+    return selectedLogs.filter((row) => {
+      if (activityModule !== "all" && row.module !== activityModule) return false;
+      if (!q) return true;
+      const hay = `${humanizeAdminAuditSentence(row)} ${row.module} ${row.details}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [selectedLogs, activitySearch, activityModule]);
+
   return (
     <section className="mgmt-admins">
+      <div className="mgmt-admins__it-row">
+        <button type="button" className="mgmt-admins__add-it-btn" onClick={() => setAddAdminOpen(true)}>
+          Add IT Account
+        </button>
+        <p className="mgmt-admins__it-hint">
+          Emails a 6-digit code to verify the address, then lets you set a password — the account can sign in right
+          away, restricted to System Health only.
+        </p>
+      </div>
       <div className="mgmt-admins__cards">
         {adminProfiles.map((admin) => {
           const isActive = selectedEmail === admin.email;
@@ -2596,43 +2632,93 @@ function AdminManagementActivityPanel() {
           );
         })}
       </div>
-      <div className="mgmt-admins__activity">
-        <h3 className="mgmt-admins__activity-title">Recent actions for {selectedEmail}</h3>
-        {loading ? <p className="mgmt-admins__empty">Loading admin activity…</p> : null}
-        {!loading && error ? (
-          <p className="mgmt-admins__empty">
-            {error}{" "}
-            <button type="button" className="route-mgmt-panel__delete" onClick={() => void load()}>
-              Retry
-            </button>
-          </p>
-        ) : null}
-        {!loading && !error && selectedLogs.length === 0 ? (
-          <p className="mgmt-admins__empty">No add/edit/delete/broadcast actions recorded for this admin yet.</p>
-        ) : null}
-        {!loading && !error && selectedLogs.length > 0 ? (
-          <ul className="mgmt-admins__activity-list">
-            {selectedLogs.slice(0, 25).map((row) => (
-              <li key={row.id} className="mgmt-admins__activity-item">
-                <span className="mgmt-admins__activity-badge">{row.action}</span>
-                <span className="mgmt-admins__activity-detail">{row.details}</span>
-                <span className="mgmt-admins__activity-meta">
-                  {row.module} ·{" "}
-                  {new Date(row.timestamp).toLocaleString(undefined, {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
+      <div className="mgmt-admins__activity-shell">
+        <div className="mgmt-admins__activity mgmt-admins__activity--centered">
+          <h3 className="mgmt-admins__activity-title">Recent actions for {selectedEmail}</h3>
+          {loading ? <p className="mgmt-admins__empty">Loading admin activity…</p> : null}
+          {!loading && error ? (
+            <p className="mgmt-admins__empty">
+              {error}{" "}
+              <button type="button" className="route-mgmt-panel__delete" onClick={() => void load()}>
+                Retry
+              </button>
+            </p>
+          ) : null}
+          {!loading && !error && selectedLogs.length === 0 ? (
+            <p className="mgmt-admins__empty">No sign-ins or add/edit/delete/broadcast actions recorded for this admin yet.</p>
+          ) : null}
+          {!loading && !error && selectedLogs.length > 0 ? (
+            <>
+              <div className="mgmt-admins__activity-filters">
+                <input
+                  type="search"
+                  className="mgmt-admins__filter-input"
+                  placeholder="Filter by keywords…"
+                  value={activitySearch}
+                  onChange={(e) => setActivitySearch(e.target.value)}
+                  aria-label="Filter actions by keywords"
+                />
+                <select
+                  className="mgmt-admins__filter-select"
+                  value={activityModule}
+                  onChange={(e) => setActivityModule(e.target.value)}
+                  aria-label="Filter by module"
+                >
+                  <option value="all">All modules</option>
+                  {activityModuleOptions.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {filteredActivityLogs.length === 0 ? (
+                <p className="mgmt-admins__empty">No actions match your filters.</p>
+              ) : (
+                <ul className="mgmt-admins__activity-list">
+                  {filteredActivityLogs.slice(0, 25).map((row) => {
+                    const abs = new Date(row.timestamp).toLocaleString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    });
+                    return (
+                      <li key={row.id} className="mgmt-admins__activity-item mgmt-admins__activity-item--timeline">
+                        <span className="mgmt-admins__activity-emoji" aria-hidden title={row.action}>
+                          {auditTimelineEmoji(row)}
+                        </span>
+                        <div className="mgmt-admins__activity-main">
+                          <p className="mgmt-admins__activity-detail">{humanizeAdminAuditSentence(row)}</p>
+                          <span className="mgmt-admins__activity-meta">
+                            <span className="mgmt-admins__activity-module">{row.module}</span>
+                            <span aria-hidden> · </span>
+                            <time dateTime={row.timestamp} title={abs}>
+                              {formatRelativeAuditTime(row.timestamp)}
+                            </time>
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="mgmt-admins__activity-info"
+                          aria-label="Technical details"
+                          onClick={() => setTechRow(row)}
+                        >
+                          ⓘ
+                        </button>
+                      </li>
+                    );
                   })}
-                  {row.statusCode != null ? ` · HTTP ${row.statusCode}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+                </ul>
+              )}
+            </>
+          ) : null}
+          <AdminAuditTechnicalModal open={techRow != null} onClose={() => setTechRow(null)} row={techRow} />
+        </div>
       </div>
+      <AddAdminModal isOpen={addAdminOpen} onClose={() => setAddAdminOpen(false)} onSaved={() => void load()} />
     </section>
   );
 }

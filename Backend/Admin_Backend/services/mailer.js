@@ -307,11 +307,49 @@ async function sendDailyOperationsDigestEmail({ to, subject, text, html, attachm
   }
 }
 
+async function sendItAccountOtpEmail({ to, otp }) {
+  const from =
+    process.env.MAIL_FROM?.trim() ||
+    process.env.SMTP_USER?.trim() ||
+    "no-reply@localhost";
+
+  const subject = "Bukidnon Transport — IT account verification code";
+  const text = `Your 6-digit verification code is: ${otp}\n\nIt expires in 5 minutes. A super admin started creating a restricted IT (System Health) account for this email. If this wasn't you, you can ignore this message.\n`;
+  const html = `
+    <div style="font-family:Segoe UI,Arial,sans-serif;background:#0B0E14;color:#E2E8F0;padding:24px;border-radius:12px;max-width:420px">
+      <h2 style="margin:0 0 10px;color:#67E8F9;font-size:18px">IT account verification</h2>
+      <p style="margin:0 0 14px;color:#cbd5e1;font-size:14px">Enter this code in the admin portal to finish setting up your restricted System Health account:</p>
+      <div style="font-size:28px;letter-spacing:8px;font-weight:700;color:#22D3EE;font-variant-numeric:tabular-nums">${otp}</div>
+      <p style="margin:16px 0 0;color:#94a3b8;font-size:12px">Expires in 5 minutes.</p>
+    </div>
+  `;
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    return { simulated: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject,
+      text,
+      html,
+    });
+    return { simulated: false };
+  } catch (err) {
+    resetTransporterCache();
+    throw new Error(formatSendError(err));
+  }
+}
+
 module.exports = {
   sendOtpEmail,
   sendAttendantSignupOtpEmail,
   sendDriverSignupOtpEmail,
   sendOperatorPasswordResetOtpEmail,
+  sendItAccountOtpEmail,
   sendDailyOperationsDigestEmail,
   resetTransporterCache,
   logMailerBoot,

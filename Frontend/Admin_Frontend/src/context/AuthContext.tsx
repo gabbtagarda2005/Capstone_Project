@@ -32,8 +32,8 @@ type AuthContextValue = {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  loginWithGoogle: (idToken: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
 
@@ -93,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("admin_token", r.token);
     setToken(r.token);
     setUser(r.user);
+    return r.user;
   }, []);
 
   const loginWithGoogle = useCallback(async (idToken: string) => {
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("admin_token", r.token);
     setToken(r.token);
     setUser(r.user);
+    return r.user;
   }, []);
 
   const value = useMemo(

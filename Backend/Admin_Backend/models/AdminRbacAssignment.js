@@ -5,7 +5,7 @@ const adminRbacAssignmentSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     role: {
       type: String,
-      enum: ["super_admin", "fleet_manager", "auditor"],
+      enum: ["super_admin", "fleet_manager", "auditor", "it_support"],
       required: true,
     },
   },

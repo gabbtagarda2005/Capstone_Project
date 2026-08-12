@@ -17,7 +17,7 @@ app.use(
     origin: corsList,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: (process.env.JSON_BODY_LIMIT || "12mb").trim() || "12mb" }));
 
 const PassengerTerminalAffinity = require("./models/PassengerTerminalAffinity");
 

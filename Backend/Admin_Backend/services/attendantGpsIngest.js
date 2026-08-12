@@ -6,11 +6,12 @@ const PortalUser = require("../models/PortalUser");
 const { onBusGpsForTerminalArrival } = require("./terminalGeofenceIntercept");
 const { maybeRecordSpeedViolation } = require("./speedViolationAlert");
 const { normalizeGpsSignal } = require("./normalizeGpsSignal");
+const { decideActiveSource } = require("./gpsSourceArbiter");
 const { buildPublicPayload } = require("../routes/liveDispatch");
 const { broadcastLiveBoard } = require("../sockets/socket");
 const liveDispatchStore = require("./liveDispatchStore");
 const AppBroadcast = require("../models/AppBroadcast");
-const { getFreeEtaMinutes, resolveNextTerminalForBus, isNearAnyTerminal } = require("./freeEtaEngine");
+const { getFreeEtaMinutes, getAdvancedEtaMinutes, resolveNextTerminalForBus, isNearAnyTerminal } = require("./freeEtaEngine");
 const { getPortalSettingsLean } = require("./adminPortalSettingsService");
 let lastLiveBoardGpsPush = 0;
 const LIVE_BOARD_GPS_MIN_MS = 12_000;
@@ -41,6 +42,16 @@ function scheduleLiveBoardPushFromGps(io) {
   void buildPublicPayload()
     .then((payload) => broadcastLiveBoard(io, payload))
     .catch(() => {});
+}
+
+/** Reject NaN, out-of-range, and the (0,0) "no fix" sentinel some GPS stacks send instead of omitting. */
+function isValidGpsCoordinate(lat, lng) {
+  const la = Number(lat);
+  const lo = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return false;
+  if (la < -90 || la > 90 || lo < -180 || lo > 180) return false;
+  if (Math.abs(la) < 1e-6 && Math.abs(lo) < 1e-6) return false;
+  return true;
 }
 
 function resolveRecordedAt(body) {
@@ -104,17 +115,45 @@ async function maybeComputeEtaAndTrafficDelay(io, busId, latitude, longitude, sp
   if (!bid || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) return null;
   const terminal = await resolveNextTerminalForBus(bid);
   if (!terminal) return null;
+
   const speed = Number(speedKph);
   const canEstimateEta = Number.isFinite(speed) && speed > 5;
-  const etaMinutes = canEstimateEta
-    ? getFreeEtaMinutes(
+
+  let bus = null;
+  let etaMinutes = null;
+
+  if (canEstimateEta) {
+    try {
+      bus = await Bus.findOne({ busId: bid }).select("seatCapacity currentOccupancy route").lean();
+    } catch (err) {
+      console.warn(`[ETA] Failed to fetch bus details for ${bid}: ${err.message}`);
+    }
+
+    try {
+      etaMinutes = await getAdvancedEtaMinutes({
+        lat1: Number(latitude),
+        lon1: Number(longitude),
+        lat2: Number(terminal.latitude),
+        lon2: Number(terminal.longitude),
+        speedKph: speed,
+        busId: bid,
+        passengerCount: bus?.currentOccupancy || 0,
+        seatCapacity: bus?.seatCapacity || 50,
+        currentLocation: bus?.route || "In Transit",
+        nextLocation: terminal.name || "Terminal",
+        stops: [],
+      });
+    } catch (err) {
+      console.warn(`[ETA] Advanced ETA calculation failed, using fallback: ${err.message}`);
+      etaMinutes = getFreeEtaMinutes(
         Number(latitude),
         Number(longitude),
         Number(terminal.latitude),
         Number(terminal.longitude),
         speed
-      )
-    : null;
+      );
+    }
+  }
   const nowMs = Date.now();
   const nearTerminal = await isNearAnyTerminal(Number(latitude), Number(longitude));
   const isSlow = Number.isFinite(speed) && speed < SLOW_SPEED_KPH && !nearTerminal;
@@ -220,6 +259,11 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
     e.statusCode = 400;
     throw e;
   }
+  if (!isValidGpsCoordinate(latitude, longitude)) {
+    const e = new Error("Invalid or unavailable GPS coordinates");
+    e.statusCode = 400;
+    throw e;
+  }
   const b = await Bus.findOne(q).select("busId route operatorMysqlId operatorPortalUserId status").lean();
   if (!b?.busId) {
     const e = new Error("No bus assignment for this operator");
@@ -237,27 +281,42 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
   const resolvedBusId = b.busId;
   const recordedAt = resolveRecordedAt(body);
 
-  await GpsLog.findOneAndUpdate(
-    { busId: String(resolvedBusId) },
-    {
-      busId: String(resolvedBusId),
+  // Phone is the primary GPS source — always preferred. This only defers to LILYGO during the
+  // brief stabilization window right after the phone recovers from an outage (see gpsSourceArbiter).
+  const { shouldPublish } = decideActiveSource(resolvedBusId, "phone", null, Date.now());
+
+  const gpsLogSet = {
+    busId: String(resolvedBusId),
+    attendantLatitude: Number(latitude),
+    attendantLongitude: Number(longitude),
+    attendantRecordedAt: recordedAt,
+    ...(signalNorm ? { signal: signalNorm } : {}),
+  };
+  if (shouldPublish) {
+    Object.assign(gpsLogSet, {
       latitude: Number(latitude),
       longitude: Number(longitude),
-      attendantLatitude: Number(latitude),
-      attendantLongitude: Number(longitude),
       speedKph: speedKph != null ? Number(speedKph) : null,
       heading: heading != null ? Number(heading) : null,
       source: "staff",
       network: null,
       signalStrength: null,
-      attendantRecordedAt: recordedAt,
-      ...(signalNorm ? { signal: signalNorm } : {}),
       recordedAt,
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+    });
+  }
+  await GpsLog.findOneAndUpdate({ busId: String(resolvedBusId) }, gpsLogSet, {
+    upsert: true,
+    new: true,
+    setDefaultsOnInsert: true,
+  });
 
   await Bus.updateOne({ busId: String(resolvedBusId) }, { lastSeenAt: recordedAt }).catch(() => {});
+
+  if (!shouldPublish) {
+    // LILYGO is still the active/published source for the moment (mid stabilization window) —
+    // this phone sample is recorded above but must not move the map pin or fire side effects.
+    return { busId: String(resolvedBusId), recordedAt, published: false };
+  }
 
   const payload = {
     busId: String(resolvedBusId),
@@ -311,7 +370,7 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
     assignedRoute: b.route != null ? String(b.route) : null,
   });
 
-  return { busId: String(resolvedBusId), recordedAt };
+  return { busId: String(resolvedBusId), recordedAt, published: true };
 }
 
 /**
@@ -387,6 +446,11 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
     e.statusCode = 400;
     throw e;
   }
+  if (!isValidGpsCoordinate(latitude, longitude)) {
+    const e = new Error("Invalid or unavailable GPS coordinates");
+    e.statusCode = 400;
+    throw e;
+  }
   const recordedAt = new Date();
   const busLean = await Bus.findOne({ busId: String(resolvedBusId) })
     .select("route operatorMysqlId operatorPortalUserId")
@@ -395,11 +459,13 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
   const doc = await GpsLog.findOne({ busId: bid }).lean();
   const hwLat = Number(latitude);
   const hwLng = Number(longitude);
-  /** LilyGo / device REST pings must always move the published pin — do not fuse with staff GPS here.
-   *  (Older fusion logic hid hardware fixes while the attendant app had pinged 5–10s earlier.) */
   const nextLat = hwLat;
   const nextLng = hwLng;
   const nextSource = "hardware";
+  /** LILYGO is backup-only: phone (primary) wins whenever it's within its timeout window — see
+   *  gpsSourceArbiter for why this replaces the older recency-only fusion logic that was reverted
+   *  (it had hidden legitimate hardware fixes; this version tracks explicit per-bus state instead). */
+  const { shouldPublish } = decideActiveSource(bid, "lilygo", doc?.attendantRecordedAt ?? null, recordedAt.getTime());
   const netRaw = String(body?.net ?? body?.network ?? "").trim().toLowerCase();
   /** Stored on GpsLog as `wifi` | `4g` | `unknown` — fleet UI maps 4g → LTE. */
   function normalizeHardwareNetwork(r) {
@@ -425,26 +491,34 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
     if (est != null) resolvedSpeedKph = est;
   }
 
-  await GpsLog.findOneAndUpdate(
-    { busId: bid },
-    {
-      busId: bid,
+  const gpsLogSet = {
+    busId: bid,
+    hardwareLatitude: hwLat,
+    hardwareLongitude: hwLng,
+    network: net,
+    signalStrength: sigStrength,
+    voltage,
+    hardwareRecordedAt: recordedAt,
+  };
+  if (shouldPublish) {
+    Object.assign(gpsLogSet, {
       latitude: nextLat,
       longitude: nextLng,
-      hardwareLatitude: hwLat,
-      hardwareLongitude: hwLng,
       speedKph: resolvedSpeedKph,
       heading: heading != null ? Number(heading) : null,
       source: nextSource,
-      network: net,
-      signalStrength: sigStrength,
-      voltage,
-      hardwareRecordedAt: recordedAt,
       recordedAt,
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+    });
+  }
+  await GpsLog.findOneAndUpdate({ busId: bid }, gpsLogSet, { upsert: true, new: true, setDefaultsOnInsert: true });
   await Bus.updateOne({ busId: String(resolvedBusId) }, { lastSeenAt: recordedAt }).catch(() => {});
+
+  if (!shouldPublish) {
+    // Phone (primary) is still healthy — this hardware fix is recorded above for continuity but
+    // must not move the published pin or trigger ETA/history/speed-violation side effects.
+    return;
+  }
+
   const payload = {
     busId: String(resolvedBusId),
     latitude: nextLat,

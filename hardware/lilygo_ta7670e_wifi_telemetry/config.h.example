@@ -13,7 +13,7 @@
 #define SERVER_PATH "/api/buses/hardware-telemetry"
 
 /** Retry / cadence (ms) — same delay after GNSS wait, Wi-Fi failure, or non-2xx HTTP */
-#define POST_INTERVAL_MS 5000
+#define POST_INTERVAL_MS 8000
 
 /** Must match Backend/Admin_Backend .env DEVICE_INGEST_SECRET (leave "" if unset on server) */
 #define DEVICE_INGEST_SECRET ""

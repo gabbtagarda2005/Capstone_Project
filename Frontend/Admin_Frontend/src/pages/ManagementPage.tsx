@@ -210,7 +210,7 @@ export function ManagementPage() {
           {modules.map((m) => (
             <ManagementHubCard
               key={m.to}
-              to={`/dashboard/management/${m.to}`}
+              to={m.to.startsWith("/") ? m.to : `/dashboard/management/${m.to}`}
               title={m.title}
               description={m.hint}
               metricA={m.metricA}

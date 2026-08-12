@@ -211,6 +211,77 @@
   pointer-events: none;
 }
 
+.bus-hub__map-socket-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  background: rgba(69, 40, 10, 0.88);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  color: #fcd34d;
+  pointer-events: none;
+}
+
+.bus-hub__live-status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bus-hub__live-status-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid rgba(31, 88, 133, 0.65);
+  background: rgba(4, 14, 35, 0.6);
+}
+
+.bus-hub__live-status-badge--online {
+  border-color: rgba(34, 197, 94, 0.65);
+  color: #86efac;
+}
+
+.bus-hub__live-status-badge--unstable {
+  border-color: rgba(245, 158, 11, 0.65);
+  color: #fcd34d;
+}
+
+.bus-hub__live-status-badge--offline {
+  border-color: rgba(248, 113, 113, 0.65);
+  color: #fca5a5;
+}
+
+.bus-hub__live-status-age {
+  font-size: 0.78rem;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.bus-hub__live-status-source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(248, 250, 252, 0.45);
+}
+
+.bus-hub__live-status-source strong {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #f8fafc;
+}
+
 .bus-hub__gauge-wrap {
   display: flex;
   flex-direction: column;
@@ -321,6 +392,178 @@
   font-size: 0.75rem;
   color: #5eead4;
   margin-top: 2px;
+}
+
+.bus-hub__tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.bus-hub__revenue-filter {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.bus-hub__revenue-filter-btn {
+  padding: 5px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: rgba(248, 250, 252, 0.65);
+  background: rgba(4, 14, 35, 0.6);
+  border: 1px solid rgba(31, 88, 133, 0.65);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.bus-hub__revenue-filter-btn:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #fff;
+}
+
+.bus-hub__revenue-filter-btn--active {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: #22d3ee;
+  color: #5eead4;
+}
+
+.bus-hub__revenue-datepicker-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.bus-hub__revenue-datepicker {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 260px;
+  padding: 14px;
+  background: #0a101f;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+.bus-hub__revenue-datepicker-row {
+  display: flex;
+  gap: 10px;
+}
+
+.bus-hub__revenue-datepicker-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(248, 250, 252, 0.5);
+}
+
+.bus-hub__revenue-datepicker-field input[type="date"] {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(31, 88, 133, 0.8);
+  background: rgba(4, 14, 35, 0.8);
+  color: #f8fafc;
+  font-size: 0.78rem;
+  color-scheme: dark;
+}
+
+.bus-hub__revenue-datepicker-hint {
+  margin: 10px 0 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: rgba(248, 250, 252, 0.45);
+}
+
+.bus-hub__revenue-datepicker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.bus-hub__revenue-datepicker-cancel,
+.bus-hub__revenue-datepicker-apply {
+  padding: 6px 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bus-hub__revenue-datepicker-cancel {
+  border: 1px solid rgba(31, 88, 133, 0.65);
+  background: transparent;
+  color: rgba(248, 250, 252, 0.75);
+}
+
+.bus-hub__revenue-datepicker-cancel:hover {
+  color: #fff;
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.bus-hub__revenue-datepicker-apply {
+  border: 1px solid #22d3ee;
+  background: rgba(34, 211, 238, 0.16);
+  color: #5eead4;
+}
+
+.bus-hub__revenue-datepicker-apply:hover:not(:disabled) {
+  background: rgba(34, 211, 238, 0.28);
+  color: #fff;
+}
+
+.bus-hub__revenue-datepicker-apply:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bus-hub__revenue-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bus-hub__revenue-value {
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.bus-hub__revenue-meta {
+  font-size: 0.78rem;
+  color: rgba(248, 250, 252, 0.5);
+}
+
+.bus-hub__revenue-empty-note {
+  flex-basis: 100%;
+  font-size: 0.72rem;
+  color: rgba(248, 250, 252, 0.4);
+  font-style: italic;
+}
+
+.bus-hub__revenue-loading {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.bus-hub__revenue-loading--err {
+  color: rgba(248, 113, 113, 0.9);
 }
 
 .bus-hub__maint {

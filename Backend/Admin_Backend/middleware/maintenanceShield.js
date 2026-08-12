@@ -60,7 +60,10 @@ async function maintenanceShieldMiddleware(req, res, next) {
     path === "/api/public/broadcast/attendant" ||
     path === "/api/public/command-feed" ||
     path === "/api/public/passenger-feedback" ||
-    path === "/api/public/passenger-lost-item"
+    path === "/api/public/passenger-lost-item" ||
+    path === "/api/buses/ping" ||
+    path === "/api/buses/hardware-telemetry" ||
+    path === "/api/hardware-telemetry"
   ) {
     return next();
   }

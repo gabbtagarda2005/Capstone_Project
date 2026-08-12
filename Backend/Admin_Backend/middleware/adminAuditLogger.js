@@ -94,7 +94,13 @@ function safeBodySnippet(req) {
   const slim = {};
   for (const k of keys.slice(0, 8)) {
     let v = req.body[k];
-    if (v != null && typeof v === "object") v = "[object]";
+    if (Array.isArray(v)) {
+      // Small arrays (e.g. RBAC role-assignment rows) stay readable instead of collapsing to
+      // "[object]" — that's exactly the detail admins need to see what actually changed.
+      v = v.length > 20 ? `[${v.length} items]` : v;
+    } else if (v != null && typeof v === "object") {
+      v = "[object]";
+    }
     slim[k] = v;
   }
   try {

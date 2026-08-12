@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent, type MouseEventHandler } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { TacticalNotificationSidebar } from "@/components/TacticalNotificationSidebar";
+import { NetworkPulseCard } from "@/components/NetworkPulseCard";
+import { SystemEventsPanel } from "@/components/SystemEventsPanel";
+import { ApiHealthTable } from "@/components/ApiHealthTable";
 import { SosResolveModal } from "@/components/SosCriticalOverlay";
 import { SosEmergencyBlockingModal } from "@/components/SosEmergencyBlockingModal";
 import { useTacticalNotifications } from "@/context/TacticalNotificationContext";
@@ -9,6 +12,7 @@ import { useSosInterceptOptional } from "@/context/SosInterceptContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
+import { COMMAND_CENTER_HUB } from "@/pages/commandCenterPaths";
 import "./AdminLayout.css";
 
 function SidebarBrandMark() {
@@ -257,6 +261,40 @@ export function AdminLayout() {
       setSidebarOpen(false);
     }
   };
+
+  // IT accounts are locked to System Health only — no sidebar, no other route, regardless of URL.
+  // The Command Center hub URL is their home page: force it, even on a manually-typed path.
+  if (user?.rbacRole === "it_support") {
+    if (location.pathname !== COMMAND_CENTER_HUB) {
+      return <Navigate to={COMMAND_CENTER_HUB} replace />;
+    }
+    return (
+      <div className="admin-shell admin-shell--it-only">
+        <div className="admin-shell__bg" aria-hidden />
+        <main className="admin-main admin-it-only">
+          <header className="admin-it-only__head">
+            <div>
+              <div className="admin-it-only__eyebrow">IT account</div>
+              <h1 className="admin-it-only__title">System health</h1>
+              <p className="admin-it-only__lead">Live status for the admin API, database, and integrations.</p>
+            </div>
+            <div className="admin-it-only__head-right">
+              <span className="admin-it-only__email">{user.email}</span>
+              <button type="button" className="admin-it-only__logout" onClick={() => void logout()}>
+                <IconLogout />
+                <span>Logout</span>
+              </button>
+            </div>
+          </header>
+          <div className="admin-it-only__body">
+            <NetworkPulseCard />
+            <SystemEventsPanel />
+            <ApiHealthTable />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div

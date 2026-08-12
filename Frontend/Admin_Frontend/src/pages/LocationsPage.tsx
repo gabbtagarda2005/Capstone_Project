@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { io } from "socket.io-client";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -9,6 +9,8 @@ import {
   Polyline as LeafletPolyline,
   Popup,
   TileLayer,
+  useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -31,6 +33,7 @@ import {
   fetchCorridorRoutes,
   fetchLiveDispatchBlocks,
   getToken,
+  postAdminTestGps,
 } from "@/lib/api";
 import type { CorridorBuilderTerminal, CorridorRouteRow, TicketRow, BusLiveLogRow, BusRow, LiveDispatchBlock } from "@/lib/types";
 import { haversineMeters, minDistanceToPolylineMetersWithClosestSegment } from "@/lib/haversineMeters";
@@ -370,6 +373,21 @@ function rankHubLoads(counts: number[]): ("high" | "medium" | "low")[] {
   return out;
 }
 
+function LeafletViewportTracker({ centerRef }: { centerRef: MutableRefObject<[number, number]> }) {
+  const map = useMap();
+  useEffect(() => {
+    const c = map.getCenter();
+    centerRef.current = [c.lat, c.lng];
+  }, [map, centerRef]);
+  useMapEvents({
+    moveend(e) {
+      const c = e.target.getCenter();
+      centerRef.current = [c.lat, c.lng];
+    },
+  });
+  return null;
+}
+
 export function LocationsPage() {
   const { isLoaded: isGoogleLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -411,6 +429,10 @@ export function LocationsPage() {
   const [dispatchBlocks, setDispatchBlocks] = useState<LiveDispatchBlock[]>([]);
   const [selectedMapEntity, setSelectedMapEntity] = useState<string | null>(null);
   const mapRef = useRef<any>(null);
+  /** Latest map view center for “Place test GPS” (Google onIdle / Leaflet moveend). */
+  const viewportCenterRef = useRef<[number, number]>([DEFAULT_CENTER[0], DEFAULT_CENTER[1]]);
+  const [testGpsBusy, setTestGpsBusy] = useState(false);
+  const [testGpsMessage, setTestGpsMessage] = useState<string | null>(null);
   /** Map marker: solid red pulse after speed commandAlert */
   const [speedAlertUntil, setSpeedAlertUntil] = useState<Record<string, number>>({});
   /** Map marker: emerald ring after terminal geofence hit */
@@ -1102,6 +1124,24 @@ export function LocationsPage() {
     [adminHubs]
   );
 
+  const handlePlaceTestGps = useCallback(async () => {
+    if (!adminToken) return;
+    const [latitude, longitude] = viewportCenterRef.current;
+    setTestGpsBusy(true);
+    setTestGpsMessage(null);
+    try {
+      const body: { latitude: number; longitude: number; busId?: string } = { latitude, longitude };
+      if (selectedBusId) body.busId = selectedBusId;
+      const res = await postAdminTestGps(body);
+      setTestGpsMessage(`Test GPS placed for bus ${res.busId}.`);
+      void syncFleetFromApi(false);
+    } catch (e) {
+      setTestGpsMessage(e instanceof Error ? e.message : "Could not place test GPS.");
+    } finally {
+      setTestGpsBusy(false);
+    }
+  }, [adminToken, selectedBusId, syncFleetFromApi]);
+
   return (
     <div className="locations-page">
       <div className="locations-page__split">
@@ -1118,6 +1158,7 @@ export function LocationsPage() {
                 zoom={focusBukidnon ? BUKIDNON_FOCUS_ZOOM : DEFAULT_ZOOM}
                 scrollWheelZoom
               >
+                <LeafletViewportTracker centerRef={viewportCenterRef} />
                 <TileLayer url={basemap === "dark" ? TILE_DARK : TILE_OSM} />
 
                 {corridorRoutes
@@ -1349,6 +1390,17 @@ export function LocationsPage() {
                 onLoad={(m) => {
                   mapRef.current = m;
                   if (focusBukidnon) m.setCenter({ lat: BUKIDNON_FOCUS[0], lng: BUKIDNON_FOCUS[1] });
+                  const c = m.getCenter();
+                  const lat = c?.lat?.();
+                  const lng = c?.lng?.();
+                  if (lat != null && lng != null) viewportCenterRef.current = [lat, lng];
+                }}
+                onIdle={() => {
+                  const m = mapRef.current as { getCenter?: () => { lat: () => number; lng: () => number } } | null;
+                  const c = m?.getCenter?.();
+                  const lat = c?.lat?.();
+                  const lng = c?.lng?.();
+                  if (lat != null && lng != null) viewportCenterRef.current = [lat, lng];
                 }}
                 options={{
                   mapTypeId: basemap === "dark" ? "roadmap" : basemap,
@@ -1612,7 +1664,19 @@ export function LocationsPage() {
       <section className="locations-page__fleet-bar" aria-label="Live fleet">
         <div className="locations-page__fleet-bar-head">
           <h2 className="locations-page__insight-title">Live fleet</h2>
+          <div className="locations-page__fleet-bar-actions">
+            <button
+              type="button"
+              className="locations-page__test-gps-btn"
+              disabled={testGpsBusy || !adminToken}
+              onClick={() => void handlePlaceTestGps()}
+              title="Writes one GPS sample at the current map center (same path as device ping). Uses selected bus, or the first fleet bus."
+            >
+              {testGpsBusy ? "Placing…" : "Place test GPS"}
+            </button>
+          </div>
         </div>
+        {testGpsMessage ? <p className="locations-page__legend-card-sub locations-page__test-gps-hint">{testGpsMessage}</p> : null}
         {busState.length === 0 ? (
           <p className="locations-page__legend-card-sub" style={{ margin: 0 }}>
             {busRows.length > 0 ? (

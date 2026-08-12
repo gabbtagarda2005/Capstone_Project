@@ -9,7 +9,7 @@ const RouteCoverage = require("../models/RouteCoverage");
 const { requireTicketIssuerJwt } = require("../middleware/requireTicketIssuerJwt");
 const { buildOperatorBusQuery } = require("../services/attendantGpsIngest");
 const { getPortalSettingsLean } = require("../services/adminPortalSettingsService");
-const { getFreeEtaMinutes, resolveNextTerminalForBus } = require("../services/freeEtaEngine");
+const { getFreeEtaMinutes, getAdvancedEtaMinutes, resolveNextTerminalForBus } = require("../services/freeEtaEngine");
 
 async function loadOperatorProfileFromMongo(portalUserId) {
   if (!mongoose.isValidObjectId(String(portalUserId || ""))) return null;
@@ -299,7 +299,7 @@ function createStaffProfileRouter() {
     try {
       const q = buildOperatorBusQuery(sub);
       if (!q) return res.status(400).json({ error: "No operator bus query" });
-      const bus = await Bus.findOne(q).select("busId").lean();
+      const bus = await Bus.findOne(q).select("busId seatCapacity currentOccupancy route").lean();
       if (!bus?.busId) return res.status(404).json({ error: "No assigned bus" });
       const [log, nextTerminal] = await Promise.all([
         GpsLog.findOne({ busId: String(bus.busId) }).select("latitude longitude speedKph").lean(),
@@ -308,13 +308,33 @@ function createStaffProfileRouter() {
       if (!log || !nextTerminal) {
         return res.json({ etaMinutes: null, targetArrivalTime: null, status: "ON TIME", nextTerminal: null });
       }
-      const etaMinutes = getFreeEtaMinutes(
-        Number(log.latitude),
-        Number(log.longitude),
-        Number(nextTerminal.latitude),
-        Number(nextTerminal.longitude),
-        Number(log.speedKph)
-      );
+      
+      let etaMinutes = null;
+      try {
+        etaMinutes = await getAdvancedEtaMinutes({
+          lat1: Number(log.latitude),
+          lon1: Number(log.longitude),
+          lat2: Number(nextTerminal.latitude),
+          lon2: Number(nextTerminal.longitude),
+          speedKph: Number(log.speedKph),
+          busId: String(bus.busId),
+          passengerCount: bus?.currentOccupancy || 0,
+          seatCapacity: bus?.seatCapacity || 50,
+          currentLocation: bus?.route || "In Transit",
+          nextLocation: nextTerminal.name || "Terminal",
+          stops: [],
+        });
+      } catch (err) {
+        // Fallback to simple ETA
+        etaMinutes = getFreeEtaMinutes(
+          Number(log.latitude),
+          Number(log.longitude),
+          Number(nextTerminal.latitude),
+          Number(nextTerminal.longitude),
+          Number(log.speedKph)
+        );
+      }
+      
       const targetArrivalTime = new Date(Date.now() + etaMinutes * 60_000).toISOString();
       const settings = await getPortalSettingsLean().catch(() => null);
       const delayThreshold = [8, 10, 12].includes(Number(settings?.delayThresholdMinutes))

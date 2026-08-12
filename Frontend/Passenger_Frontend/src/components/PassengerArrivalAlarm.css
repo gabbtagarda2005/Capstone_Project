@@ -1,0 +1,148 @@
+.pd-arrival-alarm {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.pd-arrival-alarm__hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.pd-arrival-alarm .pd-fare-engine__field {
+  width: 100%;
+  align-items: center;
+}
+
+.pd-arrival-alarm .pd-fare-engine__label {
+  text-align: center;
+}
+
+.pd-arrival-alarm .pd-fare-select {
+  width: 100%;
+  max-width: 320px;
+}
+
+.pd-arrival-alarm__btn {
+  width: 100%;
+  align-self: stretch;
+  border: none;
+  border-radius: 25px;
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #ecfeff;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.35), rgba(37, 99, 235, 0.4));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.pd-arrival-alarm__btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.pd-arrival-alarm__btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.pd-arrival-alarm__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pd-arrival-alarm__status,
+.pd-arrival-alarm__arrived {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border-radius: 14px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.pd-arrival-alarm__status {
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: rgba(224, 250, 255, 0.95);
+}
+
+.pd-arrival-alarm__arrived {
+  background: rgba(74, 222, 128, 0.14);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #dcfce7;
+  font-weight: 700;
+  animation: pd-arrival-alarm-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes pd-arrival-alarm-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(74, 222, 128, 0);
+  }
+}
+
+.pd-arrival-alarm__pulse {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22d3ee;
+  box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.6);
+  animation: pd-arrival-alarm-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pd-arrival-alarm-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 211, 238, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+  }
+}
+
+.pd-arrival-alarm__cancel {
+  margin-left: auto;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.pd-arrival-alarm__cancel:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pd-arrival-alarm__pulse,
+  .pd-arrival-alarm__arrived {
+    animation: none;
+  }
+}

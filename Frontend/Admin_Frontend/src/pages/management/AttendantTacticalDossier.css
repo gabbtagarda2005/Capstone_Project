@@ -346,6 +346,119 @@
   color: rgba(125, 211, 252, 0.88);
 }
 
+.att-dossier__assign-search {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.att-dossier__assign-search label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--att-muted);
+}
+
+.att-dossier__assign-search input[type="date"] {
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--att-border);
+  background: rgba(2, 8, 23, 0.85);
+  color: var(--att-text);
+  font-size: 0.8rem;
+  color-scheme: dark;
+}
+
+.att-dossier__assign-search button {
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--att-cyan);
+  background: rgba(34, 211, 238, 0.14);
+  color: var(--att-cyan);
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.att-dossier__assign-search button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.att-dossier__assign-result {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  font-size: 0.8rem;
+  color: var(--att-text);
+}
+
+.att-dossier__assign-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--att-muted);
+}
+
+.att-dossier__assign-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.att-dossier__assign-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(31, 88, 133, 0.5);
+  background: rgba(2, 8, 23, 0.6);
+  font-size: 0.78rem;
+}
+
+.att-dossier__assign-row--active {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.att-dossier__assign-bus {
+  font-weight: 800;
+  color: var(--att-text);
+  white-space: nowrap;
+}
+
+.att-dossier__assign-range {
+  flex: 1;
+  min-width: 0;
+  color: var(--att-muted);
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+}
+
+.att-dossier__assign-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.18);
+  color: var(--att-cyan);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .att-dossier__bus-tile {
   display: flex;
   align-items: center;

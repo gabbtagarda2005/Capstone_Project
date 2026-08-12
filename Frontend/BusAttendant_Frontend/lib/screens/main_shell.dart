@@ -822,7 +822,9 @@ class _MainShellState extends State<MainShell> {
 
   void _startPingLoop() {
     _pingTimer?.cancel();
-    _pingTimer = Timer.periodic(const Duration(seconds: 5), (_) => _pushOnePing());
+    // Phone is the primary GPS source (see Backend/Admin_Backend/config/gpsThresholds.js —
+    // PHONE_GPS_TIMEOUT_MS assumes ~3s cadence with headroom before LILYGO takes over).
+    _pingTimer = Timer.periodic(const Duration(seconds: 3), (_) => _pushOnePing());
   }
 
   Future<void> _pushOnePing({bool precisionHandshake = false}) async {
@@ -1251,7 +1253,7 @@ class _MainShellState extends State<MainShell> {
           Theme(
             data: Theme.of(context).copyWith(
               navigationBarTheme: NavigationBarThemeData(
-                indicatorColor: const Color(0xFF5EE396).withOpacity(0.28),
+                indicatorColor: const Color(0xFF5EE396).withValues(alpha: 0.28),
                 labelTextStyle: WidgetStateProperty.resolveWith((states) {
                   final isDark = Theme.of(context).brightness == Brightness.dark;
                   final selected = states.contains(WidgetState.selected);

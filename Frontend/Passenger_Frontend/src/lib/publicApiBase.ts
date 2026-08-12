@@ -23,9 +23,10 @@ export function publicApiBaseCandidates(): string[] {
   }
   if (passenger) out.push(passenger);
   if (admin && !out.includes(admin)) out.push(admin);
-  if (out.length === 0) {
-    out.push(DEFAULT_PASSENGER);
-    out.push(DEFAULT_ADMIN);
+  const hasExplicitBases = Boolean(passenger || admin);
+  if (!hasExplicitBases) {
+    if (!out.includes(DEFAULT_PASSENGER)) out.push(DEFAULT_PASSENGER);
+    if (!out.includes(DEFAULT_ADMIN)) out.push(DEFAULT_ADMIN);
   } else if (import.meta.env.DEV && passenger && !admin && !out.includes(DEFAULT_ADMIN)) {
     out.push(DEFAULT_ADMIN);
   }
@@ -37,4 +38,17 @@ export function publicApiBaseCandidates(): string[] {
  */
 export function publicApiBase(): string {
   return publicApiBaseCandidates()[0] ?? DEFAULT_PASSENGER;
+}
+
+/**
+ * Origin for resolving site-relative asset URLs (e.g. `/uploads/...`) returned in public JSON.
+ */
+export function publicApiAssetOrigin(): string {
+  for (const b of publicApiBaseCandidates()) {
+    if (b && /^https?:\/\//i.test(b)) return b.replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, "");
+  }
+  return DEFAULT_PASSENGER;
 }

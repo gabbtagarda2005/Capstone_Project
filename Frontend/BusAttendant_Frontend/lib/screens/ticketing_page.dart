@@ -971,7 +971,7 @@ class _TicketingPageState extends State<TicketingPage> {
     final t = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = isDark ? MintObsidian.textPrimary : const Color(0xFF111827);
-    final sectionText = isDark ? MintObsidian.textSecondary.withOpacity(0.95) : const Color(0xFF64748B);
+    final sectionText = isDark ? MintObsidian.textSecondary.withValues(alpha: 0.95) : const Color(0xFF64748B);
     final locationRow = _locationRowCoverages();
     final tripReady = !_loadingTerminals && _terminalLoadError == null;
 
@@ -1350,7 +1350,7 @@ class _TicketingPageState extends State<TicketingPage> {
     return InputDecoration(
       labelText: label,
       hintText: hintText,
-      hintStyle: TextStyle(color: isDark ? MintObsidian.textSecondary.withOpacity(0.9) : const Color(0xFF9CA3AF), fontWeight: FontWeight.w500),
+      hintStyle: TextStyle(color: isDark ? MintObsidian.textSecondary.withValues(alpha: 0.9) : const Color(0xFF9CA3AF), fontWeight: FontWeight.w500),
       labelStyle: TextStyle(
         color: isDark ? MintObsidian.textSecondary : const Color(0xFF475569),
         fontWeight: FontWeight.w700,
@@ -1364,11 +1364,11 @@ class _TicketingPageState extends State<TicketingPage> {
       fillColor: isDark ? MintObsidian.surfaceElevated : const Color(0xFFF3F4F6),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.1) : const Color(0x1A111827)),
+        borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0x1A111827)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.1) : const Color(0x1A111827)),
+        borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0x1A111827)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

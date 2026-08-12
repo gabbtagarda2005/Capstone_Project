@@ -81,7 +81,11 @@ function parseStored(): AdminBranding {
 }
 
 function writeStored(b: AdminBranding) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
+  } catch {
+    /* QuotaExceededError: huge data-URL logos; branding still works from server after refresh. */
+  }
 }
 
 let memory = parseStored();

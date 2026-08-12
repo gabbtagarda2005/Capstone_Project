@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 import { pushAdminAudit } from "@/lib/adminAudit";
 import { useAuth } from "@/context/AuthContext";
 import { fetchAdminPortalSettings, putAdminPortalSettings } from "@/lib/api";
+import { compressRasterDataUrlToJpeg, normalizeBrandingLogoForSave } from "@/lib/compressBrandingLogo";
 import { searchNominatimBukidnon, type NominatimMappedHit } from "@/lib/nominatimBukidnon";
 import type { AdminPortalSettingsDto, AttendantAppAccessDto, PassengerAppAccessDto } from "@/lib/types";
 import { LS_SEC_GEOFENCE_PUSH, LS_SEC_SENSITIVE_REAUTH, readLsBool, writeLsBool } from "@/lib/settingsPrefs";
@@ -118,7 +120,16 @@ export function SettingsPage() {
   const isAuditor = rbac === "auditor";
   const isSuper = rbac === "super_admin" || user?.adminTier === "super";
 
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>("general");
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "general" || t === "security" || t === "branding" || t === "roles") {
+      setTab(t);
+    }
+  }, [searchParams]);
+
   const [portal, setPortal] = useState<AdminPortalSettingsDto | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [appAccessTab, setAppAccessTab] = useState<"attendant" | "passenger">("attendant");
@@ -343,11 +354,30 @@ export function SettingsPage() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      const r = reader.result;
-      if (typeof r === "string") {
-        setPendingSidebarDataUrl(r);
-        setLogoPreviewBroken(false);
-      }
+      void (async () => {
+        const r = reader.result;
+        if (typeof r !== "string") return;
+        try {
+          if (f.type === "image/svg+xml") {
+            if (r.length > 1_400_000) {
+              setFileHint("SVG is too large. Simplify the file or use PNG/WebP under 2MB.");
+              return;
+            }
+            setPendingSidebarDataUrl(r);
+          } else {
+            const out = await compressRasterDataUrlToJpeg(r, 512, 0.86);
+            setPendingSidebarDataUrl(out);
+            if (out.length < r.length * 0.92) {
+              setFileHint("Logo was resized for faster saves and passenger web.");
+              window.setTimeout(() => setFileHint(null), 5000);
+            }
+          }
+          setLogoPreviewBroken(false);
+        } catch {
+          setPendingSidebarDataUrl(r);
+          setLogoPreviewBroken(false);
+        }
+      })();
     };
     reader.readAsDataURL(f);
   };
@@ -477,7 +507,7 @@ export function SettingsPage() {
 
   const saveBranding = async () => {
     if (isAuditor) return;
-    const rawLogo = (pendingSidebarDataUrl ?? sidebarLogoField.trim()) || null;
+    let rawLogo = (pendingSidebarDataUrl ?? sidebarLogoField.trim()) || null;
     if (rawLogo && !isLikelyLogoSrc(rawLogo)) {
       setToolMsg("Logo must be an https URL or a data:image… data URL.");
       window.setTimeout(() => setToolMsg(null), 4000);
@@ -485,6 +515,14 @@ export function SettingsPage() {
     }
     setIsSaving(true);
     try {
+      try {
+        rawLogo = await normalizeBrandingLogoForSave(rawLogo);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Logo could not be prepared for save.";
+        setToolMsg(msg);
+        window.setTimeout(() => setToolMsg(null), 6000);
+        return;
+      }
       const r = await putAdminPortalSettings({
         branding: {
           companyName: companyName.trim() || "Bukidnon Bus Company",

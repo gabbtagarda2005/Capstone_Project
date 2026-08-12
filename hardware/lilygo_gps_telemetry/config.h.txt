@@ -9,14 +9,32 @@
 #define CELL_APN_PASS ""
 
 // -----------------------------------------------------------------------------
-// Admin API — must match Backend/Admin_Backend (see .env DEVICE_INGEST_SECRET)
-// Use HTTP on port 80, or terminate TLS on a reverse proxy and point the device at HTTP.
+// Admin API — must match Backend/Admin_Backend/.env
+//
+// If DEVICE_INGEST_API_KEY is set on the server, you MUST send the same value in
+// x-api-key from the device (define DEVICE_API_KEY below).
+// If DEVICE_INGEST_SECRET is set, send x-device-secret (DEVICE_INGEST_SECRET below).
+// If BOTH are set on the server, send BOTH headers from the device.
 // -----------------------------------------------------------------------------
 #define SERVER_HOST "your-server.com"
 #define SERVER_PORT 80
 #define SERVER_PATH "/api/hardware-telemetry"
-/** Leave empty only if DEVICE_INGEST_SECRET is unset on the server (dev only). */
+
+/** Leave "" only when DEVICE_INGEST_SECRET is unset on the server (dev only). */
 #define DEVICE_INGEST_SECRET ""
+/** Leave "" when DEVICE_INGEST_API_KEY is unset on the server. */
+#define DEVICE_API_KEY ""
+
+/**
+ * 0 = upload over cellular GPRS as plain HTTP (SERVER_PORT often 80).
+ * 1 = upload over ESP32 WiFi with TLS (use with ngrok https://… host, SERVER_PORT 443).
+ *     Modem is still used for GNSS; GPRS PDP context is not opened for uploads.
+ */
+#define USE_WIFI_FOR_HTTPS_UPLOAD 0
+
+// Dev WiFi — only when USE_WIFI_FOR_HTTPS_UPLOAD is 1
+#define WIFI_SSID "your_wifi_ssid"
+#define WIFI_PASS "your_wifi_password"
 
 // -----------------------------------------------------------------------------
 // LilyGO T-SIM7000G (common UART; verify against your board silkscreen)
@@ -31,7 +49,8 @@
 // -----------------------------------------------------------------------------
 // Behaviour
 // -----------------------------------------------------------------------------
-#define POST_INTERVAL_MS 5000
+#define POST_INTERVAL_MS 8000
+/** Cold start: give GNSS antenna clear sky; 30–60 s is typical before first fix. */
 #define GPS_WARMUP_MS 30000
 #define MAX_GPS_WAIT_MS 180000
 
@@ -39,11 +58,19 @@
 #define GPS_SMOOTH_SAMPLES 4
 
 /**
- * For AT+CGNSINF lat/lon fields:
- * 0 = decimal degrees (e.g. 8.1477).
- * 1 = NMEA-style DDMM.MMMM / DDDMM.MMMM — convert before sending.
- * ~1–5+ km error → try toggling 0 ↔ 1; test outside and compare to Google Maps at the same spot.
+ * For AT+CGNSINF lat/lon fields (depends on modem firmware):
+ *   0 = decimal degrees (e.g. 8.1477) — most common for SIM7000 JSON-style output.
+ *   1 = NMEA-style DDMM.MMMM / DDDMM.MMMM — enable if fixes are wrong by ~1–5 km.
+ * Compare a stationary outdoor reading to Google Maps at the same spot.
  */
-#define GNSS_COORDS_DDMM_FORMAT 1
+#define GNSS_COORDS_DDMM_FORMAT 0
+
+/**
+ * Optional: reject weak fixes (parsed from +CGNSINF HDOP and satellites-used fields).
+ * Use 0 to disable each check if your modem omits those fields or you need every fix.
+ * Recommended when stable: GPS_MIN_SATELLITES_USED 4, GPS_MAX_HDOP 3.0f
+ */
+#define GPS_MIN_SATELLITES_USED 0
+#define GPS_MAX_HDOP 0.0f
 
 #endif

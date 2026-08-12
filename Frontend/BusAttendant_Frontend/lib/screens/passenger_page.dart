@@ -117,7 +117,7 @@ class _PassengerPageState extends State<PassengerPage> {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withOpacity(0.08)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
         title: const Text('Ticket details', style: TextStyle(color: MintObsidian.textPrimary)),
         content: Column(
@@ -357,7 +357,7 @@ class _PassengerPageState extends State<PassengerPage> {
               style: const TextStyle(color: MintObsidian.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Search ticket code, route, or category',
-                hintStyle: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.85)),
+                hintStyle: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.85)),
                 prefixIcon: const Icon(Icons.search_rounded, color: MintObsidian.ocean),
                 suffixIcon: IconButton(
                   onPressed: _runSearch,
@@ -367,11 +367,11 @@ class _PassengerPageState extends State<PassengerPage> {
                 fillColor: MintObsidian.surfaceElevated,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -388,7 +388,7 @@ class _PassengerPageState extends State<PassengerPage> {
                     ? 'Sign in again if ticket list stays empty (ticketing session required).'
                     : 'Sync location on an assigned bus (Home) to enable ticket corrections (driver PIN).',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.9), fontSize: 12),
+                style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.9), fontSize: 12),
               ),
             ),
           Expanded(
@@ -417,7 +417,7 @@ class _PassengerPageState extends State<PassengerPage> {
                       children: [
                         Text(
                           'Could not load issued tickets',
-                          style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95)),
+                          style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.95)),
                         ),
                       ],
                     );
@@ -462,11 +462,11 @@ class _PassengerPageState extends State<PassengerPage> {
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: MintObsidian.surface.withOpacity(0.95),
+                          color: MintObsidian.surface.withValues(alpha: 0.95),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 6)),
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 6)),
                           ],
                         ),
                         child: Row(
@@ -482,7 +482,7 @@ class _PassengerPageState extends State<PassengerPage> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       CircleAvatar(
-                                        backgroundColor: MintObsidian.mint.withOpacity(0.22),
+                                        backgroundColor: MintObsidian.mint.withValues(alpha: 0.22),
                                         child: Text(
                                           t.ticketCode.isNotEmpty ? t.ticketCode[0].toUpperCase() : '#',
                                           style: const TextStyle(fontWeight: FontWeight.w800, color: MintObsidian.mint),
@@ -499,15 +499,15 @@ class _PassengerPageState extends State<PassengerPage> {
                                             ),
                                             Text(
                                               '₱${t.fare.toStringAsFixed(2)}',
-                                              style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95), fontSize: 12),
+                                              style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.95), fontSize: 12),
                                             ),
                                             Text(
                                               routeShort,
-                                              style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95), fontSize: 12),
+                                              style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.95), fontSize: 12),
                                             ),
                                             Text(
                                               '$dateStr $timeStr',
-                                              style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.85), fontSize: 11),
+                                              style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.85), fontSize: 11),
                                             ),
                                           ],
                                         ),
@@ -522,7 +522,7 @@ class _PassengerPageState extends State<PassengerPage> {
                               onPressed: _canEditTickets ? () => _openDriverPinSheet(t) : null,
                               icon: Icon(
                                 Icons.edit_rounded,
-                                color: _canEditTickets ? MintObsidian.ocean : MintObsidian.textSecondary.withOpacity(0.35),
+                                color: _canEditTickets ? MintObsidian.ocean : MintObsidian.textSecondary.withValues(alpha: 0.35),
                               ),
                             ),
                           ],

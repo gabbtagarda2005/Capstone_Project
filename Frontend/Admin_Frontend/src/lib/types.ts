@@ -35,6 +35,10 @@ export type BusLiveLogRow = {
   etaTargetIso?: string | null;
   nextTerminal?: string | null;
   trafficDelay?: boolean;
+  /** Online/unstable/offline classification from the last published fix's age (server-computed). */
+  status?: "online" | "unstable" | "offline" | null;
+  /** Active GPS source in plain terms — "none" once both phone and LILYGO have gone quiet. */
+  gpsSource?: "phone" | "lilygo" | "none" | null;
 };
 
 export type FleetHardwareStatusRow = {
@@ -162,6 +166,21 @@ export type AttendantVerifiedSummary = {
   profileImageUrl?: string | null;
 };
 
+export type AttendantAssignmentPeriod = {
+  busId: string;
+  busNumber: string | null;
+  assignedAt: string;
+  /** null while still active. */
+  unassignedAt: string | null;
+};
+
+export type AttendantAssignmentHistoryDto = {
+  items: AttendantAssignmentPeriod[];
+  date: string | null;
+  /** Only set when a `date` was requested — the one assignment (if any) active that day. */
+  activeOnDate: AttendantAssignmentPeriod | null;
+};
+
 export type LoginLogRow = {
   logId: number;
   operatorId: number;
@@ -219,6 +238,9 @@ export type AdminAuditLogRowDto = {
   timestamp: string;
   source?: string;
   statusCode?: number | null;
+  /** Present when logged from HTTP middleware (helps humanize without parsing `details`). */
+  path?: string;
+  httpMethod?: string;
 };
 
 export type FareHistoryRowDto = {
@@ -506,7 +528,7 @@ export type DailyOpsSnapshotListDto = {
   message?: string;
 };
 
-export type AdminRbacRole = "super_admin" | "fleet_manager" | "auditor";
+export type AdminRbacRole = "super_admin" | "fleet_manager" | "auditor" | "it_support";
 
 /** GET /api/passenger-feedback/dashboard — passenger feedback intelligence payload */
 export type PassengerFeedbackAbout = "bus" | "driver" | "attendant" | "location";

@@ -5,6 +5,7 @@ import { fetchPublicCompanyProfile } from "@/lib/api";
 import img1 from "@/Image/1.jpg";
 import img2 from "@/Image/2.jpg";
 import img3 from "@/Image/3.jpg";
+import { AppDownloadCard } from "@/components/AppDownloadCard";
 import "./LandingPage.css";
 
 const ShieldIcon = () => (
@@ -99,7 +100,7 @@ const ROADMAP_STEPS = [
 ];
 
 export function LandingPage() {
-  const [companyName, setCompanyName] = useState("Transit operations");
+  const [companyName, setCompanyName] = useState("Bukidnon Bus Company");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -146,7 +147,8 @@ export function LandingPage() {
             <div className="landing-hero__copy">
               <p className="landing-hero__eyebrow">Real-time · IoT · Operations</p>
               <h1 className="landing-hero__title">
-                Welcome to <span>{companyName}</span>
+                <span className="landing-hero__title-welcome">Welcome to</span>{" "}
+                <span className="landing-hero__title-brand">{companyName}</span>
               </h1>
               <p className="landing-hero__desc">
                 A distributed transport operations platform: LilyGo GPS ingestion, live fleet maps, Bus Attendant
@@ -175,10 +177,13 @@ export function LandingPage() {
 
       <section className="landing-part landing-part--2" style={part2Bg} aria-label="Overview and roadmap">
         <div className="landing-part--2__shell">
+          <div className="landing-app-download-wrap">
+            <AppDownloadCard />
+          </div>
           <section className="landing-section landing-section--operational">
             <div className="landing-section__head">
               <h2>Operational mix</h2>
-              <p>How effort typically splits across the ecosystem (illustrative for planning).</p>
+              <p>How effort typically splits across the ecosystem.</p>
             </div>
             <div className="landing-split">
               <div className="landing-donut-wrap">

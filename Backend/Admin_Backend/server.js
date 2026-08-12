@@ -52,6 +52,10 @@ const {
 const { requireAdminJwt } = require("./middleware/requireAdminJwt");
 const { createNominatimProxyRouter } = require("./routes/nominatimProxy");
 const { ingestDeviceGps } = require("./services/attendantGpsIngest");
+const { assertDeviceIngestAllowed, normalizeHardwareLatLngBody } = require("./services/deviceIngestAuth");
+const { apiMetricsMiddleware } = require("./middleware/apiMetrics");
+const { logSystemEvent } = require("./services/systemHealthLog");
+const { getProcessMetrics } = require("./services/processMetrics");
 
 const app = express();
 const server = http.createServer(app);
@@ -99,12 +103,37 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use((err, _req, res, next) => {
+/** Branding `sidebarLogoUrl` may be a large data:image/… URL; default 100kb is too small → 413. */
+const jsonBodyLimit = (process.env.JSON_BODY_LIMIT || "12mb").trim() || "12mb";
+app.use(express.json({ limit: jsonBodyLimit }));
+app.use((err, req, res, next) => {
   if (err?.type === "entity.parse.failed") {
+    logSystemEvent({ level: "warn", service: "Admin API", message: `Invalid JSON body on ${req.method} ${req.originalUrl}` });
     return res.status(400).json({ error: "Invalid JSON in request body" });
   }
+  if (err?.type === "entity.too.large" || err?.status === 413) {
+    logSystemEvent({ level: "warn", service: "Admin API", message: `Oversized request body on ${req.method} ${req.originalUrl}` });
+    return res.status(413).json({
+      error: `Request body exceeds JSON limit (${jsonBodyLimit}). Use a smaller logo, a hosted https:// image URL, or raise JSON_BODY_LIMIT in .env.`,
+    });
+  }
   return next(err);
+});
+
+/** Real per-route request counts / avg latency / error counts — feeds the System Health API table. */
+app.use(apiMetricsMiddleware);
+
+/** IT accounts are locked to read-only system-health endpoints; Auditor/Fleet Manager scoping. */
+app.use(enforceAdminRbac);
+
+mongoose.connection.on("error", (err) => {
+  logSystemEvent({ level: "error", service: "MongoDB", message: err?.message || "Connection error" });
+});
+mongoose.connection.on("disconnected", () => {
+  logSystemEvent({ level: "critical", service: "MongoDB", message: "Connection lost" });
+});
+mongoose.connection.on("reconnected", () => {
+  logSystemEvent({ level: "info", service: "MongoDB", message: "Connection restored" });
 });
 
 /** Before any route needs `io` (e.g. passenger-lost-item → commandAlert). */
@@ -131,11 +160,13 @@ app.use("/api", createStaffProfileRouter());
 
 /** LILYGO primary endpoint alias (same ingest path as /api/buses/hardware-telemetry). */
 app.post("/api/hardware-telemetry", async (req, res) => {
-  const secret = process.env.DEVICE_INGEST_SECRET;
-  if (secret && req.headers["x-device-secret"] !== secret) {
-    return res.status(401).json({ error: "Invalid device secret" });
+  try {
+    assertDeviceIngestAllowed(req);
+  } catch (authErr) {
+    const code = authErr.statusCode || 401;
+    return res.status(code).json({ error: authErr.message });
   }
-  const body = req.body || {};
+  const body = normalizeHardwareLatLngBody(req.body || {});
   let busId = body.bus_id != null ? String(body.bus_id).trim() : body.busId != null ? String(body.busId).trim() : "";
   const imei = body.imei != null ? String(body.imei).replace(/\D/g, "") : "";
   const lat = body.lat ?? body.latitude;
@@ -267,6 +298,19 @@ app.get("/", (_req, res) => {
   });
 });
 
+/** Tracks last-seen state per dependency so /health only logs real transitions, never every poll. */
+const lastHealthState = { mongo: null, firebaseRtdb: null, smtp: null };
+function logIfChanged(key, service, nextState, isBad) {
+  const prev = lastHealthState[key];
+  lastHealthState[key] = nextState;
+  if (prev === null || prev === nextState) return; // first observation since boot, or no change
+  logSystemEvent({
+    level: isBad ? "error" : "info",
+    service,
+    message: isBad ? `${service} is now "${nextState}"` : `${service} recovered — now "${nextState}"`,
+  });
+}
+
 app.get("/health", async (_req, res) => {
   const { getFirebaseRtdbHealth } = require("./config/firebaseAdmin");
   let firebaseRtdb = "disabled";
@@ -277,11 +321,14 @@ app.get("/health", async (_req, res) => {
   }
   // gps_logs row count — matches GET /api/buses/live; 0 until attendant live-location succeeds.
   let gpsLiveBusCount = null;
+  let gpsActiveLast5Min = null;
   if (mongoose.connection.readyState === 1) {
     try {
       gpsLiveBusCount = await GpsLog.countDocuments();
+      gpsActiveLast5Min = await GpsLog.countDocuments({ updatedAt: { $gte: new Date(Date.now() - 5 * 60_000) } });
     } catch {
       gpsLiveBusCount = null;
+      gpsActiveLast5Min = null;
     }
   }
   const gpsHint =
@@ -289,11 +336,17 @@ app.get("/health", async (_req, res) => {
       ? "Zero rows in gps_logs yet. Either: (1) Admin View Location → Live fleet → Place test GPS pin, or POST /api/buses/admin/test-gps with admin JWT; or (2) attendant Go live + POST /api/buses/live-location 204 (bus assigned in Management)."
       : null;
   const smtpReady = isOtpEmailConfigured();
+  const mongoState = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+
+  logIfChanged("mongo", "MongoDB", mongoState, mongoState !== "connected");
+  logIfChanged("firebaseRtdb", "Firebase hybrid", firebaseRtdb, firebaseRtdb === "error");
+  logIfChanged("smtp", "Mail (SMTP)", smtpReady ? "configured" : "not_configured", !smtpReady);
+
   res.json({
     ok: true,
     service: "admin-api",
     databaseMode: "mongodb",
-    mongo: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    mongo: mongoState,
     firebaseRtdb,
     adminLogin: "mongodb(portal_users)",
     otpEmailConfigured: smtpReady,
@@ -301,7 +354,13 @@ app.get("/health", async (_req, res) => {
     smtpProvider: describeMailProvider(),
     driverSignupBase: "/api/driver-signup",
     gpsLiveBusCount,
+    gpsActiveLast5Min,
     ...(gpsHint ? { gpsLiveHint: gpsHint } : {}),
+    socketConnections: io.engine.clientsCount,
+    smsConfigured: Boolean(process.env.IPROG_API_TOKEN),
+    authConfigured: Boolean(process.env.JWT_SECRET),
+    reportsAvailable: true,
+    ...getProcessMetrics(),
   });
 });
 
@@ -423,6 +482,86 @@ app.get("/api/public/operations-deck", async (_req, res) => {
     res.json({ operationsDeckLive: live });
   } catch (e) {
     res.status(500).json({ error: e.message || "operations-deck failed" });
+  }
+});
+
+/**
+ * Passenger landing highlights backed by live fleet + ticketing records.
+ * - activeRoutes: distinct active bus routes (fallback to corridor definitions)
+ * - monthlyPassengers: ticket records issued this Manila month
+ * - onTimeTargetPct: ratio of live-board rows inside delay threshold
+ */
+app.get("/api/public/passenger-highlights", async (_req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({ activeRoutes: 0, monthlyPassengers: 0, onTimeTargetPct: null, basisCount: 0 });
+    }
+
+    const { getPortalSettingsLean, isOperationsDeckLive } = require("./services/adminPortalSettingsService");
+    const IssuedTicketRecord = require("./models/IssuedTicketRecord");
+
+    const operationsDeckLive = await isOperationsDeckLive();
+    if (!operationsDeckLive) {
+      return res.json({ activeRoutes: 0, monthlyPassengers: 0, onTimeTargetPct: null, basisCount: 0 });
+    }
+
+    const now = new Date();
+    const manilaNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+    const startOfMonthManila = new Date(manilaNow.getFullYear(), manilaNow.getMonth(), 1, 0, 0, 0, 0);
+    const nextMonthManila = new Date(manilaNow.getFullYear(), manilaNow.getMonth() + 1, 1, 0, 0, 0, 0);
+    const monthStartUtc = new Date(startOfMonthManila.getTime() - 8 * 60 * 60 * 1000);
+    const monthEndUtc = new Date(nextMonthManila.getTime() - 8 * 60 * 60 * 1000);
+
+    const [buses, corridorFallbackCount, monthlyPassengers, settings, boardPayload] = await Promise.all([
+      Bus.find({ status: { $ne: "Inactive" } }).select("route").lean(),
+      CorridorRoute.countDocuments({ suspended: { $ne: true } }).catch(() => 0),
+      IssuedTicketRecord.countDocuments({ createdAt: { $gte: monthStartUtc, $lt: monthEndUtc } }).catch(() => 0),
+      getPortalSettingsLean(),
+      buildPublicPayload(),
+    ]);
+
+    const routeKeys = new Set();
+    for (const b of buses || []) {
+      const route = String(b?.route || "").trim();
+      if (!route) continue;
+      routeKeys.add(route.toLowerCase());
+    }
+    const activeRoutes = routeKeys.size > 0 ? routeKeys.size : Number(corridorFallbackCount) || 0;
+
+    const delayThresholdRaw = Number(settings?.delayThresholdMinutes);
+    const delayThreshold = Number.isFinite(delayThresholdRaw)
+      ? Math.max(1, Math.min(120, Math.round(delayThresholdRaw)))
+      : 15;
+
+    const boardItems = Array.isArray(boardPayload?.items) ? boardPayload.items : [];
+    let basisCount = 0;
+    let onTimeCount = 0;
+    for (const item of boardItems) {
+      const status = String(item?.status || "").toLowerCase();
+      if (status === "cancelled") continue;
+      const eta = item?.etaMinutes;
+      if (Number.isFinite(Number(eta))) {
+        basisCount += 1;
+        if (Number(eta) <= delayThreshold) onTimeCount += 1;
+        continue;
+      }
+      if (status === "arriving") {
+        basisCount += 1;
+        onTimeCount += 1;
+      }
+    }
+
+    const onTimeTargetPct = basisCount > 0 ? Math.round((onTimeCount / basisCount) * 100) : null;
+    res.setHeader("Cache-Control", "public, max-age=20");
+    return res.json({
+      activeRoutes,
+      monthlyPassengers: Number(monthlyPassengers) || 0,
+      onTimeTargetPct,
+      basisCount,
+      delayThresholdMinutes: delayThreshold,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "passenger highlights failed" });
   }
 });
 
@@ -653,6 +792,14 @@ app.use("/api", (req, res) => {
   res.status(404).json({
     error: "Endpoint not found.",
   });
+});
+
+/** Real catch-all for anything a route threw or forwarded via next(err) — feeds System Health's error log. */
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const service = String(req.originalUrl || "").split("/")[2] || "Admin API";
+  logSystemEvent({ level: "error", service, message: `${req.method} ${req.originalUrl}: ${err?.message || "Unhandled error"}` });
+  res.status(err?.status || 500).json({ error: err?.message || "Internal server error" });
 });
 
 console.log("Mongo-only mode enabled. SQL ticketing modules are disabled.");

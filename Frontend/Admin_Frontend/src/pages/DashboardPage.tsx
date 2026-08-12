@@ -24,6 +24,7 @@ import {
   totalPassengersAllTime,
   totalRevenueAllTime,
 } from "@/lib/chartAggregates";
+import { shortPickupLocationLabel } from "@/lib/humanizeAdminAudit";
 import type { TicketRow } from "@/lib/types";
 import dashboardBackground from "@/Design/DashboardBackground.png";
 import "./analytics.css";
@@ -340,9 +341,9 @@ export function DashboardPage() {
               <div style={{ marginTop: "0.75rem" }}>
                 {topLocations.map((loc, i) => (
                   <div key={loc.name} className="neo-list-row">
-                    <span style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ display: "flex", alignItems: "center" }} title={loc.name}>
                       <span className="neo-dot" style={{ background: ["#22d3ee", "#fb923c", "#a3e635", "#a855f7", "#38bdf8"][i] }} />
-                      {loc.name}
+                      {shortPickupLocationLabel(loc.name)}
                     </span>
                     <span>{Math.round((loc.count / topLocTotal) * 100)}%</span>
                   </div>

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkline } from "@/components/Sparkline";
 import { useAuth } from "@/context/AuthContext";
-import { isFirebaseAuthConfigured } from "@/lib/firebase";
+import { FleetHardwareSummary } from "@/components/FleetHardwareSummary";
 import { api, fetchAdminPortalSettings, putAdminPortalSettings } from "@/lib/api";
 import {
   COMMAND_CENTER_BROADCAST,
@@ -13,16 +12,6 @@ import {
 import { fetchWeatherApiSpot, getWeatherApiKey } from "@/lib/weatherApi";
 import { COMMAND_WEATHER_SPOTS, type CommandWeatherRow, weatherEmoji, weatherLabelFromCode } from "@/pages/commandCenterWeather";
 import "./CommandCenterPage.css";
-
-const SPARK_LEN = 48;
-
-type Health = {
-  api: string;
-  mongo: string;
-  firebaseRtdb: string;
-  smtp: "configured" | "not_configured" | "unknown";
-  smtpProvider: string | null;
-};
 
 type CoverageTerminalLean = {
   _id: string;
@@ -42,14 +31,6 @@ function defaultWeatherSpots(): CommandCenterWeatherSpot[] {
   }));
 }
 
-function padSparkHistory(hist: number[], len: number, fallback: number): number[] {
-  const h = hist.slice(-len);
-  if (h.length >= len) return h;
-  const pad = len - h.length;
-  const f: number = h.length > 0 ? (h[0] ?? fallback) : fallback;
-  return [...Array.from({ length: pad }, (): number => f), ...h];
-}
-
 export function CommandCenterPage() {
   const id = useId();
   const navigate = useNavigate();
@@ -58,22 +39,6 @@ export function CommandCenterPage() {
   const [live, setLive] = useState(true);
   const [deckLoading, setDeckLoading] = useState(true);
   const [sentFlash, setSentFlash] = useState<string | null>(null);
-  const [health, setHealth] = useState<Health>({
-    api: "unknown",
-    mongo: "unknown",
-    firebaseRtdb: "unknown",
-    smtp: "unknown",
-    smtpProvider: null,
-  });
-  const [dbPingMs, setDbPingMs] = useState<number | null>(null);
-  const [apiSpark, setApiSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
-  const [mongoSpark, setMongoSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
-  const [fbSpark, setFbSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
-  const [smtpSpark, setSmtpSpark] = useState<number[]>(() => Array(SPARK_LEN).fill(0));
-  const apiHistRef = useRef<number[]>([]);
-  const mongoHistRef = useRef<number[]>([]);
-  const fbHistRef = useRef<number[]>([]);
-  const smtpHistRef = useRef<number[]>([]);
   const [weather, setWeather] = useState<Record<string, CommandWeatherRow>>({});
   const [weatherSpots, setWeatherSpots] = useState<CommandCenterWeatherSpot[]>(defaultWeatherSpots);
 
@@ -189,90 +154,6 @@ export function CommandCenterPage() {
     };
   }, [weatherSpots]);
 
-  useEffect(() => {
-    const roll = (ref: { current: number[] }, sample: number) => {
-      ref.current = [...ref.current, sample].slice(-SPARK_LEN);
-      return padSparkHistory(ref.current, SPARK_LEN, sample);
-    };
-
-    const pullHealth = async () => {
-      try {
-        const t0 = performance.now();
-        const h = await api<{
-          ok: boolean;
-          mongo: string;
-          firebaseRtdb?: string;
-          smtp?: string;
-          smtpProvider?: string | null;
-          otpEmailConfigured?: boolean;
-        }>("/health");
-        const ms = Math.round(performance.now() - t0);
-        setDbPingMs(ms);
-        const apiOk = h.ok;
-        const mongoOk = h.mongo === "connected";
-        const rtdb = h.firebaseRtdb ?? "unknown";
-        const smtpConfigured = h.smtp === "configured" || h.otpEmailConfigured === true;
-        const smtpNotSet =
-          h.smtp === "not_configured" || (h.otpEmailConfigured === false && h.smtp !== "configured");
-        const smtpProvider =
-          smtpConfigured && typeof h.smtpProvider === "string" && h.smtpProvider.trim()
-            ? h.smtpProvider.trim()
-            : null;
-        setHealth({
-          api: apiOk ? "online" : "degraded",
-          mongo: h.mongo,
-          firebaseRtdb: rtdb,
-          smtp: smtpConfigured ? "configured" : smtpNotSet ? "not_configured" : "unknown",
-          smtpProvider,
-        });
-        const fbOk =
-          isFirebaseAuthConfigured() && (rtdb === "connected" || rtdb === "disabled");
-        const apiSample = Math.min(2500, Math.max(5, apiOk ? ms : ms + 220));
-        const mongoSample = Math.min(2500, Math.max(5, mongoOk ? Math.round(ms * 0.98) : ms + 180));
-        const fbSample = Math.min(2500, Math.max(5, fbOk ? Math.round(ms * 0.42) : ms + 140));
-        const smtpSample = Math.min(2500, Math.max(5, smtpConfigured ? Math.round(ms * 0.22) : ms + 160));
-        setApiSpark(roll(apiHistRef, apiSample));
-        setMongoSpark(roll(mongoHistRef, mongoSample));
-        setFbSpark(roll(fbHistRef, fbSample));
-        setSmtpSpark(roll(smtpHistRef, smtpSample));
-      } catch {
-        setHealth({
-          api: "offline",
-          mongo: "unknown",
-          firebaseRtdb: "unknown",
-          smtp: "unknown",
-          smtpProvider: null,
-        });
-        setDbPingMs(null);
-        const bad = 888;
-        setApiSpark(roll(apiHistRef, bad));
-        setMongoSpark(roll(mongoHistRef, bad));
-        setFbSpark(roll(fbHistRef, bad));
-        setSmtpSpark(roll(smtpHistRef, bad));
-      }
-    };
-    void pullHealth();
-    const idInt = window.setInterval(() => void pullHealth(), 8000);
-    return () => window.clearInterval(idInt);
-  }, []);
-
-  const firebaseOnline = isFirebaseAuthConfigured();
-
-  const networkPulseAlert = useMemo(() => {
-    if (health.api === "unknown" && dbPingMs == null) return false;
-    if (health.api === "offline" || health.api === "degraded") return true;
-    if (health.mongo !== "unknown" && health.mongo !== "connected") return true;
-    if (
-      firebaseOnline &&
-      health.firebaseRtdb !== "unknown" &&
-      health.firebaseRtdb !== "connected" &&
-      health.firebaseRtdb !== "disabled"
-    ) {
-      return true;
-    }
-    return false;
-  }, [health, dbPingMs, firebaseOnline]);
-
   return (
     <div className="command-center command-center--tactical command-center--hub">
       <header className="command-center__hero">
@@ -303,117 +184,14 @@ export function CommandCenterPage() {
       {sentFlash ? <div className="command-center__flash">{sentFlash}</div> : null}
 
       <div className="command-center__hub-layout">
-        <div className="command-center__hub-row">
-          <section
-            className={
-              "command-center__card command-center__card--glass command-center__card--network-pulse" +
-              (networkPulseAlert ? " command-center__card--network-pulse--alert" : "")
-            }
-            aria-labelledby={`${id}-health`}
-          >
-            <h2 id={`${id}-health`} className="command-center__h2">
-              Network pulse
-            </h2>
-            <ul className="command-center__health-grid">
-            <li className="command-center__health-tile">
-              <div className="command-center__health-tile-top">
-                <span className="command-center__health-label">
-                  <span className={"command-center__ping" + (health.api === "online" ? " command-center__ping--on" : "")} aria-hidden />
-                  Admin API
-                </span>
-                <span className={"command-center__pill " + (health.api === "online" ? "command-center__pill--ok" : "command-center__pill--bad")}>{health.api}</span>
-              </div>
-              <Sparkline values={apiSpark} stroke="rgba(34, 211, 238, 0.95)" fill="rgba(34, 211, 238, 0.1)" className="command-center__spark" />
-              <span className="command-center__spark-caption">Last ping {dbPingMs != null ? `${dbPingMs} ms` : "—"}</span>
-              {health.api === "offline" ? (
-                <button
-                  type="button"
-                  className="command-center__btn command-center__btn--resync"
-                  onClick={() => {
-                    setSentFlash("Re-sync signal sent. Retrying health handshake…");
-                    window.setTimeout(() => setSentFlash(null), 2400);
-                  }}
-                >
-                  Re-sync
-                </button>
-              ) : null}
-            </li>
-            <li className="command-center__health-tile">
-              <div className="command-center__health-tile-top">
-                <span className="command-center__health-label">
-                  <span className={"command-center__ping command-center__ping--breathing" + (health.mongo === "connected" ? " command-center__ping--on" : "")} aria-hidden />
-                  MongoDB
-                </span>
-                <span className={"command-center__pill " + (health.mongo === "connected" ? "command-center__pill--ok" : "command-center__pill--bad")}>{health.mongo}</span>
-              </div>
-              <Sparkline values={mongoSpark} stroke="rgba(167, 139, 250, 0.95)" fill="rgba(167, 139, 250, 0.1)" className="command-center__spark" />
-            </li>
-            <li className="command-center__health-tile">
-              <div className="command-center__health-tile-top">
-                <span className="command-center__health-label">
-                  <span
-                    className={
-                      "command-center__ping command-center__ping--breathing" +
-                      (firebaseOnline && (health.firebaseRtdb === "connected" || health.firebaseRtdb === "disabled") ? " command-center__ping--on" : "")
-                    }
-                    aria-hidden
-                  />
-                  Firebase hybrid
-                </span>
-                <span
-                  className={
-                    "command-center__pill " +
-                    (health.firebaseRtdb === "connected" ? "command-center__pill--ok" : health.firebaseRtdb === "disabled" ? "command-center__pill--warn" : "command-center__pill--bad")
-                  }
-                >
-                  {health.firebaseRtdb === "connected" ? "RTDB live" : health.firebaseRtdb === "disabled" ? "RTDB off" : health.firebaseRtdb}
-                </span>
-              </div>
-              <Sparkline values={fbSpark} stroke="rgba(251, 191, 36, 0.9)" fill="rgba(251, 191, 36, 0.08)" className="command-center__spark" />
-            </li>
-            <li className="command-center__health-tile">
-              <div className="command-center__health-tile-top">
-                <span className="command-center__health-label">
-                  <span
-                    className={
-                      "command-center__ping command-center__ping--breathing" +
-                      (health.smtp === "configured" ? " command-center__ping--on" : "")
-                    }
-                    aria-hidden
-                  />
-                  Mail (SMTP)
-                </span>
-                <span
-                  className={
-                    "command-center__pill " +
-                    (health.smtp === "configured"
-                      ? "command-center__pill--ok"
-                      : health.smtp === "not_configured"
-                        ? "command-center__pill--warn"
-                        : "command-center__pill--bad")
-                  }
-                >
-                  {health.smtp === "configured"
-                    ? "Ready"
-                    : health.smtp === "not_configured"
-                      ? "Not set"
-                      : "—"}
-                </span>
-              </div>
-              <Sparkline values={smtpSpark} stroke="rgba(244, 114, 182, 0.92)" fill="rgba(244, 114, 182, 0.1)" className="command-center__spark" />
-              <span className="command-center__spark-caption">
-                {health.smtp === "configured" && health.smtpProvider
-                  ? health.smtpProvider
-                  : health.smtp === "configured"
-                    ? "Env configured (OTP & digests)"
-                    : health.smtp === "not_configured"
-                      ? "Add SENDGRID_API_KEY or SMTP_* in .env"
-                      : "—"}
-              </span>
-            </li>
-          </ul>
-          </section>
+        <section className="command-center__card command-center__card--glass" aria-labelledby={`${id}-sensors`}>
+          <h2 id={`${id}-sensors`} className="command-center__h2">
+            Fleet sensors
+          </h2>
+          <FleetHardwareSummary />
+        </section>
 
+        <div className="command-center__hub-row command-center__hub-row--single">
           <section className="command-center__card command-center__card--glass" aria-labelledby={`${id}-wx`}>
             <h2 id={`${id}-wx`} className="command-center__h2">
               Weather overlay
@@ -458,8 +236,8 @@ export function CommandCenterPage() {
             <span className="command-center__hub-btn-hint">Deck flag &amp; settings</span>
           </button>
           <button type="button" className="command-center__hub-btn command-center__hub-btn--broadcast" onClick={() => navigate(COMMAND_CENTER_FLEET_SENSORS)}>
-            <span className="command-center__hub-btn-label">Fleet sensors</span>
-            <span className="command-center__hub-btn-hint">Wi-Fi/LTE link, voltage, LTE dBm, last seen timer</span>
+            <span className="command-center__hub-btn-label">System health</span>
+            <span className="command-center__hub-btn-hint">Admin API, database, Firebase &amp; mail status</span>
           </button>
         </nav>
       </div>

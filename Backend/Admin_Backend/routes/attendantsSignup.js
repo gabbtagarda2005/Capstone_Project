@@ -9,9 +9,13 @@ const { requireAdminJwt } = require("../middleware/requireAdminJwt");
 const { requireAttendantSignupJwt } = require("../middleware/requireAttendantSignupJwt");
 const AttendantSignupOtp = require("../models/AttendantSignupOtp");
 const AttendantRegistry = require("../models/AttendantRegistry");
+const AttendantAssignmentHistory = require("../models/AttendantAssignmentHistory");
+const Bus = require("../models/Bus");
 const PortalUser = require("../models/PortalUser");
 const { sendAttendantSignupOtpEmail } = require("../services/mailer");
 const { allocateUniqueSixDigit } = require("../services/personnelSixDigit");
+const { isValidYmd, manilaDayStartUtc, manilaDayEndUtc } = require("../services/manilaTime");
+const { ensureAssignmentRecorded } = require("../services/attendantAssignmentHistory");
 
 const MAX_PROFILE_IMAGE_CHARS = 400_000;
 
@@ -121,6 +125,70 @@ function createAttendantsSignupRouter() {
       res.json({ items });
     } catch (e) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  /**
+   * Day-by-day trail of which bus this attendant was assigned to (Management → Attendants →
+   * assignment history). Optional `date=YYYY-MM-DD` (Manila calendar day) also resolves which
+   * single assignment, if any, was active that day.
+   */
+  router.get("/:id/assignment-history", requireAdminJwt, async (req, res) => {
+    try {
+      const spec = resolveOperatorIdParam(req.params.id);
+      if (!spec) return res.status(400).json({ error: "Invalid attendant id" });
+      const key = spec.kind === "portal" ? `portal:${String(spec.portalUserId)}` : `mysql:${spec.mysqlOperatorId}`;
+
+      // Self-heal: an assignment made before this feature existed (or otherwise missed) has no
+      // history row yet — backfill from the bus's own current assignment before reading history.
+      const currentBusQuery =
+        spec.kind === "portal" ? { operatorPortalUserId: spec.portalUserId } : { operatorMysqlId: spec.mysqlOperatorId };
+      const currentBus = await Bus.findOne(currentBusQuery)
+        .select("busId busNumber operatorPortalUserId operatorMysqlId createdAt lastUpdated")
+        .lean();
+      if (currentBus) {
+        await ensureAssignmentRecorded(currentBus).catch((e) =>
+          console.warn("[assignment-history] ensureAssignmentRecorded:", e.message || e)
+        );
+      }
+
+      const dateRaw = typeof req.query.date === "string" ? req.query.date.trim() : "";
+      let activeOnDate = null;
+      if (dateRaw) {
+        if (!isValidYmd(dateRaw)) {
+          return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+        }
+        const dayStart = manilaDayStartUtc(dateRaw);
+        const dayEnd = manilaDayEndUtc(dateRaw);
+        const row = await AttendantAssignmentHistory.findOne({
+          attendantKey: key,
+          assignedAt: { $lte: dayEnd },
+          $or: [{ unassignedAt: null }, { unassignedAt: { $gte: dayStart } }],
+        })
+          .sort({ assignedAt: -1 })
+          .lean();
+        activeOnDate = row
+          ? { busId: row.busId, busNumber: row.busNumber, assignedAt: row.assignedAt, unassignedAt: row.unassignedAt }
+          : null;
+      }
+
+      const rows = await AttendantAssignmentHistory.find({ attendantKey: key })
+        .sort({ assignedAt: -1 })
+        .limit(200)
+        .lean();
+
+      res.json({
+        items: rows.map((r) => ({
+          busId: r.busId,
+          busNumber: r.busNumber,
+          assignedAt: r.assignedAt,
+          unassignedAt: r.unassignedAt,
+        })),
+        date: dateRaw || null,
+        activeOnDate,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Could not load assignment history" });
     }
   });
 

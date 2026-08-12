@@ -148,6 +148,23 @@ function broadcastLocationUpdate(io, payload) {
     io.emit("location_update", locAlt);
   }
   broadcastBusLocationUpdate(io, payload);
+
+  // Canonical phone-primary/LILYGO-backup event — additive, does not replace the legacy events above.
+  const canonicalBusId = payload.busId != null ? String(payload.busId) : "";
+  const canonicalLat = Number(payload.latitude);
+  const canonicalLng = Number(payload.longitude);
+  if (canonicalBusId && Number.isFinite(canonicalLat) && Number.isFinite(canonicalLng)) {
+    const canonicalEnvelope = {
+      busId: canonicalBusId,
+      latitude: canonicalLat,
+      longitude: canonicalLng,
+      source: String(payload.source) === "hardware" ? "lilygo" : "phone",
+      timestamp: ts,
+      status: "online",
+    };
+    io.to("buses").emit("bus:location:update", canonicalEnvelope);
+    io.emit("bus:location:update", canonicalEnvelope);
+  }
 }
 
 /** Super Admin / Command Center: attendant SOS, incidents, lost-item, etc. */

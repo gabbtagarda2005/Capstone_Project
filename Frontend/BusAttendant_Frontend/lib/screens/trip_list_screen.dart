@@ -128,12 +128,12 @@ class _TripCard extends StatelessWidget {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: MintObsidian.surface.withOpacity(0.95),
+              color: MintObsidian.surface.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               boxShadow: [
                 BoxShadow(
-                  color: MintObsidian.mint.withOpacity(0.08),
+                  color: MintObsidian.mint.withValues(alpha: 0.08),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -159,7 +159,7 @@ class _TripCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           trip.statusLabel,
-                          style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95), fontSize: 12),
+                          style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.95), fontSize: 12),
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -173,7 +173,7 @@ class _TripCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           'Departure',
-                          style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95), fontSize: 12),
+                          style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.95), fontSize: 12),
                         ),
                       ],
                     ),

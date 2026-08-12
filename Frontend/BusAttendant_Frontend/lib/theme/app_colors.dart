@@ -81,7 +81,7 @@ abstract final class MintObsidian {
 
   static List<BoxShadow> tileShadow(bool active) => [
         BoxShadow(
-          color: active ? mint.withOpacity(0.38) : Colors.black.withOpacity(0.55),
+          color: active ? mint.withValues(alpha: 0.38) : Colors.black.withValues(alpha: 0.55),
           blurRadius: active ? 26 : 20,
           offset: const Offset(0, 10),
         ),

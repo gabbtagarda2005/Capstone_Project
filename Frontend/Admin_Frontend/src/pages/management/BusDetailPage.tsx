@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { io, type Socket } from "socket.io-client";
 import { MgmtBackLink } from "@/components/MgmtBackLink";
 import { MapContainer, Marker, Polyline, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Swal from "sweetalert2";
-import { api, fetchCorridorRoutes } from "@/lib/api";
+import { ADMIN_API_ORIGIN, api, fetchBusRevenue, fetchCorridorRoutes, getToken } from "@/lib/api";
 import { isFastPulse, makeBusDivIcon } from "@/lib/locationsMapUtils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import type { AttendantVerifiedSummary, BusLiveLogRow, BusRow, CorridorRouteRow, TicketRow } from "@/lib/types";
@@ -15,6 +16,30 @@ const BUK_CENTER: [number, number] = [8.0515, 125.0];
 const BEACON_MS = 120_000;
 const GAUGE_R = 52;
 const GAUGE_C = 2 * Math.PI * GAUGE_R;
+
+/** Mirrors Backend/Admin_Backend/config/gpsThresholds.js defaults — display-only, so a mismatch
+ * with a server override just means the badge is briefly a shade off, never a data problem. */
+const GPS_ONLINE_MS = 10_000;
+const GPS_OFFLINE_MS = 60_000;
+
+type GpsStatus = "online" | "unstable" | "offline";
+
+function gpsStatusFromAge(ageMs: number | null): GpsStatus {
+  if (ageMs == null || !Number.isFinite(ageMs)) return "offline";
+  if (ageMs <= GPS_ONLINE_MS) return "online";
+  if (ageMs <= GPS_OFFLINE_MS) return "unstable";
+  return "offline";
+}
+
+function formatAgeShort(ageMs: number | null): string {
+  if (ageMs == null || !Number.isFinite(ageMs) || ageMs < 0) return "—";
+  const s = Math.floor(ageMs / 1000);
+  if (s < 60) return `${s} second${s === 1 ? "" : "s"} ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} minute${m === 1 ? "" : "s"} ago`;
+  const h = Math.floor(m / 60);
+  return `${h} hour${h === 1 ? "" : "s"} ago`;
+}
 
 function beaconFresh(iso: string | null | undefined): boolean {
   if (!iso) return false;
@@ -61,6 +86,44 @@ function ticketsTodayForBus(tickets: TicketRow[], busNumber: string): TicketRow[
     const dt = new Date(t.createdAt);
     return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d;
   });
+}
+
+type RevenuePeriod = "today" | "7d" | "30d" | "all" | "custom";
+
+const REVENUE_PERIODS: { value: RevenuePeriod; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "all", label: "All time" },
+];
+
+function localYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatYmdLabel(ymd: string): string {
+  const d = new Date(`${ymd}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** "Aug 10, 2026" for a single day, "Aug 10–13, 2026" for a same-month range, else "Aug 28 – Sep 2, 2026". */
+function formatRangeLabel(from: string, to: string): string {
+  if (from === to) return formatYmdLabel(from);
+  const fromD = new Date(`${from}T00:00:00`);
+  const toD = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(fromD.getTime()) || Number.isNaN(toD.getTime())) return `${from} – ${to}`;
+  const sameMonthYear = fromD.getFullYear() === toD.getFullYear() && fromD.getMonth() === toD.getMonth();
+  if (sameMonthYear) {
+    const monthLabel = toD.toLocaleDateString(undefined, { month: "short" });
+    return `${monthLabel} ${fromD.getDate()}–${toD.getDate()}, ${toD.getFullYear()}`;
+  }
+  const fromLabel = fromD.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const toLabel = toD.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return `${fromLabel} – ${toLabel}`;
 }
 
 function initials(name: string): string {
@@ -122,6 +185,72 @@ export function BusDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [tripOpen, setTripOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [revenuePeriod, setRevenuePeriod] = useState<RevenuePeriod>("all");
+  const [customFrom, setCustomFrom] = useState(() => localYmd(new Date()));
+  const [customTo, setCustomTo] = useState(() => localYmd(new Date()));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [draftFrom, setDraftFrom] = useState(customFrom);
+  const [draftTo, setDraftTo] = useState(customTo);
+  const pickerWrapRef = useRef<HTMLDivElement>(null);
+
+  const [revenue, setRevenue] = useState(0);
+  const [ticketCount, setTicketCount] = useState(0);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [revenueError, setRevenueError] = useState<string | null>(null);
+
+  function openDatePicker() {
+    setDraftFrom(customFrom);
+    setDraftTo(customTo);
+    setPickerOpen(true);
+  }
+
+  function applyCustomRange() {
+    if (!draftFrom) return;
+    const from = draftFrom;
+    const to = draftTo && draftTo >= draftFrom ? draftTo : draftFrom;
+    setCustomFrom(from);
+    setCustomTo(to);
+    setRevenuePeriod("custom");
+    setPickerOpen(false);
+  }
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    function onDocPointerDown(e: MouseEvent) {
+      if (pickerWrapRef.current && !pickerWrapRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocPointerDown);
+    return () => document.removeEventListener("mousedown", onDocPointerDown);
+  }, [pickerOpen]);
+
+  useEffect(() => {
+    if (!bus?.id) return;
+    let cancelled = false;
+    setRevenueLoading(true);
+    setRevenueError(null);
+    const params =
+      revenuePeriod === "custom" ? { from: customFrom, to: customTo } : { period: revenuePeriod };
+    fetchBusRevenue(bus.id, params)
+      .then((r) => {
+        if (cancelled) return;
+        setRevenue(r.revenue);
+        setTicketCount(r.ticketCount);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setRevenue(0);
+        setTicketCount(0);
+        setRevenueError(e instanceof Error ? e.message : "Could not load revenue.");
+      })
+      .finally(() => {
+        if (!cancelled) setRevenueLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bus?.id, revenuePeriod, customFrom, customTo]);
 
   const loadBus = useCallback(async () => {
     if (!bus?.id) return;
@@ -177,9 +306,72 @@ export function BusDetailPage() {
   useEffect(() => {
     if (!bus?.busId) return;
     void pollLive();
+    // Socket.IO carries near-real-time updates; this poll just reconciles in case an event was
+    // missed (e.g. brief disconnect) — it does not refetch anything else on the page.
     const t = window.setInterval(() => void pollLive(), 8000);
     return () => clearInterval(t);
   }, [bus?.busId, pollLive]);
+
+  /** "🟠 Reconnecting…" / "🟢 Live connection restored" — never a full page reload. */
+  const [socketPhase, setSocketPhase] = useState<"connecting" | "connected" | "reconnecting">("connecting");
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const targetBusId = bus?.busId;
+    if (!targetBusId) return;
+    const token = getToken();
+    const socket: Socket = io(ADMIN_API_ORIGIN.replace(/\/$/, ""), {
+      path: "/socket.io/",
+      transports: ["websocket", "polling"],
+      reconnectionAttempts: 12,
+      reconnectionDelay: 2000,
+      auth: { token },
+    });
+
+    const subscribe = () => socket.emit("subscribe:buses");
+    socket.on("connect", () => {
+      setSocketPhase("connected");
+      subscribe();
+    });
+    socket.on("disconnect", () => setSocketPhase("reconnecting"));
+    socket.io.on("reconnect_attempt", () => setSocketPhase("reconnecting"));
+    subscribe();
+
+    type CanonicalLocationEvent = {
+      busId?: string;
+      latitude?: number;
+      longitude?: number;
+      source?: "phone" | "lilygo";
+      timestamp?: string;
+    };
+    const onCanonicalLocation = (p: CanonicalLocationEvent) => {
+      if (!p || String(p.busId) !== targetBusId) return;
+      const lat = Number(p.latitude);
+      const lng = Number(p.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      setLive((prev) => ({
+        ...(prev ?? { busId: targetBusId, latitude: lat, longitude: lng }),
+        busId: targetBusId,
+        latitude: lat,
+        longitude: lng,
+        source: p.source === "lilygo" ? "hardware" : "staff",
+        gpsSource: p.source === "lilygo" ? "lilygo" : "phone",
+        recordedAt: p.timestamp || new Date().toISOString(),
+        status: "online",
+      }));
+    };
+    socket.on("bus:location:update", onCanonicalLocation);
+
+    return () => {
+      socket.off("bus:location:update", onCanonicalLocation);
+      socket.disconnect();
+    };
+  }, [bus?.busId]);
 
   const corridor = useMemo(() => (bus ? findCorridor(bus.route, corridors) : null), [bus, corridors]);
 
@@ -227,6 +419,20 @@ export function BusDetailPage() {
     }
     return rows;
   }, [bus, effectiveLive, corridor]);
+
+  const gpsAgeMs = useMemo(() => {
+    const iso = effectiveLive?.recordedAt;
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    return Number.isFinite(t) ? nowTick - t : null;
+  }, [effectiveLive?.recordedAt, nowTick]);
+
+  const gpsStatus = gpsStatusFromAge(gpsAgeMs);
+
+  const gpsSourceLabel = useMemo(() => {
+    if (gpsStatus === "offline" || !effectiveLive) return "⚠ None";
+    return effectiveLive.source === "hardware" ? "📡 LILYGO Hardware" : "📱 Bus Attendant Phone";
+  }, [effectiveLive, gpsStatus]);
 
   async function handleReassignRoute() {
     if (!bus?.id || !corridors.length) {
@@ -436,6 +642,11 @@ export function BusDetailPage() {
           <div className="bus-hub__tile-label">Live position · Bukidnon corridor</div>
           <div className="bus-hub__map-wrap">
             <span className="bus-hub__map-badge">Dark matter · beacon</span>
+            {socketPhase !== "connected" ? (
+              <span className="bus-hub__map-socket-badge" role="status">
+                {socketPhase === "reconnecting" ? "🟠 Reconnecting…" : "🟠 Connecting…"}
+              </span>
+            ) : null}
             <MapContainer
               key={`${mapCenter[0].toFixed(4)}-${mapCenter[1].toFixed(4)}`}
               center={mapCenter}
@@ -501,6 +712,20 @@ export function BusDetailPage() {
           </div>
         </div>
 
+        <div className="bus-hub__tile">
+          <div className="bus-hub__tile-label">Live tracking</div>
+          <div className="bus-hub__live-status">
+            <span className={`bus-hub__live-status-badge bus-hub__live-status-badge--${gpsStatus}`}>
+              {gpsStatus === "online" ? "🟢 Online" : gpsStatus === "unstable" ? "🟠 Connection unstable" : "🔴 Offline"}
+            </span>
+            <span className="bus-hub__live-status-age">Last updated: {formatAgeShort(gpsAgeMs)}</span>
+            <span className="bus-hub__live-status-source">
+              GPS Source
+              <strong>{gpsSourceLabel}</strong>
+            </span>
+          </div>
+        </div>
+
         <div className="bus-hub__tile" style={{ gridColumn: "1 / -1" }}>
           <div className="bus-hub__tile-label">Vehicle ID &amp; technical</div>
           <div className="bus-hub__mono" style={{ lineHeight: 1.7 }}>
@@ -518,6 +743,115 @@ export function BusDetailPage() {
             Tickets (lifetime) <strong style={{ color: "#fff" }}>{bus.ticketsIssued}</strong> · Strict pickup{" "}
             <strong style={{ color: "#fff" }}>{bus.strictPickup === true ? "on" : "off"}</strong>
           </div>
+        </div>
+
+        <div className="bus-hub__tile" style={{ gridColumn: "1 / -1" }}>
+          <div className="bus-hub__tile-head">
+            <div className="bus-hub__tile-label" style={{ marginBottom: 0 }}>
+              Revenue by bus
+            </div>
+            <div className="bus-hub__revenue-filter" role="tablist" aria-label="Revenue time range">
+              {REVENUE_PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={revenuePeriod === p.value}
+                  className={
+                    "bus-hub__revenue-filter-btn" +
+                    (revenuePeriod === p.value ? " bus-hub__revenue-filter-btn--active" : "")
+                  }
+                  onClick={() => setRevenuePeriod(p.value)}
+                >
+                  {p.label}
+                </button>
+              ))}
+              <div className="bus-hub__revenue-datepicker-wrap" ref={pickerWrapRef}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={revenuePeriod === "custom"}
+                  aria-expanded={pickerOpen}
+                  className={
+                    "bus-hub__revenue-filter-btn" +
+                    (revenuePeriod === "custom" ? " bus-hub__revenue-filter-btn--active" : "")
+                  }
+                  onClick={() => (pickerOpen ? setPickerOpen(false) : openDatePicker())}
+                >
+                  {revenuePeriod === "custom" ? formatRangeLabel(customFrom, customTo) : "Choose date"}
+                </button>
+                {pickerOpen ? (
+                  <div className="bus-hub__revenue-datepicker" role="dialog" aria-label="Choose a date or date range">
+                    <div className="bus-hub__revenue-datepicker-row">
+                      <label className="bus-hub__revenue-datepicker-field">
+                        <span>From</span>
+                        <input
+                          type="date"
+                          value={draftFrom}
+                          max={localYmd(new Date())}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setDraftFrom(v);
+                            if (draftTo < v) setDraftTo(v);
+                          }}
+                        />
+                      </label>
+                      <label className="bus-hub__revenue-datepicker-field">
+                        <span>To</span>
+                        <input
+                          type="date"
+                          value={draftTo}
+                          min={draftFrom}
+                          max={localYmd(new Date())}
+                          onChange={(e) => setDraftTo(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <p className="bus-hub__revenue-datepicker-hint">
+                      Leave From and To the same for a single day.
+                    </p>
+                    <div className="bus-hub__revenue-datepicker-actions">
+                      <button type="button" className="bus-hub__revenue-datepicker-cancel" onClick={() => setPickerOpen(false)}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="bus-hub__revenue-datepicker-apply"
+                        disabled={!draftFrom}
+                        onClick={applyCustomRange}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          {revenueLoading ? (
+            <p className="bus-hub__revenue-loading">Loading revenue…</p>
+          ) : revenueError ? (
+            <p className="bus-hub__revenue-loading bus-hub__revenue-loading--err">{revenueError}</p>
+          ) : (
+            <div className="bus-hub__revenue-stat">
+              <span className="bus-hub__revenue-value">₱{revenue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+              <span className="bus-hub__revenue-meta">
+                {ticketCount.toLocaleString()} ticket{ticketCount === 1 ? "" : "s"} ·{" "}
+                {revenuePeriod === "custom"
+                  ? formatRangeLabel(customFrom, customTo)
+                  : REVENUE_PERIODS.find((p) => p.value === revenuePeriod)?.label.toLowerCase()}
+              </span>
+              {ticketCount === 0 ? (
+                <span className="bus-hub__revenue-empty-note">
+                  No transactions found for{" "}
+                  {revenuePeriod === "custom"
+                    ? formatRangeLabel(customFrom, customTo).toLowerCase()
+                    : "the selected range"}
+                  .
+                </span>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className={maintBlockClass(bus.healthStatus)} style={{ gridColumn: "1 / -1" }}>

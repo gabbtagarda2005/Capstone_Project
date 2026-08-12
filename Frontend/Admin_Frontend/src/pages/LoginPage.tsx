@@ -8,7 +8,13 @@ import { api, fetchPublicCompanyProfile, type PublicCompanyProfile } from "@/lib
 import { getFirebaseAuth, getGoogleAuthProvider, isFirebaseAuthConfigured } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
 import { signInWithPopup, signOut } from "firebase/auth";
+import { COMMAND_CENTER_HUB } from "@/pages/commandCenterPaths";
 import "./LoginPage.css";
+
+/** IT accounts land on the Command Center — it's their whole app, not a stop on the way to /dashboard. */
+function landingPathFor(rbacRole: string | null | undefined): string {
+  return rbacRole === "it_support" ? COMMAND_CENTER_HUB : "/dashboard";
+}
 
 function HomeIcon() {
   return (
@@ -38,7 +44,7 @@ function LockIcon() {
 }
 
 export function LoginPage() {
-  const { login, loginWithGoogle, token, loading } = useAuth();
+  const { login, loginWithGoogle, token, user, loading } = useAuth();
   const { branding } = useAdminBranding();
   const { showError, showSuccess, showToast, showInfo } = useToast();
   const navigate = useNavigate();
@@ -92,7 +98,7 @@ export function LoginPage() {
   }
 
   if (token) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={landingPathFor(user?.rbacRole)} replace />;
   }
 
   function triggerShake() {
@@ -104,8 +110,8 @@ export function LoginPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      await login(email.trim(), password);
-      navigate("/dashboard", { replace: true });
+      const loggedInUser = await login(email.trim(), password);
+      navigate(landingPathFor(loggedInUser.rbacRole), { replace: true });
     } catch (err) {
       triggerShake();
       showError(err instanceof Error ? err.message : "Login failed");
@@ -125,8 +131,8 @@ export function LoginPage() {
       const cred = await signInWithPopup(auth, getGoogleAuthProvider());
       try {
         const idToken = await cred.user.getIdToken();
-        await loginWithGoogle(idToken);
-        navigate("/dashboard", { replace: true });
+        const loggedInUser = await loginWithGoogle(idToken);
+        navigate(landingPathFor(loggedInUser.rbacRole), { replace: true });
       } catch (apiErr) {
         await signOut(auth).catch(() => {});
         triggerShake();

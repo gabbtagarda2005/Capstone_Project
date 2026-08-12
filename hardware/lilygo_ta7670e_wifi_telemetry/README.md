@@ -8,7 +8,7 @@ Firmware uses **ESP32 Wi-Fi** for HTTP and the **A7670E modem UART** only for **
 2. **Modem** — `ATE0`, `AT+CGNSSPWR=1`, then polls **`AT+CGNSSINFO`**.
 3. **Healthy fix** — Parses a **SIM7670-style** `+CGNSSINFO:` CSV (see sketch). Sends only when **`satellites >= GPS_MIN_SATS`** (default **3** in `config.h.example`).
 4. **POST** — JSON: `imei`, `lat`, `lng`, `speedKph`, `net: "wifi"`. Header **`x-device-secret`** if set in `config.h` (must match `DEVICE_INGEST_SECRET` in Admin `.env`).
-5. **HTTP** — Prints **`HTTP response code:`** to Serial (expect **204** from this backend; 200/201 also treated as success). Any other code → wait **`POST_INTERVAL_MS`** (default 5 s) and retry.
+5. **HTTP** — Prints **`HTTP response code:`** to Serial (expect **204** from this backend; 200/201 also treated as success). Any other code → wait **`POST_INTERVAL_MS`** (default 8 s — LILYGO is the backup GPS source; the attendant phone is primary at ~3 s) and retry.
 6. **Cadence** — Waits **`POST_INTERVAL_MS`** after each attempt (no fix, Wi-Fi down, or bad HTTP).
 
 ## Backend

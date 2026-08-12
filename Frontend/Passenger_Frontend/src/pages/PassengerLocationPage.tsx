@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { PassengerLogo } from "@/components/PassengerLogo";
 import { fetchPublicCompanyProfile } from "@/lib/fetchPublicCompanyProfile";
 import { fetchDeployedPoints, type DeployedPointItem } from "@/lib/fetchPassengerMapData";
@@ -15,6 +15,7 @@ import "./PassengerLocationPage.css";
 
 export function PassengerLocationPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [status, setStatus] = useState<"idle" | "requesting" | "denied" | "unsupported">("idle");
   const [hint, setHint] = useState<string | null>(null);
   const [deployed, setDeployed] = useState<DeployedPointItem[]>([]);
@@ -48,14 +49,16 @@ export function PassengerLocationPage() {
   }, []);
 
   useEffect(() => {
+    const toMapFocusedDashboard = new URLSearchParams(location.search).get("focus") === "map";
     if (isPassengerLocationGateCleared()) {
-      navigate("/dashboard", { replace: true });
+      navigate(toMapFocusedDashboard ? "/dashboard?focus=map" : "/dashboard", { replace: true });
     }
-  }, [navigate]);
+  }, [location.search, navigate]);
 
   function goDashboard() {
+    const toMapFocusedDashboard = new URLSearchParams(location.search).get("focus") === "map";
     setPassengerLocationGateCleared();
-    navigate("/dashboard", { replace: true });
+    navigate(toMapFocusedDashboard ? "/dashboard?focus=map" : "/dashboard", { replace: true });
   }
 
   async function requestLocation() {
@@ -91,7 +94,8 @@ export function PassengerLocationPage() {
         void logPassengerTerminalAffinity(nearest?.coverageId ?? null);
         setPassengerLocationGateCleared();
         setStatus("idle");
-        navigate("/dashboard", { replace: true });
+        const toMapFocusedDashboard = new URLSearchParams(location.search).get("focus") === "map";
+        navigate(toMapFocusedDashboard ? "/dashboard?focus=map" : "/dashboard", { replace: true });
       },
       (err) => {
         setStatus("denied");

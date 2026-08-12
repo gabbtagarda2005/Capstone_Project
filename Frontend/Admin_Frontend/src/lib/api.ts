@@ -6,6 +6,7 @@ import type {
   AdminPortalSettingsDto,
   AdminRbacRole,
   AttendantAppAccessDto,
+  AttendantAssignmentHistoryDto,
   PassengerAppAccessDto,
   BusRow,
   FleetMode,
@@ -120,8 +121,12 @@ export async function api<T>(
       // Common failure mode: hitting the frontend dev server / 404 page / express error page
       // which returns HTML starting with "<!DOCTYPE ...".
       if (trimmed.startsWith("<")) {
+        const payloadHint =
+          res.status === 413
+            ? " Payload too large (413)—often a pasted logo in Settings. Use a smaller image, an https:// logo URL, or raise Admin_Backend JSON_BODY_LIMIT. "
+            : "";
         const htmlErr = new Error(
-          `Non-JSON response (${res.status}) for ${path}. Point VITE_ADMIN_API_URL at Admin_Backend (${candidateBase}/health).`
+          `Non-JSON response (${res.status}) for ${path}.${payloadHint}Point VITE_ADMIN_API_URL at Admin_Backend (${candidateBase || "http://127.0.0.1:4001"}/health).`
         );
         // If the first base is wrong, try once with the local admin-api default.
         if (res.status === 404 && candidateBase === API_BASE && candidates.length > 1) {
@@ -211,6 +216,15 @@ export async function patchCorridorRoute(
 
 export async function fetchBuses(): Promise<{ items: BusRow[] }> {
   return api("/api/buses");
+}
+
+/** Admin-only: one GPS sample at map center to verify live fleet layer + sockets. */
+export async function postAdminTestGps(body: {
+  latitude: number;
+  longitude: number;
+  busId?: string;
+}): Promise<{ ok: boolean; busId: string }> {
+  return api("/api/buses/admin/test-gps", { method: "POST", json: body });
 }
 
 export async function fetchLiveDispatchBlocks(): Promise<{
@@ -687,4 +701,64 @@ export async function putAdminRbac(items: { email: string; role: AdminRbacRole }
   items: { email: string; role: AdminRbacRole }[];
 }> {
   return api("/api/admin/rbac", { method: "PUT", json: { items } });
+}
+
+/** "Add IT account" self-service creation: email → OTP → password. Super admin only. */
+export async function sendItAccountOtp(email: string): Promise<{
+  message: string;
+  simulatedEmail?: boolean;
+  devOtp?: string;
+  hint?: string;
+}> {
+  return api("/api/admin/it-accounts/send-otp", { method: "POST", json: { email } });
+}
+
+export async function verifyItAccountOtp(
+  email: string,
+  otp: string
+): Promise<{ message: string; resetToken: string }> {
+  return api("/api/admin/it-accounts/verify-otp", { method: "POST", json: { email, otp } });
+}
+
+/** Day-by-day trail of which bus an attendant was assigned to. Pass `date` (YYYY-MM-DD) to also
+ * resolve which single assignment, if any, was active that Manila calendar day. */
+export async function fetchAttendantAssignmentHistory(
+  attendantId: string,
+  date?: string
+): Promise<AttendantAssignmentHistoryDto> {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  return api<AttendantAssignmentHistoryDto>(`/api/attendants/${encodeURIComponent(attendantId)}/assignment-history${qs}`);
+}
+
+export type BusRevenueDto = {
+  busId: string;
+  busNumber: string;
+  from: string | null;
+  to: string | null;
+  revenue: number;
+  ticketCount: number;
+};
+
+/** Dynamically aggregated (never client-computed/hardcoded) — see GET /api/buses/:id/revenue. */
+export async function fetchBusRevenue(
+  id: string,
+  params: { period?: "today" | "7d" | "30d" | "all"; from?: string; to?: string }
+): Promise<BusRevenueDto> {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  if (!params.from && !params.to && params.period) qs.set("period", params.period);
+  const q = qs.toString();
+  return api<BusRevenueDto>(`/api/buses/${encodeURIComponent(id)}/revenue${q ? `?${q}` : ""}`);
+}
+
+export async function createItAccount(
+  token: string,
+  password: string,
+  confirmPassword: string
+): Promise<{ message: string; email: string }> {
+  return api("/api/admin/it-accounts/create", {
+    method: "POST",
+    json: { token, password, confirmPassword },
+  });
 }

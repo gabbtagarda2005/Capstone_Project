@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Bus = require("../models/Bus");
 const GpsLog = require("../models/GpsLog");
 const GpsHistory = require("../models/GpsHistory");
+const IssuedTicketRecord = require("../models/IssuedTicketRecord");
 const SecurityLog = require("../models/SecurityLog");
 const { broadcastLocationUpdate, broadcastCommandAlert, broadcastBusAttendantOffline } = require("../sockets/socket");
 const { requireAdminJwt } = require("../middleware/requireAdminJwt");
@@ -13,9 +14,13 @@ const {
   ingestAttendantGps,
   ingestDeviceGps,
 } = require("../services/attendantGpsIngest");
-const { getFreeEtaMinutes, resolveNextTerminalForBus } = require("../services/freeEtaEngine");
+const { getFreeEtaMinutes, getAdvancedEtaMinutes, resolveNextTerminalForBus } = require("../services/freeEtaEngine");
 const { getPortalSettingsLean } = require("../services/adminPortalSettingsService");
+const { gpsStatusFromAgeMs } = require("../config/gpsThresholds");
+const { recordAssignmentChange, closeOpenAssignmentsForBus } = require("../services/attendantAssignmentHistory");
 const { notifyAdminsOfSos } = require("../services/sosAdminNotify");
+const { assertDeviceIngestAllowed, normalizeHardwareLatLngBody } = require("../services/deviceIngestAuth");
+const { YMD_RE, manilaDayStartUtc, manilaDayEndUtc, manilaTodayYmd, addDaysYmd } = require("../services/manilaTime");
 
 function normalizePlateForApi(raw) {
   const s = raw == null ? "" : String(raw).trim();
@@ -362,22 +367,64 @@ function createBusesRouter(io) {
       const delayThreshold = [8, 10, 12].includes(Number(settings?.delayThresholdMinutes))
         ? Number(settings.delayThresholdMinutes)
         : 10;
+      
+      // Batch fetch bus data for all GPS logs
       const logs = await GpsLog.find().sort({ busId: 1 }).lean();
+      const busIds = [...new Set(logs.map(l => String(l.busId || "").trim()).filter(Boolean))];
+      const busDataMap = new Map();
+      
+      if (busIds.length > 0) {
+        const buses = await Bus.find({ busId: { $in: busIds } })
+          .select("busId seatCapacity currentOccupancy route")
+          .lean()
+          .catch(() => []);
+        for (const bus of buses) {
+          busDataMap.set(String(bus.busId).trim(), bus);
+        }
+      }
+      
       const items = await Promise.all(
         logs.map(async (doc) => {
           const terminal = await resolveNextTerminalForBus(String(doc.busId)).catch(() => null);
-          const etaMinutes =
+          const busData = busDataMap.get(String(doc.busId || "").trim());
+          
+          let etaMinutes = null;
+          if (
             terminal &&
             Number.isFinite(Number(doc.latitude)) &&
             Number.isFinite(Number(doc.longitude))
-              ? getFreeEtaMinutes(
-                  Number(doc.latitude),
-                  Number(doc.longitude),
-                  Number(terminal.latitude),
-                  Number(terminal.longitude),
-                  Number(doc.speedKph)
-                )
-              : null;
+          ) {
+            try {
+              etaMinutes = await getAdvancedEtaMinutes({
+                lat1: Number(doc.latitude),
+                lon1: Number(doc.longitude),
+                lat2: Number(terminal.latitude),
+                lon2: Number(terminal.longitude),
+                speedKph: Number(doc.speedKph),
+                busId: String(doc.busId),
+                passengerCount: busData?.currentOccupancy || 0,
+                seatCapacity: busData?.seatCapacity || 50,
+                currentLocation: busData?.route || "In Transit",
+                nextLocation: terminal.name || "Terminal",
+                stops: [],
+              });
+            } catch (err) {
+              // Fallback to simple ETA if advanced calculation fails
+              etaMinutes = getFreeEtaMinutes(
+                Number(doc.latitude),
+                Number(doc.longitude),
+                Number(terminal.latitude),
+                Number(terminal.longitude),
+                Number(doc.speedKph)
+              );
+            }
+          }
+          
+          const recordedAtMs = doc.recordedAt ? new Date(doc.recordedAt).getTime() : NaN;
+          const ageMs = Number.isFinite(recordedAtMs) ? Date.now() - recordedAtMs : null;
+          const status = gpsStatusFromAgeMs(ageMs);
+          const gpsSource = status === "offline" ? "none" : String(doc.source) === "hardware" ? "lilygo" : "phone";
+
           return {
           busId: String(doc.busId),
           latitude: Number(doc.latitude),
@@ -390,13 +437,17 @@ function createBusesRouter(io) {
               : null,
           source: doc.source != null ? String(doc.source) : "staff",
           sourceFlag: String(doc.source) === "hardware" ? "hardware" : "mobile",
+          /** Live status classification (online/unstable/offline) and phone/lilygo/none label —
+           * see config/gpsThresholds.js for the configurable cutoffs. */
+          status,
+          gpsSource,
           net: doc.network != null ? String(doc.network) : null,
           signalStrength:
             doc.signalStrength != null && Number.isFinite(Number(doc.signalStrength))
               ? Number(doc.signalStrength)
               : null,
           voltage: doc.voltage != null && Number.isFinite(Number(doc.voltage)) ? Number(doc.voltage) : null,
-          etaMinutes,
+          etaMinutes: etaMinutes != null ? Math.max(1, Math.round(etaMinutes)) : null,
           etaTargetIso:
             etaMinutes != null ? new Date(Date.now() + Number(etaMinutes) * 60_000).toISOString() : null,
           nextTerminal: terminal?.name || null,
@@ -502,6 +553,79 @@ function createBusesRouter(io) {
   });
 
   /**
+   * Revenue for one bus, dynamically aggregated from issued_ticket_records — never hardcoded.
+   * Query: `period` (today|7d|30d|all, default all) OR explicit `from`/`to` (YYYY-MM-DD, Manila
+   * calendar dates, inclusive). Explicit from/to wins over `period` when both are present.
+   */
+  router.get("/:id/revenue", requireAdminJwt, async (req, res) => {
+    const raw = decodeURIComponent(String(req.params.id || "").trim());
+    if (!raw) return res.status(400).json({ error: "Invalid id" });
+    try {
+      let b = null;
+      if (mongoose.isValidObjectId(raw)) {
+        b = await Bus.findById(raw).select("busId busNumber").lean();
+      }
+      if (!b) {
+        b = await Bus.findOne({ busId: raw }).select("busId busNumber").lean();
+      }
+      if (!b) return res.status(404).json({ error: "Not found" });
+      const busLabel = (b.busNumber || b.busId || "").trim();
+
+      let from = typeof req.query.from === "string" ? req.query.from.trim() : "";
+      let to = typeof req.query.to === "string" ? req.query.to.trim() : "";
+      if (from && !YMD_RE.test(from)) return res.status(400).json({ error: "Invalid 'from' date (expected YYYY-MM-DD)" });
+      if (to && !YMD_RE.test(to)) return res.status(400).json({ error: "Invalid 'to' date (expected YYYY-MM-DD)" });
+
+      if (!from && !to) {
+        const period = String(req.query.period || "all");
+        const todayYmd = manilaTodayYmd();
+        if (period === "today") {
+          from = todayYmd;
+          to = todayYmd;
+        } else if (period === "7d") {
+          from = addDaysYmd(todayYmd, -6);
+          to = todayYmd;
+        } else if (period === "30d") {
+          from = addDaysYmd(todayYmd, -29);
+          to = todayYmd;
+        }
+        // period === "all" (or unrecognized) → leave from/to empty → no date bound
+      } else {
+        if (from && !to) to = from;
+        if (to && !from) from = to;
+        if (from > to) {
+          const t = from;
+          from = to;
+          to = t;
+        }
+      }
+
+      const match = { busNumber: busLabel };
+      if (from && to) {
+        match.createdAt = { $gte: manilaDayStartUtc(from), $lte: manilaDayEndUtc(to) };
+      }
+
+      const agg = await IssuedTicketRecord.aggregate([
+        { $match: match },
+        { $group: { _id: null, revenue: { $sum: "$fare" }, ticketCount: { $sum: 1 } } },
+      ]);
+      const revenue = agg[0]?.revenue ?? 0;
+      const ticketCount = agg[0]?.ticketCount ?? 0;
+
+      res.json({
+        busId: b.busId,
+        busNumber: busLabel,
+        from: from || null,
+        to: to || null,
+        revenue,
+        ticketCount,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Could not compute revenue" });
+    }
+  });
+
+  /**
    * Partial update: any of `operatorId`, `route`, `driverId` (each optional).
    * - operatorId: string | null — numeric MySQL attendant id, Mongo PortalUser ObjectId, or null to unassign
    * - route: string | null — corridor label
@@ -589,11 +713,27 @@ function createBusesRouter(io) {
     }
 
     try {
+      const before = hasOp
+        ? await Bus.findById(req.params.id).select("busId busNumber operatorMysqlId operatorPortalUserId").lean()
+        : null;
+
       const doc = await Bus.findByIdAndUpdate(req.params.id, { $set }, { new: true })
         .populate("driverId", "firstName lastName driverId licenseNumber")
         .lean();
       const out = mapBus(doc);
       if (!out) return res.status(404).json({ error: "Not found" });
+
+      if (hasOp && before) {
+        await recordAssignmentChange({
+          busId: before.busId,
+          busNumber: before.busNumber,
+          oldOperatorPortalUserId: before.operatorPortalUserId,
+          oldOperatorMysqlId: before.operatorMysqlId,
+          newOperatorPortalUserId: $set.operatorPortalUserId,
+          newOperatorMysqlId: $set.operatorMysqlId,
+        }).catch((e) => console.warn("[buses] recordAssignmentChange:", e.message || e));
+      }
+
       res.json(out);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -614,6 +754,7 @@ function createBusesRouter(io) {
       const resolvedBusId = String(doc.busId || "").trim();
       await GpsLog.deleteMany({ busId: resolvedBusId }).catch(() => {});
       await GpsHistory.deleteMany({ busId: resolvedBusId }).catch(() => {});
+      await closeOpenAssignmentsForBus(resolvedBusId).catch(() => {});
       await Bus.deleteOne({ _id: req.params.id });
       res.json({ ok: true, deletedId: String(req.params.id), busId: resolvedBusId });
     } catch (e) {
@@ -681,6 +822,14 @@ function createBusesRouter(io) {
         ticketsIssued: 0,
         lastUpdated: new Date(),
       });
+      await recordAssignmentChange({
+        busId: idNorm,
+        busNumber: idNorm,
+        oldOperatorPortalUserId: null,
+        oldOperatorMysqlId: null,
+        newOperatorPortalUserId: opPortalUserId,
+        newOperatorMysqlId: opMysqlId,
+      }).catch((e) => console.warn("[buses] recordAssignmentChange (create):", e.message || e));
       res.status(201).json(mapBus(doc.toObject()));
     } catch (e) {
       if (e.code === 11000) {
@@ -697,14 +846,17 @@ function createBusesRouter(io) {
    * Optional header: x-device-secret matching DEVICE_INGEST_SECRET
    */
   router.post("/ping", async (req, res) => {
-    const secret = process.env.DEVICE_INGEST_SECRET;
-    if (secret && req.headers["x-device-secret"] !== secret) {
-      return res.status(401).json({ error: "Invalid device secret" });
+    try {
+      assertDeviceIngestAllowed(req);
+    } catch (authErr) {
+      const code = authErr.statusCode || 401;
+      return res.status(code).json({ error: authErr.message });
     }
 
-    let { busId, imei, latitude, longitude, speedKph, heading } = req.body || {};
+    const body = normalizeHardwareLatLngBody(req.body || {});
+    let { busId, imei, latitude, longitude, speedKph, heading } = body;
     if (latitude === undefined || longitude === undefined) {
-      return res.status(400).json({ error: "latitude, longitude required" });
+      return res.status(400).json({ error: "latitude, longitude required (or lat, lng)" });
     }
 
     let resolvedBusId = busId != null ? String(busId).trim() : "";
@@ -720,10 +872,11 @@ function createBusesRouter(io) {
     }
 
     try {
-      await ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, req.body || {});
+      await ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body);
       res.status(204).send();
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      const code = e.statusCode || 500;
+      res.status(code >= 400 && code < 600 ? code : 500).json({ error: e.message });
     }
   });
 
@@ -732,11 +885,13 @@ function createBusesRouter(io) {
    * Body: { bus_id, lat, lng, source:'hardware', net:'wifi'|'4g', signal_strength? }
    */
   router.post("/hardware-telemetry", async (req, res) => {
-    const secret = process.env.DEVICE_INGEST_SECRET;
-    if (secret && req.headers["x-device-secret"] !== secret) {
-      return res.status(401).json({ error: "Invalid device secret" });
+    try {
+      assertDeviceIngestAllowed(req);
+    } catch (authErr) {
+      const code = authErr.statusCode || 401;
+      return res.status(code).json({ error: authErr.message });
     }
-    const body = req.body || {};
+    const body = normalizeHardwareLatLngBody(req.body || {});
     let busId = body.bus_id != null ? String(body.bus_id).trim() : body.busId != null ? String(body.busId).trim() : "";
     const imei = body.imei != null ? String(body.imei).replace(/\D/g, "") : "";
     const lat = body.lat ?? body.latitude;

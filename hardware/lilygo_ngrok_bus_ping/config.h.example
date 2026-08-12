@@ -1,0 +1,56 @@
+#ifndef LILYGO_NGROK_BUS_PING_CONFIG_H
+#define LILYGO_NGROK_BUS_PING_CONFIG_H
+
+// -----------------------------------------------------------------------------
+// Bus + API (must match Admin_Backend Fleet + .env)
+// -----------------------------------------------------------------------------
+/** Human-readable bus id from Management → Fleet (e.g. BUS-01, 101). */
+#define BUS_ID "BUS-01"
+
+/** ngrok HTTPS host (no https://). If your tunnel URL changes, update here. */
+#define SERVER_HOST "showing-clarify-difficult.ngrok-free.dev"
+#define SERVER_PORT 443
+#define SERVER_PATH "/api/buses/ping"
+
+/**
+ * Upload path:
+ *   1 = ESP32 WiFi → TLS to ngrok (typical for laptop + ngrok HTTPS dev bridge).
+ *   0 = Cellular GPRS only → plain HTTP (use a host that serves HTTP on port 80, e.g. port-forwarded public IP).
+ */
+#define USE_WIFI_FOR_HTTPS_UPLOAD 1
+
+// Dev WiFi (only when USE_WIFI_FOR_HTTPS_UPLOAD 1)
+#define WIFI_SSID "your_home_or_phone_hotspot_ssid"
+#define WIFI_PASS "your_wifi_password"
+
+// -----------------------------------------------------------------------------
+// Security — match Backend/Admin_Backend .env (set at least one in production)
+// -----------------------------------------------------------------------------
+/** Leave "" if DEVICE_INGEST_API_KEY is unset on server. */
+#define DEVICE_API_KEY ""
+/** Leave "" if DEVICE_INGEST_SECRET is unset on server. */
+#define DEVICE_SECRET ""
+
+// -----------------------------------------------------------------------------
+// Cellular modem (GPS + optional GPRS when not using WiFi upload)
+// Philippines APN examples: "internet.globe.com.ph", "smartlte", "internet"
+// -----------------------------------------------------------------------------
+#define CELL_APN "internet.globe.com.ph"
+#define CELL_APN_USER ""
+#define CELL_APN_PASS ""
+
+#define MODEM_UART_RX 27
+#define MODEM_UART_TX 26
+#define MODEM_UART_BAUD 115200
+
+/** SIM7600 primary; use SIM800 only if you adapt GNSS AT commands. */
+#define TINY_GSM_MODEM_SIM7600
+
+#define POST_INTERVAL_MS 8000
+#define GPS_WARMUP_MS 25000
+#define MAX_GPS_WAIT_MS 120000
+
+/** 0 = decimal degrees from +CGNSINF; 1 = DDMM.MMMM if fixes are wildly wrong */
+#define GNSS_COORDS_DDMM_FORMAT 0
+
+#endif

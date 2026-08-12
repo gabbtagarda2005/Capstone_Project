@@ -147,13 +147,27 @@ function AutoFitOnce({
 
 type Props = {
   apiBase?: string;
+  /** When set, replaces “Live network map” in the map chrome (e.g. company name). */
+  chromeTitle?: string;
+  /** When set, replaces the map region line under the title (e.g. active section). */
+  chromeSubtitle?: string;
+  /** Hide title + subtitle when the parent shows branding elsewhere (e.g. passenger top bar). */
+  suppressBrandChrome?: boolean;
+  /** Fired when `/api/passenger/map-config` resolves so the parent can show the region in the top ticker. */
+  onMapRegionLabel?: (label: string) => void;
 };
 
-export function DashboardMap({ apiBase }: Props) {
+export function DashboardMap({
+  apiBase,
+  chromeTitle,
+  chromeSubtitle,
+  suppressBrandChrome,
+  onMapRegionLabel,
+}: Props) {
   const [userSession] = useState(() => getPassengerLocationSession());
   const [nearbyBusesOnly, setNearbyBusesOnly] = useState(false);
   const [cfg, setCfg] = useState<MapConfig>(defaultConfig);
-  const [basemap, setBasemap] = useState<PassengerBasemapMode>("dark");
+  const [basemap, setBasemap] = useState<PassengerBasemapMode>("roadmap");
   const [deployed, setDeployed] = useState<DeployedPointItem[]>([]);
   const [liveBuses, setLiveBuses] = useState<LiveBusPosition[]>([]);
   const [fleetById, setFleetById] = useState<Map<string, PublicFleetBus>>(new Map());
@@ -213,6 +227,10 @@ export function DashboardMap({ apiBase }: Props) {
       .catch(() => {});
     return () => ac.abort();
   }, [apiBase]);
+
+  useEffect(() => {
+    if (cfg.label?.trim()) onMapRegionLabel?.(cfg.label.trim());
+  }, [cfg.label, onMapRegionLabel]);
 
   const loadStaticPoints = useCallback(() => {
     fetchDeployedPoints()
@@ -292,15 +310,30 @@ export function DashboardMap({ apiBase }: Props) {
 
   const skipAutoFit = Boolean(userSession);
 
+  const lightChrome = basemap !== "dark";
+
   return (
-    <div className="dashboard-map">
+    <div
+      className={
+        "dashboard-map" +
+        (lightChrome ? " dashboard-map--light-chrome" : " dashboard-map--dark-chrome")
+      }
+    >
       <div className="dashboard-map__chrome">
         <div className="dashboard-map__chrome-main">
-          <h2 className="dashboard-map__title">Live network map</h2>
-          <p className="dashboard-map__sub">
-            {cfg.label}
-            {dataError ? ` · ${dataError}` : ""}
-          </p>
+          {!suppressBrandChrome ? (
+            <>
+              <h2 className="dashboard-map__title">{chromeTitle?.trim() || "Live network map"}</h2>
+              <p className="dashboard-map__sub">
+                {chromeSubtitle?.trim() || cfg.label}
+                {dataError ? ` · ${dataError}` : ""}
+              </p>
+            </>
+          ) : dataError ? (
+            <p className="dashboard-map__data-err" role="alert">
+              {dataError}
+            </p>
+          ) : null}
           {!operationsDeckLive ? (
             <p className="dashboard-map__deck-offline" role="status">
               Operations deck is <strong>OFFLINE</strong> — live buses are hidden until operations goes LIVE again.
@@ -422,7 +455,7 @@ export function DashboardMap({ apiBase }: Props) {
                   <div>Route: {route}</div>
                   {b.nextTerminal ? <div>Next: {b.nextTerminal}</div> : null}
                   {b.etaMinutes != null && Number.isFinite(b.etaMinutes) ? (
-                    <div>ETA ~{Math.round(b.etaMinutes)} min</div>
+                    <div>ETA ~{Math.max(1, Math.round(b.etaMinutes))} min</div>
                   ) : null}
                 </Popup>
               </Marker>

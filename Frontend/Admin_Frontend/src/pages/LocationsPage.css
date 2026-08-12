@@ -309,10 +309,21 @@
 
 .locations-page__fleet-bar-head {
   margin-bottom: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
 }
 
 .locations-page__fleet-bar-head .locations-page__insight-title {
   margin: 0;
+}
+
+.locations-page__fleet-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .locations-page__code-inline {
@@ -1230,8 +1241,13 @@
   }
 }
 
+.locations-page__test-gps-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+}
+
 .locations-page__test-gps-btn {
-  margin-top: 0.75rem;
+  margin-top: 0;
   padding: 0.4rem 0.75rem;
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.35);

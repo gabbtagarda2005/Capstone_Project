@@ -37,7 +37,7 @@ class _PulsingRedAlertDotState extends State<PulsingRedAlertDot> with SingleTick
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: TacticalColors.alertRed.withOpacity(0.45 + t * 0.35),
+                color: TacticalColors.alertRed.withValues(alpha: 0.45 + t * 0.35),
                 blurRadius: blur,
                 spreadRadius: 0.5,
               ),
@@ -91,10 +91,10 @@ class _PulsingSatelliteIconState extends State<PulsingSatelliteIcon> with Single
           child: Icon(
             Icons.satellite_alt_rounded,
             size: widget.size,
-            color: TacticalColors.neonCyan.withOpacity(0.75 + t * 0.25),
+            color: TacticalColors.neonCyan.withValues(alpha: 0.75 + t * 0.25),
             shadows: [
               Shadow(
-                color: TacticalColors.neonCyan.withOpacity(0.4 + t * 0.35),
+                color: TacticalColors.neonCyan.withValues(alpha: 0.4 + t * 0.35),
                 blurRadius: 8,
               ),
             ],
@@ -125,11 +125,11 @@ class _PulsingCyanBeaconDotState extends State<PulsingCyanBeaconDot> with Single
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(
-            color: TacticalColors.neonCyan.withOpacity(0.85 + t * 0.15),
+            color: TacticalColors.neonCyan.withValues(alpha: 0.85 + t * 0.15),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: TacticalColors.neonCyan.withOpacity(0.35 + t * 0.4),
+                color: TacticalColors.neonCyan.withValues(alpha: 0.35 + t * 0.4),
                 blurRadius: 6 + t * 4,
               ),
             ],

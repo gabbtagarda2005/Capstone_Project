@@ -7,7 +7,7 @@ const adminAuditLogSchema = new mongoose.Schema(
     action: {
       type: String,
       required: true,
-      enum: ["ADD", "EDIT", "VIEW", "DELETE", "BROADCAST"],
+      enum: ["ADD", "EDIT", "VIEW", "DELETE", "BROADCAST", "LOGIN"],
       index: true,
     },
     details: { type: String, required: true, trim: true, maxlength: 2000 },

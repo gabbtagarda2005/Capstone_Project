@@ -22,6 +22,7 @@ type LiveBoardBlock = {
   arrivalTerminalName?: string;
   arrivalLockedEta?: string;
   etaMinutes?: number;
+  serviceDate?: string;
   trackingLost?: boolean;
   trackingDegraded?: boolean;
 };
@@ -74,6 +75,28 @@ function gateForRow(bl: LiveBoardBlock): string {
   return a || c || g || "—";
 }
 
+function dateForRow(bl: LiveBoardBlock, fallbackDate: string): string {
+  const rowDate = bl.serviceDate?.trim();
+  return rowDate && /^\d{4}-\d{2}-\d{2}$/.test(rowDate) ? rowDate : fallbackDate;
+}
+
+function etaConfidenceForRow(bl: LiveBoardBlock): { label: string; tone: "off" | "weak" | "live" | "est" } {
+  if (bl.trackingLost) {
+    return bl.status === "arriving" ? { label: "Signal lost", tone: "off" } : { label: "Estimated", tone: "est" };
+  }
+  if (bl.trackingDegraded && bl.status === "arriving") return { label: "Signal weak", tone: "weak" };
+  if (bl.status === "arriving" && bl.arrivalLockedEta?.trim()) return { label: "Live", tone: "live" };
+  if (Number.isFinite(bl.etaMinutes) && (bl.etaMinutes ?? 0) >= 0) return { label: "Live", tone: "live" };
+  return { label: "Estimated", tone: "est" };
+}
+
+function gateConfidenceForRow(bl: LiveBoardBlock): { label: string; tone: "off" | "live" | "est" } {
+  if (bl.trackingLost) return { label: "Signal lost", tone: "off" };
+  const hasGate = !!(bl.gate?.trim() || bl.currentTerminalGate?.trim() || bl.arrivalTerminalName?.trim());
+  if (hasGate) return { label: "Live", tone: "live" };
+  return { label: "Estimated", tone: "est" };
+}
+
 function etaForRow(bl: LiveBoardBlock): string {
   if (bl.trackingLost) {
     return bl.status === "arriving" ? "SIGNAL LOST" : "ESTIMATED";
@@ -120,6 +143,8 @@ function mapPayloadItem(row: Record<string, unknown>): LiveBoardBlock | null {
       row.etaMinutes != null && Number.isFinite(Number(row.etaMinutes))
         ? Math.max(0, Math.round(Number(row.etaMinutes)))
         : undefined,
+    serviceDate:
+      row.serviceDate != null && String(row.serviceDate).trim() ? String(row.serviceDate).trim().slice(0, 10) : undefined,
     trackingLost: row.trackingLost === true,
     trackingDegraded: row.trackingDegraded === true,
   };
@@ -173,7 +198,80 @@ function liveBadgeTitle(category: string): string {
   return "Active advisory";
 }
 
-export function PassengerDepartureBoard() {
+function commandFeedBodySegments(body: string): string[] {
+  const t = body.trim();
+  if (!t) return [];
+  const byBullets = t.split(/\s+(?:[·•])\s+/).map((s) => s.trim()).filter(Boolean);
+  if (byBullets.length >= 2 && byBullets.every((s) => s.length <= 300)) return byBullets;
+  const bySemi = t.split(/\s*;\s+/).map((s) => s.trim()).filter(Boolean);
+  if (bySemi.length >= 2 && bySemi.every((s) => s.length <= 300)) return bySemi;
+  const byLines = t.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  if (byLines.length >= 2 && byLines.every((s) => s.length <= 200)) return byLines;
+  return [t];
+}
+
+function commandFeedSegmentEmoji(text: string): string {
+  const low = text.toLowerCase();
+  if (/(rain|drizzle|shower|umbrella|wet|pour)/.test(low)) return "🌧";
+  if (/(storm|thunder|lightning)/.test(low)) return "⛈";
+  if (/(cloud|overcast|\bgrey\b|\bgray\b)/.test(low)) return "☁";
+  if (/(fog|mist|haze)/.test(low)) return "🌫";
+  if (/(sun|clear|fair|dry|\bhot\b)/.test(low)) return "☀";
+  if (/(wind|breezy|gust)/.test(low)) return "💨";
+  if (/(cold|cool|chill)/.test(low)) return "🧥";
+  if (/(partly)/.test(low)) return "⛅";
+  return "📍";
+}
+
+function commandFeedChipLayoutClass(category: string, segmentCount: number): string {
+  const c = category.trim().toLowerCase();
+  if (c === "weather alert" && segmentCount >= 3) return " pd-feed__body-chips--weather-tiles";
+  return "";
+}
+
+function feedCardCategoryClass(category: string): string {
+  const c = category.trim().toLowerCase();
+  if (c === "operations") return " pd-feed__card--ops";
+  if (c === "terminal notice") return " pd-feed__card--terminal";
+  if (c === "weather alert") return " pd-feed__card--weather";
+  if (c === "traffic & delays") return " pd-feed__card--traffic";
+  return "";
+}
+
+function CommandFeedBody({ body, category }: { body: string; category: string }) {
+  const segments = useMemo(() => commandFeedBodySegments(body), [body]);
+  if (segments.length < 2) {
+    return <p className="pd-feed__card-body">{body}</p>;
+  }
+  const chipExtra = commandFeedChipLayoutClass(category, segments.length);
+  return (
+    <div className={"pd-feed__body-chips" + chipExtra} role="list">
+      {segments.map((seg, i) => (
+        <div key={i} className="pd-feed__body-chip" role="listitem">
+          <span className="pd-feed__body-chip-ico" aria-hidden>
+            {commandFeedSegmentEmoji(seg)}
+          </span>
+          <span className="pd-feed__body-chip-text">{seg}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type PassengerDepartureBoardProps = {
+  /** Main heading (admin board uses “Live fleet departures”). */
+  headingTitle?: string;
+  /** Optional subtitle under the heading. */
+  subheading?: string;
+  /** Extra class on the root (e.g. overlay embed). */
+  className?: string;
+};
+
+export function PassengerDepartureBoard({
+  headingTitle = "Live fleet departures",
+  subheading,
+  className,
+}: PassengerDepartureBoardProps = {}) {
   const [blocks, setBlocks] = useState<LiveBoardBlock[]>(DEMO_BLOCKS);
   const [holiday, setHoliday] = useState<LiveBoardPayload["holidayBanner"]>(null);
   const [manilaDate, setManilaDate] = useState<string>(() => manilaYmdClient());
@@ -185,15 +283,19 @@ export function PassengerDepartureBoard() {
     return () => window.clearInterval(tick);
   }, []);
 
+  const displayDate = manilaDate || manilaYmdClient();
+
   const sortedRows = useMemo(() => {
     return [...blocks].sort((a, b) => {
-      const ba = a.busId.localeCompare(b.busId);
-      if (ba !== 0) return ba;
-      return a.scheduledDeparture.localeCompare(b.scheduledDeparture);
+      const da = dateForRow(a, displayDate);
+      const db = dateForRow(b, displayDate);
+      const dateCmp = da.localeCompare(db);
+      if (dateCmp !== 0) return dateCmp;
+      const depCmp = a.scheduledDeparture.localeCompare(b.scheduledDeparture);
+      if (depCmp !== 0) return depCmp;
+      return a.busId.localeCompare(b.busId);
     });
-  }, [blocks]);
-
-  const displayDate = manilaDate || manilaYmdClient();
+  }, [blocks, displayDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -248,14 +350,16 @@ export function PassengerDepartureBoard() {
     };
   }, []);
 
+  const defaultSub =
+    source === "live" ? "Synced from operations · WebSocket + poll backup" : "Demo preview · connect admin dispatch";
+  const sub = subheading ?? defaultSub;
+
   return (
-    <div className="pd-tactical pd-board" role="region" aria-label="Departure board">
+    <div className={"pd-tactical pd-board" + (className ? ` ${className}` : "")} role="region" aria-label="Departure board">
       <header className="pd-tactical__head pd-board__mast">
         <div>
-          <h1 className="pd-tactical__title">Live departures</h1>
-          <p className="pd-tactical__sub">
-            {source === "live" ? "Synced from operations · WebSocket + poll backup" : "Demo preview · connect admin dispatch"}
-          </p>
+          <h1 className="pd-tactical__title">{headingTitle}</h1>
+          <p className="pd-tactical__sub">{sub}</p>
         </div>
         <div className="pd-board__live" aria-live="polite">
           <span className={"pd-board__dot" + (socketConnected ? " pd-board__dot--on" : "")} aria-hidden />
@@ -292,13 +396,26 @@ export function PassengerDepartureBoard() {
                 const st = statusLabel(bl.status);
                 const eta = etaForRow(bl);
                 const gate = gateForRow(bl);
+                const etaConf = etaConfidenceForRow(bl);
+                const gateConf = gateConfidenceForRow(bl);
+                const rowDate = dateForRow(bl, displayDate);
                 return (
                   <tr key={bl.id} className={"pd-board__row " + st.mod}>
                     <td className="pd-board__mono">{tripDisplayId(idx)}</td>
                     <td className="pd-board__route">{bl.routeLabel.replace(/\s*[–—-]\s*/g, " ➔ ")}</td>
-                    <td className="pd-board__mono">{displayDate}</td>
-                    <td className="pd-board__mono pd-board__eta-cell">{eta}</td>
-                    <td className="pd-board__mono">{gate}</td>
+                    <td className="pd-board__mono">{rowDate}</td>
+                    <td className="pd-board__mono pd-board__eta-cell">
+                      <div className="pd-board__value-stack">
+                        <span>{eta}</span>
+                        <span className={"pd-board__conf pd-board__conf--" + etaConf.tone}>{etaConf.label}</span>
+                      </div>
+                    </td>
+                    <td className="pd-board__mono">
+                      <div className="pd-board__value-stack">
+                        <span>{gate}</span>
+                        <span className={"pd-board__conf pd-board__conf--" + gateConf.tone}>{gateConf.label}</span>
+                      </div>
+                    </td>
                     <td>
                       <span className={"pd-board__status " + st.mod}>
                         {st.emoji} {st.text}
@@ -367,7 +484,7 @@ export function PassengerNewsFeed() {
             return (
               <li key={item.id} className="pd-feed__item">
                 <span className="pd-feed__rail" aria-hidden />
-                <article className="pd-feed__card">
+                <article className={"pd-feed__card" + feedCardCategoryClass(item.category)}>
                   <div className="pd-feed__card-head">
                     {live ? (
                       <span className="pd-feed__live" title={liveBadgeTitle(item.category)}>
@@ -378,7 +495,7 @@ export function PassengerNewsFeed() {
                     <span className="pd-feed__category">{item.category}</span>
                   </div>
                   <h2 className="pd-feed__card-title">{item.title}</h2>
-                  {item.body ? <p className="pd-feed__card-body">{item.body}</p> : null}
+                  {item.body ? <CommandFeedBody body={item.body} category={item.category} /> : null}
                   {iso ? (
                     <time className="pd-feed__time" dateTime={iso}>
                       {formatManilaFeedTime(item.publishedAt)}
@@ -453,7 +570,7 @@ export function PassengerFeedbackConsole() {
 
   return (
     <div className="pd-tactical pd-fb pd-tactical--centered" role="region" aria-label="Feedback">
-      <form className="pd-fb-card pd-fb-card--lg" onSubmit={(ev) => void submit(ev)}>
+      <form className="pd-fb-card pd-fb-card--lg pd-fb-card--glass-passenger" onSubmit={(ev) => void submit(ev)}>
         <h1 className="pd-fb-card__title">Send Feedback</h1>
 
         <label className="pd-fb-card__field-label" htmlFor="pd-fb-about">
@@ -520,29 +637,30 @@ export function PassengerFeedbackConsole() {
         </div>
 
         <div className="pd-fb-card__toolbar" role="group" aria-label="Submit feedback">
-          <span className="pd-fb-card__spacer" aria-hidden />
-          <span className="pd-fb-card__spacer" aria-hidden />
-          <button type="submit" className="pd-fb-card__send" disabled={pending} aria-label="Send feedback">
+          <button type="submit" className="pd-fb-card__send pd-fb-card__send--conversation" disabled={pending} aria-label="Send feedback">
             {pending ? (
               <span className="pd-fb-card__send-label">Sending…</span>
             ) : (
-              <svg
-                className="pd-fb-card__send-icon"
-                fill="none"
-                viewBox="0 0 24 24"
-                height="30"
-                width="30"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden
-              >
-                <path
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  strokeWidth="1.5"
-                  d="M7.39999 6.32003L15.89 3.49003C19.7 2.22003 21.77 4.30003 20.51 8.11003L17.68 16.6C15.78 22.31 12.66 22.31 10.76 16.6L9.91999 14.08L7.39999 13.24C1.68999 11.34 1.68999 8.23003 7.39999 6.32003Z"
-                />
-                <path strokeLinejoin="round" strokeLinecap="round" strokeWidth="1.5" d="M10.11 13.6501L13.69 10.0601" />
-              </svg>
+              <>
+                <svg
+                  className="pd-fb-card__send-icon"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  height="26"
+                  width="26"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    strokeWidth="1.5"
+                    d="M7.39999 6.32003L15.89 3.49003C19.7 2.22003 21.77 4.30003 20.51 8.11003L17.68 16.6C15.78 22.31 12.66 22.31 10.76 16.6L9.91999 14.08L7.39999 13.24C1.68999 11.34 1.68999 8.23003 7.39999 6.32003Z"
+                  />
+                  <path strokeLinejoin="round" strokeLinecap="round" strokeWidth="1.5" d="M10.11 13.6501L13.69 10.0601" />
+                </svg>
+                <span className="pd-fb-card__send-text">Send</span>
+              </>
             )}
           </button>
         </div>

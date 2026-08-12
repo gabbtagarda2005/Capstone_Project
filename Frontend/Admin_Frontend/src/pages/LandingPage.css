@@ -158,12 +158,22 @@
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.04em;
+  color: #fff;
 }
 
-.landing-hero__title span {
-  font-family: var(--brand-wordmark-family);
+.landing-hero__title-welcome {
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+/* Company name — gradient span; use headline font (not Syne) so the line doesn’t
+   break one word per column; wide wordmark + clipped gradient reads “vertical” */
+.landing-hero__title-brand {
+  font-family: inherit;
+  font-weight: 800;
   letter-spacing: 0.02em;
-  background: linear-gradient(120deg, #fff 0%, #22d3ee 50%, #60a5fa 100%);
+  background: linear-gradient(90deg, #fff 0%, #22d3ee 50%, #60a5fa 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -314,12 +324,191 @@
   padding: 0 1.5rem;
 }
 
+/* App download card — between hero blend and Operational mix */
+.landing-app-download-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 2.5rem 0 0.75rem;
+}
+
+.landing-app-card {
+  width: 100%;
+  max-width: 1040px;
+  display: flex;
+  justify-content: center;
+}
+
+.landing-app-card__inner {
+  width: 100%;
+  background: linear-gradient(135deg, #071027 0%, #10213d 48%, #0f2d2d 100%);
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 1.25rem;
+  padding: 1.6rem;
+  border-radius: 25px;
+  border: 1px solid rgba(106, 136, 164, 0.38);
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.4);
+}
+
+.landing-app-card__left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+  min-width: 0;
+}
+
+.landing-app-card__right {
+  border-left: 1px solid rgba(111, 175, 198, 0.35);
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.landing-app-card__small {
+  color: #8dd3ff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing-app-card__title {
+  margin: 0;
+  padding: 0;
+  border: none;
+  color: #fff;
+  font-size: clamp(1.35rem, 2.7vw, 2rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.landing-app-card__desc {
+  margin: 0;
+  color: #d6dee6;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.landing-app-card__about-title {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+
+.landing-app-card__about-copy {
+  margin: 0;
+  color: #c7d3e1;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.landing-app-card__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.92rem 1.2rem;
+  text-decoration: none;
+  width: fit-content;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  box-sizing: border-box;
+  font-size: 0.96rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  margin-top: 0.45rem;
+}
+
+.landing-app-card__btn--play {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #1e40af 100%);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4);
+  color: #f8fafc;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.landing-app-card__btn--play:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.55);
+}
+
+.landing-app-card__qr-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.landing-app-card__qr-copy {
+  margin: 0;
+  color: #bfd4e6;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.landing-app-card__qr-link {
+  display: inline-flex;
+  margin-top: 0.2rem;
+  border-radius: 16px;
+  border: 1px solid rgba(132, 178, 200, 0.35);
+  background: rgba(12, 24, 34, 0.72);
+  padding: 0.7rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.landing-app-card__qr {
+  width: 170px;
+  height: 170px;
+  display: block;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.landing-app-card__qr-endpoint {
+  margin: 0;
+  color: #8faec4;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 900px) {
+  .landing-app-card__inner {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .landing-app-card__right {
+    border-left: none;
+    border-top: 1px solid rgba(111, 175, 198, 0.35);
+    padding-left: 0;
+    padding-top: 1rem;
+    align-items: center;
+    text-align: center;
+  }
+
+  .landing-app-card__btn {
+    width: 100%;
+  }
+
+  .landing-app-card__qr {
+    width: 160px;
+    height: 160px;
+  }
+}
+
 .landing-section {
   padding: 3.5rem 0;
 }
 
 .landing-section--operational {
-  padding-top: 2.25rem;
+  padding-top: 1.75rem;
 }
 
 .landing-section__head {

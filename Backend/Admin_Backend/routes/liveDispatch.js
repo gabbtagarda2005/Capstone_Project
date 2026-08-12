@@ -85,7 +85,7 @@ async function enrichItemsForPublic(rawBlocks) {
       arrivalTerminalName: b.arrivalTerminalName != null ? String(b.arrivalTerminalName) : null,
       arrivalLockedEta: b.arrivalLockedEta != null ? String(b.arrivalLockedEta) : null,
       arrivalDetectedAt: b.arrivalDetectedAt != null ? String(b.arrivalDetectedAt) : null,
-      etaMinutes: Number.isFinite(Number(b.etaMinutes)) ? Math.max(0, Math.round(Number(b.etaMinutes))) : null,
+      etaMinutes: Number.isFinite(Number(b.etaMinutes)) ? Math.max(1, Math.round(Number(b.etaMinutes))) : null,
       etaTargetIso: b.etaTargetIso != null ? String(b.etaTargetIso) : null,
       nextTerminal: b.nextTerminal != null ? String(b.nextTerminal) : null,
     });

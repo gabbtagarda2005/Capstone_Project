@@ -32,7 +32,7 @@
 #endif
 
 #ifndef POST_INTERVAL_MS
-#define POST_INTERVAL_MS 5000
+#define POST_INTERVAL_MS 8000
 #endif
 #ifndef GNSS_SPEED_FIELD_INDEX
 #define GNSS_SPEED_FIELD_INDEX 7

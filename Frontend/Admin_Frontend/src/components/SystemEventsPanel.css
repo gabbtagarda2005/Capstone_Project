@@ -1,0 +1,124 @@
+.sys-events__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sys-events__pause {
+  border: 1px solid rgba(100, 120, 200, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.sys-events__pause:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sys-events__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
+.sys-events__filter {
+  border: 1px solid rgba(100, 120, 200, 0.2);
+  background: transparent;
+  color: rgba(148, 163, 184, 0.9);
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.sys-events__filter:hover {
+  border-color: rgba(103, 232, 249, 0.4);
+}
+
+.sys-events__filter--active {
+  background: rgba(34, 211, 238, 0.14);
+  border-color: rgba(34, 211, 238, 0.55);
+  color: #e0fbff;
+}
+
+.sys-events__empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(203, 213, 225, 0.85);
+}
+
+.sys-events__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.sys-events__row {
+  display: grid;
+  grid-template-columns: 4.5rem 6rem 6rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.7rem;
+  font-size: 0.8rem;
+  background: rgba(8, 12, 22, 0.4);
+}
+
+@media (max-width: 640px) {
+  .sys-events__row {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
+
+.sys-events__time {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.sys-events__badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.sys-events__row--critical .sys-events__badge,
+.sys-events__row--error .sys-events__badge {
+  color: #fca5a5;
+}
+
+.sys-events__row--warn .sys-events__badge {
+  color: #fde68a;
+}
+
+.sys-events__row--info .sys-events__badge {
+  color: #93c5fd;
+}
+
+.sys-events__service {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.sys-events__msg {
+  color: rgba(226, 232, 240, 0.92);
+  min-width: 0;
+  overflow-wrap: break-word;
+}

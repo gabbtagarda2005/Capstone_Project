@@ -97,6 +97,15 @@
   color: #e0f2fe;
 }
 
+.reports-page__daily-wrap {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.reports-page__daily-wrap .daily-ops {
+  margin-top: 0.35rem;
+}
+
 .reports-page__exec {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -685,6 +694,52 @@
 
 .reports-hub__export-date-hint--err {
   color: rgba(251, 113, 133, 0.95);
+}
+
+.reports-hub__bus-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.reports-hub__bus-filter-select {
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  background: rgba(2, 6, 23, 0.65);
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  min-width: 11rem;
+}
+
+.reports-hub__bus-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 100%;
+  min-height: 180px;
+  text-align: center;
+}
+
+.reports-hub__bus-stat-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.reports-hub__bus-stat-value {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #f8fafc;
+}
+
+.reports-hub__bus-stat-meta {
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.85);
 }
 
 .reports-hub__export-panel-kicker {

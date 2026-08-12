@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
-const { isAuthorizedAdminEmail, normalizeEmail } = require("../config/adminWhitelist");
-const { getRbacRoleForEmail } = require("../services/adminRbac");
+const { normalizeEmail } = require("../config/adminWhitelist");
+const { getRbacRoleForEmail, isAuthorizedAdminEmailDynamic } = require("../services/adminRbac");
 
 function fullPath(req) {
   return String(req.originalUrl || req.url || "").split("?")[0];
@@ -30,7 +30,7 @@ async function enforceAdminRbac(req, res, next) {
   if (payload.role !== "Admin") return next();
 
   const email = normalizeEmail(payload.email);
-  if (!isAuthorizedAdminEmail(email)) return next();
+  if (!(await isAuthorizedAdminEmailDynamic(email))) return next();
 
   let rbacRole;
   try {
@@ -40,6 +40,16 @@ async function enforceAdminRbac(req, res, next) {
   }
 
   const method = String(req.method || "").toUpperCase();
+
+  // IT accounts are locked to the system-health view: session self-check + read-only health data.
+  if (rbacRole === "it_support") {
+    const IT_ALLOWED_PATHS = new Set(["/api/auth/me", "/api/admin/system-events", "/api/admin/api-metrics"]);
+    const isAllowed = method === "GET" && IT_ALLOWED_PATHS.has(path);
+    if (!isAllowed) {
+      return res.status(403).json({ error: "IT accounts can only view system health" });
+    }
+    return next();
+  }
 
   if (rbacRole === "auditor" && !["GET", "HEAD", "OPTIONS"].includes(method)) {
     return res.status(403).json({ error: "Read-only role cannot modify data" });

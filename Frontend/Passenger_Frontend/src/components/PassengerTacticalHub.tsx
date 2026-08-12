@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { fetchDeployedPoints, type DeployedPointItem } from "@/lib/fetchPassengerMapData";
-import { fetchPublicFleetBuses, type FleetIntelQuery, type PublicFleetBus } from "@/lib/fetchPublicFleetBuses";
-import { fetchPublicOperationsDeck } from "@/lib/fetchPublicOperationsDeck";
+import { fetchPublicFleetBuses, type PublicFleetBus } from "@/lib/fetchPublicFleetBuses";
 import {
   fetchPublicFareQuote,
   type FareCategoryUi,
   type PublicFareQuoteOk,
   type PublicFareQuoteResponse,
 } from "@/lib/fetchPublicFareQuote";
-import { bestEtaByBusId, fetchPublicLiveBoard } from "@/lib/fetchPublicLiveBoard";
 import { fetchPublicPostJson } from "@/lib/fetchWithPublicApiBases";
 import { routeEndpointsFromLabel } from "@/lib/routeEndpointsFromLabel";
 import { getPassengerLocationSession } from "@/lib/passengerLocationGate";
+import { PassengerArrivalAlarm } from "@/components/PassengerArrivalAlarm";
 import "./PassengerTacticalPanels.css";
 import "./PassengerTacticalHub.css";
 
@@ -34,11 +33,15 @@ function collectLocationLabels(rows: DeployedPointItem[]): string[] {
   return [...labels].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
+/* Arrival notification feature removed per user request. */
+
 export type PassengerRouteCalculatorProps = {
   onClose?: () => void;
+  /** Collapses the sheet to focus the map (e.g. “Track Bus”). */
+  onTrackBus?: () => void;
 };
 
-export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorProps) {
+export function PassengerRouteCalculator({ onClose, onTrackBus }: PassengerRouteCalculatorProps) {
   const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -49,12 +52,6 @@ export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorPr
   const [fareBump, setFareBump] = useState(false);
   const prevCategory = useRef(category);
   const debounceRef = useRef<number | null>(null);
-
-  const [fleet, setFleet] = useState<PublicFleetBus[] | null>(null);
-  const [fleetErr, setFleetErr] = useState<string | null>(null);
-  const [liveBoard, setLiveBoard] = useState<Awaited<ReturnType<typeof fetchPublicLiveBoard>> | null>(null);
-  const [liveBoardErr, setLiveBoardErr] = useState<string | null>(null);
-  const [operationsDeckLive, setOperationsDeckLive] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!onClose) return;
@@ -86,62 +83,6 @@ export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorPr
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function tick() {
-      let deckOk = true;
-      try {
-        const od = await fetchPublicOperationsDeck();
-        deckOk = od.operationsDeckLive !== false;
-        if (cancelled) return;
-        setOperationsDeckLive(deckOk);
-      } catch {
-        if (cancelled) return;
-        setOperationsDeckLive(true);
-        deckOk = true;
-      }
-      if (!deckOk) {
-        if (cancelled) return;
-        setFleet([]);
-        setLiveBoard([]);
-        setFleetErr(null);
-        setLiveBoardErr(null);
-        return;
-      }
-      const sess = getPassengerLocationSession();
-      const q: FleetIntelQuery = {};
-      if (sess?.nearestLabel?.trim()) q.viewerHub = sess.nearestLabel.trim();
-      if (sess && Number.isFinite(sess.lat) && Number.isFinite(sess.lng)) {
-        q.userLat = sess.lat;
-        q.userLng = sess.lng;
-      }
-      const [fr, lr] = await Promise.allSettled([fetchPublicFleetBuses(q), fetchPublicLiveBoard()]);
-      if (cancelled) return;
-      if (fr.status === "fulfilled") {
-        setFleet(fr.value);
-        setFleetErr(null);
-      } else {
-        setFleet((p) => p ?? []);
-        setFleetErr(fr.reason instanceof Error ? fr.reason.message : "Could not load fleet list.");
-      }
-      if (lr.status === "fulfilled") {
-        setLiveBoard(lr.value);
-        setLiveBoardErr(null);
-      } else {
-        setLiveBoard((p) => p ?? []);
-        setLiveBoardErr(lr.reason instanceof Error ? lr.reason.message : "Could not load ETAs.");
-      }
-    }
-    void tick();
-    const id = window.setInterval(() => void tick(), 30_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
-
-  const etaByBusId = useMemo(() => bestEtaByBusId(liveBoard ?? []), [liveBoard]);
 
   useEffect(() => {
     if (prevCategory.current !== category) {
@@ -226,18 +167,13 @@ export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorPr
   const showSelects = locationOptions.length >= 2;
 
   return (
-    <div className="pd-tactical pd-check-buses" role="region" aria-label="Check buses">
-      <header className="pd-tactical__head pd-board__mast">
-        <div>
-          <h1 className="pd-tactical__title">Check buses</h1>
-          <p className="pd-tactical__sub">Fare quotes from Admin · Fleet registry from operations</p>
-        </div>
-      </header>
-
-      <div className="pd-board__wrap">
+    <div className="pd-tactical pd-check-buses pd-check-buses--feed pd-check-buses--planner-split" role="region" aria-label="Trip planner">
+      <div className="pd-check-buses__planner-inner">
+        <div className="pd-check-buses__planner-col pd-check-buses__planner-col--fare">
+      <div className="pd-board__wrap pd-check-buses__fare-glass">
         <div className="pd-check-buses__pad">
           <h2 className="pd-check-buses__block-title">Fare estimate</h2>
-          <div className="pd-fare-engine__grid">
+          <div className="pd-fare-engine__grid pd-fare-engine__grid--trips">
             <label className="pd-fare-engine__field">
               <span className="pd-fare-engine__label">Start location</span>
               {showSelects ? (
@@ -288,7 +224,7 @@ export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorPr
                 />
               )}
             </label>
-            <label className="pd-fare-engine__field pd-fare-engine__field--span2">
+            <label className="pd-fare-engine__field pd-fare-engine__field--category">
               <span className="pd-fare-engine__label">Passenger category</span>
               <select
                 className="pd-fare-select"
@@ -303,26 +239,41 @@ export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorPr
                 ))}
               </select>
             </label>
+            <div
+              className={
+                "pd-fare-total pd-fare-total--compact pd-fare-total--price-tag" +
+                (fareBump ? " pd-fare-total--bump" : "")
+              }
+              aria-live="polite"
+            >
+              <span className="pd-fare-total__label">Total fare</span>
+              <span className="pd-fare-total__amount">
+                {!needsBothLocations ? (
+                  <span className="pd-fare-total__placeholder">Choose start and destination</span>
+                ) : quoteLoading ? (
+                  <span className="pd-fare-total__loading">Calculating…</span>
+                ) : okQuote ? (
+                  `₱${okQuote.fare.toFixed(2)}`
+                ) : quote && !quote.matched ? (
+                  <span className="pd-fare-total__placeholder">Not priced for this pair</span>
+                ) : quoteError ? (
+                  <span className="pd-fare-total__placeholder">Could not load fare</span>
+                ) : (
+                  <span className="pd-fare-total__placeholder">Getting fare…</span>
+                )}
+              </span>
+            </div>
           </div>
 
-          <div className={"pd-fare-total" + (fareBump ? " pd-fare-total--bump" : "")} aria-live="polite">
-            <span className="pd-fare-total__label">Total fare</span>
-            <span className="pd-fare-total__amount">
-              {!needsBothLocations ? (
-                <span className="pd-fare-total__placeholder">Choose start and destination</span>
-              ) : quoteLoading ? (
-                <span className="pd-fare-total__loading">Calculating…</span>
-              ) : okQuote ? (
-                `₱${okQuote.fare.toFixed(2)}`
-              ) : quote && !quote.matched ? (
-                <span className="pd-fare-total__placeholder">Not priced for this pair</span>
-              ) : quoteError ? (
-                <span className="pd-fare-total__placeholder">Could not load fare</span>
-              ) : (
-                <span className="pd-fare-total__placeholder">Getting fare…</span>
-              )}
-            </span>
-          </div>
+          {onTrackBus ? (
+            <div className="pd-check-buses__track-row">
+              <button type="button" className="pd-check-buses__track-btn" onClick={onTrackBus}>
+                Track Bus
+              </button>
+            </div>
+          ) : null}
+
+          <PassengerArrivalAlarm />
 
           {fareExplain ? (
             <p className="pd-fare-engine__breakdown-explain" role="status">
@@ -373,37 +324,8 @@ export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorPr
           ) : null}
         </div>
       </div>
+        </div>
 
-      <h2 className="pd-check-buses__block-title pd-check-buses__block-title--fleet">Fleet registry</h2>
-      {liveBoardErr ? (
-        <p className="pd-check-buses__live-err" role="status">
-          {liveBoardErr}
-        </p>
-      ) : null}
-      <div className="pd-board__wrap pd-check-buses__fleet-card-panel">
-        {fleet === null || operationsDeckLive === null ? (
-          <p className="pd-board__empty pd-check-buses__fleet-empty">Loading fleet…</p>
-        ) : operationsDeckLive === false ? (
-          <p className="pd-board__empty pd-check-buses__fleet-empty pd-check-buses__fleet-empty--offline" role="status">
-            Fleet registry is paused — the operations center has set the deck to <strong>OFFLINE</strong>. Live buses
-            and fleet cards will return when operations goes LIVE again.
-          </p>
-        ) : fleetErr ? (
-          <p className="pd-board__empty pd-check-buses__fleet-empty">{fleetErr}</p>
-        ) : fleet.length === 0 ? (
-          <p className="pd-board__empty pd-check-buses__fleet-empty">No buses registered yet.</p>
-        ) : (
-          <div className="pax-fleet-bus-card-grid" role="list" aria-label="Fleet registry">
-            {fleet.map((b) => (
-              <FleetBusCard
-                key={b.busId}
-                bus={b}
-                etaInfo={etaByBusId.get(String(b.busId).trim())}
-                liveBoardLoading={liveBoard === null}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -433,131 +355,6 @@ function fleetRouteLocationLabel(bus: PublicFleetBus): string {
   if (parsed.end !== "—") return shortTerminalLabel(parsed.end);
   const raw = bus.route?.trim();
   return raw || "Route not assigned";
-}
-
-function fleetStatusPresentation(status: string): { text: string; emoji: string; mod: string } {
-  const s = String(status || "").toLowerCase();
-  if (s.includes("active")) return { text: "ACTIVE", emoji: "🟢", mod: "pd-board__status--ontime" };
-  if (s.includes("maintenance")) return { text: "MAINTENANCE", emoji: "🟠", mod: "pd-board__status--delayed" };
-  return { text: "INACTIVE", emoji: "⚫", mod: "pd-board__status--cancelled" };
-}
-
-function resolvePassengerEta(
-  bus: PublicFleetBus,
-  boardEta: { eta: number | null; nextTerminal: string | null } | undefined,
-  liveBoardLoading: boolean,
-  inactive: boolean,
-): { minutes: string; sub: string; title: string } {
-  if (liveBoardLoading) {
-    return { minutes: "…", sub: "Loading…", title: "Loading ETA" };
-  }
-  if (inactive) {
-    return { minutes: "—", sub: "Bus inactive", title: "No ETA for inactive buses" };
-  }
-  const userEtaRaw = bus.etaMinutesFromUser;
-  const userEta =
-    userEtaRaw != null && Number.isFinite(Number(userEtaRaw)) ? Math.max(1, Math.round(Number(userEtaRaw))) : null;
-  if (userEta != null) {
-    const km = bus.distanceToUserKm;
-    const sub =
-      km != null && Number.isFinite(Number(km)) ? `~${Number(km).toFixed(1)} km · 40 km/h` : "Live bus GPS";
-    return {
-      minutes: `~${userEta} min`,
-      sub,
-      title: `About ${userEta} minutes based on your location and the bus GPS (assumes ~40 km/h).`,
-    };
-  }
-  const bEta = boardEta?.eta;
-  if (bEta != null && Number.isFinite(Number(bEta))) {
-    const n = Math.max(0, Math.round(Number(bEta)));
-    const nt = boardEta?.nextTerminal?.trim() || "";
-    return {
-      minutes: `~${n} min`,
-      sub: nt || "Operations ETA",
-      title: `ETA ~${n} min${nt ? ` — ${nt}` : ""} from the live board.`,
-    };
-  }
-  return {
-    minutes: "—",
-    sub: "Open the map tab & share location for GPS ETA",
-    title: "Enable location to see time to reach you",
-  };
-}
-
-function FleetBusCard({
-  bus,
-  etaInfo,
-  liveBoardLoading,
-}: {
-  bus: PublicFleetBus;
-  etaInfo: { eta: number | null; nextTerminal: string | null } | undefined;
-  liveBoardLoading: boolean;
-}) {
-  const inactive = isInactiveStatus(bus.status);
-  const routeLocations = fleetRouteLocationLabel(bus);
-  const plate = bus.plateNumber?.trim() && bus.plateNumber !== "—" ? bus.plateNumber.trim() : "—";
-  const eta = resolvePassengerEta(bus, etaInfo, liveBoardLoading, inactive);
-  const st = fleetStatusPresentation(bus.status);
-  const seatLine = bus.seatLine?.trim() || `0/${bus.seatCapacity}`;
-  const cap = bus.seatCapacity;
-
-  return (
-    <article className={"pax-fleet-bus-card" + (inactive ? " pax-fleet-bus-card--inactive" : "")} role="listitem">
-      <div className="pax-fleet-bus-card__shell">
-        <div className="pax-fleet-bus-card__top pax-fleet-bus-card__top--smart">
-          <div className="pax-fleet-bus-card__smart-row">
-            <div className="pax-fleet-bus-card__smart-col pax-fleet-bus-card__smart-col--eta">
-              <span className="pax-fleet-bus-card__smart-eta-time" title={eta.title}>
-                {eta.minutes}
-              </span>
-              <span className="pax-fleet-bus-card__smart-eta-label">ETA</span>
-              <span className="pax-fleet-bus-card__smart-eta-sub">{eta.sub}</span>
-            </div>
-            <div className="pax-fleet-bus-card__smart-col pax-fleet-bus-card__smart-col--center">
-              <div className="pax-fleet-bus-card__smart-bus-icon" aria-hidden>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="pax-fleet-bus-card__bus-svg" fill="none">
-                  <path
-                    fill="white"
-                    d="M4 16c0 .88.39 1.67 1 2.22V20a1 1 0 001 1h1a1 1 0 001-1v-1h8v1a1 1 0 001 1h1a1 1 0 001-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-2.5-1.5-4.25-4-4.25S10 3.5 10 6H6c-1.1 0-2 .9-2 2v8zm2.5 1A1.5 1.5 0 016 15.5 1.5 1.5 0 017.5 17 1.5 1.5 0 016 18.5zm11 0A1.5 1.5 0 0117.5 15.5 1.5 1.5 0 0119 17a1.5 1.5 0 01-1.5 1.5zM18 11H6V8h12v3z"
-                  />
-                </svg>
-              </div>
-              <span className="pax-fleet-bus-card__smart-bus-number">{bus.busNumber}</span>
-              <span className="pax-fleet-bus-card__smart-plate">{plate}</span>
-              <span className="pax-fleet-bus-card__smart-cap">{cap} seats max</span>
-            </div>
-            <div className="pax-fleet-bus-card__smart-col pax-fleet-bus-card__smart-col--status">
-              <span className="pax-fleet-bus-card__smart-seat-line">
-                {seatLine} <span className="pax-fleet-bus-card__smart-seat-muted">boarded</span>
-              </span>
-              <span className={"pax-fleet-bus-card__smart-status pd-board__status " + st.mod}>
-                {st.emoji} {st.text}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="pax-fleet-bus-card__bottom">
-          <div className="pax-fleet-bus-card__row pax-fleet-bus-card__row--route-only">
-            <div className="pax-fleet-bus-card__item pax-fleet-bus-card__item--full">
-              <span className="pax-fleet-bus-card__big pax-fleet-bus-card__big--route">{routeLocations}</span>
-              <span className="pax-fleet-bus-card__small">Route</span>
-            </div>
-          </div>
-          {bus.seatNotice ? (
-            <p className="pax-fleet-bus-card__intel-notice" role="status">
-              {bus.seatNotice}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function isInactiveStatus(status: string): boolean {
-  return String(status || "")
-    .toLowerCase()
-    .includes("inactive");
 }
 
 const LOST_BUS_UNSURE = "__unsure";
@@ -604,14 +401,18 @@ export function PassengerLostFound() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!when || !emailOk || !busChoice || pending) return;
+    if (pending) return;
     setFormError(null);
+    if (email.trim() && !emailOk) {
+      setFormError("That email doesn't look right — fix it or leave the field blank.");
+      return;
+    }
     setPending(true);
     try {
       const sel = fleetOptions.find((b) => b.busId === busChoice);
       const busLabel =
         busChoice === LOST_BUS_UNSURE ? "Not sure / different bus" : sel ? lostBusLabel(sel) : busChoice;
-      const lastSeenAt = new Date(when).toISOString();
+      const lastSeenAt = when ? new Date(when).toISOString() : "";
       await fetchPublicPostJson<Record<string, unknown>>("/api/public/passenger-lost-item", {
         lastSeenAt,
         busId: busChoice,
@@ -627,18 +428,19 @@ export function PassengerLostFound() {
     }
   }
 
-  const canSubmit = Boolean(when && emailOk && busChoice);
+  /** Every field is optional — an incomplete report is still better than none. Only a malformed (non-empty) email blocks sending. */
+  const canSubmit = !email.trim() || emailOk;
 
   return (
     <div className="pd-tactical pd-lost pd-hub pd-tactical--centered" role="region" aria-label="Left something">
-      <form className="pd-fb-card pd-fb-card--lg" onSubmit={(ev) => void submit(ev)} noValidate>
+      <form className="pd-fb-card pd-fb-card--lg pd-fb-card--glass-passenger" onSubmit={(ev) => void submit(ev)} noValidate>
         <h1 className="pd-fb-card__title">Left something?</h1>
         <p className="pd-fb-card__hint">
           Note when you last had it and what it looks like — terminal staff will match against the registry.
         </p>
 
         <label className="pd-fb-card__field-label" htmlFor="pd-lost-when">
-          Date &amp; time last seen
+          Date &amp; time last seen <span className="pd-fb-card__optional">(optional)</span>
         </label>
         <input
           id="pd-lost-when"
@@ -646,18 +448,16 @@ export function PassengerLostFound() {
           className="pd-fb-card__input pd-fb-card__input--datetime"
           value={when}
           onChange={(e) => setWhen(e.target.value)}
-          required
         />
 
         <label className="pd-fb-card__field-label" htmlFor="pd-lost-bus">
-          Bus you were on
+          Bus you were on <span className="pd-fb-card__optional">(optional)</span>
         </label>
         <select
           id="pd-lost-bus"
           className="pd-fb-card__select"
           value={busChoice}
           onChange={(e) => setBusChoice(e.target.value)}
-          required
           disabled={fleetLoading}
           aria-busy={fleetLoading}
         >
@@ -676,7 +476,7 @@ export function PassengerLostFound() {
         ) : null}
 
         <label className="pd-fb-card__field-label" htmlFor="pd-lost-email">
-          Your email
+          Your email <span className="pd-fb-card__optional">(optional)</span>
         </label>
         <input
           id="pd-lost-email"
@@ -687,7 +487,6 @@ export function PassengerLostFound() {
           placeholder="you@example.com"
           autoComplete="email"
           inputMode="email"
-          required
           aria-invalid={email.length > 0 && !emailOk}
         />
         {email.length > 0 && !emailOk ? (
@@ -709,11 +508,9 @@ export function PassengerLostFound() {
         />
 
         <div className="pd-fb-card__toolbar" role="group" aria-label="Submit report">
-          <span className="pd-fb-card__spacer" aria-hidden />
-          <span className="pd-fb-card__spacer" aria-hidden />
           <button
             type="submit"
-            className="pd-fb-card__send"
+            className="pd-fb-card__send pd-fb-card__send--conversation"
             disabled={!canSubmit || pending}
             aria-busy={pending}
             aria-label="Submit lost item report"
@@ -723,23 +520,26 @@ export function PassengerLostFound() {
                 Sending…
               </span>
             ) : (
-              <svg
-                className="pd-fb-card__send-icon"
-                fill="none"
-                viewBox="0 0 24 24"
-                height="30"
-                width="30"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden
-              >
-                <path
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  strokeWidth="1.5"
-                  d="M7.39999 6.32003L15.89 3.49003C19.7 2.22003 21.77 4.30003 20.51 8.11003L17.68 16.6C15.78 22.31 12.66 22.31 10.76 16.6L9.91999 14.08L7.39999 13.24C1.68999 11.34 1.68999 8.23003 7.39999 6.32003Z"
-                />
-                <path strokeLinejoin="round" strokeLinecap="round" strokeWidth="1.5" d="M10.11 13.6501L13.69 10.0601" />
-              </svg>
+              <>
+                <svg
+                  className="pd-fb-card__send-icon"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  height="26"
+                  width="26"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    strokeWidth="1.5"
+                    d="M7.39999 6.32003L15.89 3.49003C19.7 2.22003 21.77 4.30003 20.51 8.11003L17.68 16.6C15.78 22.31 12.66 22.31 10.76 16.6L9.91999 14.08L7.39999 13.24C1.68999 11.34 1.68999 8.23003 7.39999 6.32003Z"
+                  />
+                  <path strokeLinejoin="round" strokeLinecap="round" strokeWidth="1.5" d="M10.11 13.6501L13.69 10.0601" />
+                </svg>
+                <span className="pd-fb-card__send-text">Submit</span>
+              </>
             )}
           </button>
         </div>

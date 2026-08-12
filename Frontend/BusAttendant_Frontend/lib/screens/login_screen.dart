@@ -143,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     border: Border.all(color: const Color(0xFF1F5885), width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.45),
+                        color: Colors.black.withValues(alpha: 0.45),
                         blurRadius: 24,
                       ),
                     ],
@@ -192,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 10),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.08),
+                          color: Colors.white.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: const Color(0xFF1F5885)),
                         ),
@@ -289,9 +289,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
                     decoration: BoxDecoration(
-                      color: AppColors.white.withOpacity(0.06),
+                      color: AppColors.white.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: AppColors.white.withOpacity(0.13)),
+                      border: Border.all(color: AppColors.white.withValues(alpha: 0.13)),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x45000000),
@@ -310,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 96,
                                 height: 96,
                                 decoration: BoxDecoration(
-                                  color: AppColors.white.withOpacity(0.12),
+                                  color: AppColors.white.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 clipBehavior: Clip.antiAlias,
@@ -405,7 +405,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _showForgotEmailDialog,
                             child: Text(
                               'Forgot email?',
-                              style: TextStyle(color: AppColors.white.withOpacity(0.92), fontWeight: FontWeight.w600),
+                              style: TextStyle(color: AppColors.white.withValues(alpha: 0.92), fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),

@@ -142,12 +142,12 @@ class _DashboardPageState extends State<DashboardPage> {
                                   gradient: on ? MintObsidian.activeTileGradient : null,
                                   color: on ? null : (isDark ? MintObsidian.surface : Colors.white),
                                   border: Border.all(
-                                    color: on ? Colors.transparent : (isDark ? Colors.white.withOpacity(0.08) : const Color(0x1A111827)),
+                                    color: on ? Colors.transparent : (isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0x1A111827)),
                                   ),
                                   boxShadow: on
                                       ? [
                                           BoxShadow(
-                                            color: MintObsidian.mint.withOpacity(0.25),
+                                            color: MintObsidian.mint.withValues(alpha: 0.25),
                                             blurRadius: 10,
                                             offset: const Offset(0, 3),
                                           ),
@@ -390,10 +390,10 @@ class _HeroStatusCard extends StatelessWidget {
                 'SHIFT PULSE',
                 style: t.labelSmall!.copyWith(
                   letterSpacing: 1.4,
-                  color: heroText.withOpacity(0.65),
+                  color: heroText.withValues(alpha: 0.65),
                 ),
               ),
-              Icon(Icons.directions_bus_filled_rounded, color: heroText.withOpacity(0.5), size: 28),
+              Icon(Icons.directions_bus_filled_rounded, color: heroText.withValues(alpha: 0.5), size: 28),
             ],
           ),
           const SizedBox(height: 6),
@@ -404,7 +404,7 @@ class _HeroStatusCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             _heroLabel(),
-            style: t.titleMedium!.copyWith(color: heroText.withOpacity(0.82)),
+            style: t.titleMedium!.copyWith(color: heroText.withValues(alpha: 0.82)),
           ),
           const SizedBox(height: 14),
           Row(
@@ -463,11 +463,11 @@ class _HeroMini extends StatelessWidget {
         ? GoogleFonts.jetBrainsMono(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: heroText.withOpacity(0.95),
+            color: heroText.withValues(alpha: 0.95),
           )
         : t.labelMedium!.copyWith(
             fontWeight: FontWeight.w700,
-            color: heroText.withOpacity(0.9),
+            color: heroText.withValues(alpha: 0.9),
           );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,7 +478,7 @@ class _HeroMini extends StatelessWidget {
             fontSize: 9,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
-            color: heroText.withOpacity(0.55),
+            color: heroText.withValues(alpha: 0.55),
           ),
         ),
         const SizedBox(height: 2),
@@ -508,11 +508,11 @@ class _DashTile extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleColor = active
-        ? MintObsidian.textOnMint.withOpacity(0.65)
+        ? MintObsidian.textOnMint.withValues(alpha: 0.65)
         : (isDark ? MintObsidian.textSecondary : const Color(0xFF64748B));
     final valueColor = active ? MintObsidian.textOnMint : (isDark ? MintObsidian.textPrimary : const Color(0xFF111827));
     final subColor = active
-        ? MintObsidian.textOnMint.withOpacity(0.55)
+        ? MintObsidian.textOnMint.withValues(alpha: 0.55)
         : (isDark ? MintObsidian.textSecondary : const Color(0xFF6B7280));
 
     return SizedBox(
@@ -524,12 +524,12 @@ class _DashTile extends StatelessWidget {
           gradient: active ? MintObsidian.activeTileGradient : null,
           color: active ? null : (isDark ? MintObsidian.surface : Colors.white),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: active ? Colors.white.withOpacity(0.12) : (isDark ? Colors.white.withOpacity(0.06) : const Color(0x1A111827))),
+          border: Border.all(color: active ? Colors.white.withValues(alpha: 0.12) : (isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0x1A111827))),
           boxShadow: active
               ? MintObsidian.tileShadow(active)
               : [
                   BoxShadow(
-                    color: isDark ? Colors.black.withOpacity(0.45) : const Color(0x14000000),
+                    color: isDark ? Colors.black.withValues(alpha: 0.45) : const Color(0x14000000),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -543,14 +543,14 @@ class _DashTile extends StatelessWidget {
               Icon(
                 icon,
                 size: 26,
-                color: active ? MintObsidian.textOnMint.withOpacity(0.85) : (isDark ? MintObsidian.textSecondary : const Color(0xFF64748B)),
+                color: active ? MintObsidian.textOnMint.withValues(alpha: 0.85) : (isDark ? MintObsidian.textSecondary : const Color(0xFF64748B)),
               ),
               const Spacer(),
               if (active)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: MintObsidian.textOnMint.withOpacity(0.12),
+                    color: MintObsidian.textOnMint.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -559,7 +559,7 @@ class _DashTile extends StatelessWidget {
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.6,
-                      color: MintObsidian.textOnMint.withOpacity(0.85),
+                      color: MintObsidian.textOnMint.withValues(alpha: 0.85),
                     ),
                   ),
                 ),

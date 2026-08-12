@@ -165,7 +165,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                     ),
                     const Spacer(),
                     CircleAvatar(
-                      backgroundColor: AppColors.white.withOpacity(0.25),
+                      backgroundColor: AppColors.white.withValues(alpha: 0.25),
                       child: const Icon(Icons.person_rounded, color: AppColors.white),
                     ),
                   ],
@@ -185,7 +185,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                   padding: const EdgeInsets.only(left: 8),
                   child: Text(
                     'Manage my trip',
-                    style: TextStyle(color: AppColors.white.withOpacity(0.9), fontSize: 14),
+                    style: TextStyle(color: AppColors.white.withValues(alpha: 0.9), fontSize: 14),
                   ),
                 ),
               ],
@@ -219,7 +219,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                             child: IconButton.filledTonal(
                               onPressed: _swap,
                               style: IconButton.styleFrom(
-                                backgroundColor: MintObsidian.ocean.withOpacity(0.18),
+                                backgroundColor: MintObsidian.ocean.withValues(alpha: 0.18),
                                 foregroundColor: MintObsidian.ocean,
                               ),
                               icon: const Icon(Icons.swap_vert_rounded),
@@ -320,7 +320,7 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
           const SizedBox(height: 8),
           Text(
             'Loading corridor waypoints…',
-            style: TextStyle(color: MintObsidian.textSecondary.withOpacity(0.95), fontSize: 11),
+            style: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.95), fontSize: 11),
           ),
         ],
         if (!_coveragesLoading && _toChoices.isNotEmpty) ...[
@@ -357,12 +357,12 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
   Widget _whiteCard({required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: MintObsidian.surface.withOpacity(0.92),
+        color: MintObsidian.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.45),
+            color: Colors.black.withValues(alpha: 0.45),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -395,8 +395,8 @@ class _AttendantDashboardScreenState extends State<AttendantDashboardScreen> {
                 controller: controller,
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: MintObsidian.textPrimary),
                 decoration: InputDecoration(
-                  border: UnderlineInputBorder(borderSide: BorderSide(color: MintObsidian.textSecondary.withOpacity(0.35))),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: MintObsidian.textSecondary.withOpacity(0.35))),
+                  border: UnderlineInputBorder(borderSide: BorderSide(color: MintObsidian.textSecondary.withValues(alpha: 0.35))),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: MintObsidian.textSecondary.withValues(alpha: 0.35))),
                   focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: MintObsidian.ocean, width: 1.5)),
                   isDense: true,
                   contentPadding: EdgeInsets.only(bottom: 6),

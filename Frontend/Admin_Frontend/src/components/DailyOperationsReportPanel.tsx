@@ -11,6 +11,7 @@ import {
 import type { DailyOperationsReportDto, SpeedViolationLogRow } from "@/lib/types";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useToast } from "@/context/ToastContext";
+import "@/pages/ReportsPage.css";
 import "./DailyOperationsReportPanel.css";
 
 function localDateYmd(): string {
@@ -38,11 +39,11 @@ function formatHeaderDate(ymd: string): string {
   }
 }
 
-function hubCardClass(tier: string): string {
-  if (tier === "green") return "daily-ops__hub-card daily-ops__hub-card--green";
-  if (tier === "amber") return "daily-ops__hub-card daily-ops__hub-card--amber";
-  if (tier === "red") return "daily-ops__hub-card daily-ops__hub-card--red";
-  return "daily-ops__hub-card daily-ops__hub-card--neutral";
+function hubTierClass(tier: string): string {
+  if (tier === "green") return "daily-ops__hub-stat--green";
+  if (tier === "amber") return "daily-ops__hub-stat--amber";
+  if (tier === "red") return "daily-ops__hub-stat--red";
+  return "daily-ops__hub-stat--neutral";
 }
 
 function normalizeTimeForInput(t: string | undefined): string {
@@ -237,42 +238,47 @@ export function DailyOperationsReportPanel() {
   const speedRowsForTab = speedViolations.length > 0 ? speedViolations : (data?.speedViolations ?? []);
 
   return (
-    <section className="daily-ops" aria-label="Daily operational log">
-      <div className="daily-ops__toolbar">
-        <div className="daily-ops__title-block">
-          <h2>Automated daily operations reporter</h2>
-          <h3>
-            Daily operational log — {orgTitle}
-          </h3>
-        </div>
-        <div className="daily-ops__controls">
-          <label htmlFor="daily-ops-date">Report date</label>
-          <input
-            id="daily-ops-date"
-            className="daily-ops__date-input"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value.slice(0, 10))}
-          />
-          <button
-            type="button"
-            className="daily-ops__btn"
-            disabled={loading}
-            onClick={() => {
-              void load();
-              void loadSpeedViolations();
-            }}
-          >
-            {loading ? "Loading…" : "Refresh"}
-          </button>
-        </div>
-      </div>
+    <div className="reports-exec-suite daily-ops-suite">
+      <section className="reports-hub daily-ops" aria-label="Daily operational log">
+        <div className="reports-hub__watermark" aria-hidden />
+        <div className="daily-ops__inner">
+          <header className="daily-ops__toolbar daily-ops__toolbar--hub reports-hub__col-head">
+            <div className="daily-ops__title-block">
+              <p className="daily-ops__eyebrow">Automated daily operations reporter</p>
+              <h2 className="daily-ops__hero-title">Daily operational log — {orgTitle}</h2>
+            </div>
+            <div className="daily-ops__controls">
+              <label htmlFor="daily-ops-date">Report date</label>
+              <input
+                id="daily-ops-date"
+                className="daily-ops__date-input"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value.slice(0, 10))}
+              />
+              <button
+                type="button"
+                className="reports-hub__export-action-btn"
+                disabled={loading}
+                onClick={() => {
+                  void load();
+                  void loadSpeedViolations();
+                }}
+              >
+                {loading ? "Loading…" : "Refresh"}
+              </button>
+            </div>
+          </header>
 
-      <div className="daily-ops__schedule" aria-label="Automated email schedule">
-        <h4 className="daily-ops__schedule-title">Email schedule (automated)</h4>
-        {scheduleLoading ? (
-          <p className="daily-ops__empty">Loading schedule settings…</p>
-        ) : (
+          <div className="reports-page__exec reports-page__exec--intel daily-ops__schedule-wrap">
+            <article className="reports-page__stat reports-page__stat--hero daily-ops__schedule-article" aria-label="Automated email schedule">
+              <div className="reports-page__stat-label-row">
+                <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                Email schedule (automated)
+              </div>
+              {scheduleLoading ? (
+                <p className="reports-hub__placeholder daily-ops__in-card-placeholder">Loading schedule settings…</p>
+              ) : (
           <>
             <label className="daily-ops__schedule-row daily-ops__schedule-row--check">
               <input
@@ -318,112 +324,188 @@ export function DailyOperationsReportPanel() {
               </div>
             )}
             <div className="daily-ops__schedule-actions">
-              <button type="button" className="daily-ops__btn" disabled={scheduleSaving} onClick={() => void saveSchedule()}>
+              <button
+                type="button"
+                className="reports-hub__export-action-btn"
+                disabled={scheduleSaving}
+                onClick={() => void saveSchedule()}
+              >
                 {scheduleSaving ? "Saving…" : "Save schedule"}
               </button>
             </div>
           </>
         )}
-      </div>
-
-      {err ? <p className="daily-ops__banner">{err}</p> : null}
-
-      {!data && !err && loading ? (
-        <p className="daily-ops__empty">Compiling telemetry &amp; dispatch records…</p>
-      ) : null}
-
-      {data ? (
-        <>
-          <div className="daily-ops__header-strip">
-            <div className="daily-ops__strip-item">
-              <span className="daily-ops__strip-label">Report day</span>
-              <span className="daily-ops__strip-value daily-ops__mono">
-                {data.reportDate} · {formatHeaderDate(data.reportDate)}
-              </span>
-            </div>
-            <div className="daily-ops__strip-item">
-              <span className="daily-ops__strip-label">Fleet status (live GPS snapshot)</span>
-              <span className="daily-ops__strip-value daily-ops__strip-value--fleet">
-                <span className="daily-ops__tag--active">Moving: {fleet?.activeGps ?? 0}</span>
-                <span className="daily-ops__tag-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="daily-ops__tag--stall">Stopped: {fleet?.stationary ?? 0}</span>
-                <span className="daily-ops__tag-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="daily-ops__tag--sos">SOS: {fleet?.sosCount ?? 0}</span>
-              </span>
-            </div>
-            <div className="daily-ops__strip-item">
-              <span className="daily-ops__strip-label">Bus registry · report built at</span>
-              <span className="daily-ops__strip-value daily-ops__mono">
-                {fleet?.totalRegistered ?? "—"} buses registered · {new Date(data.generatedAt).toISOString().replace("T", " ").slice(0, 19)} UTC
-              </span>
-            </div>
-            <div className="daily-ops__strip-item">
-              <span className="daily-ops__strip-label">Arrival precision (24h)</span>
-              <span className="daily-ops__strip-value daily-ops__mono">
-                {data.arrivalSummary?.precisionPct ?? 0}% · {data.arrivalSummary?.onTimeTrips ?? 0}/
-                {data.arrivalSummary?.totalTrips ?? 0} on-time
-              </span>
-            </div>
+            </article>
           </div>
 
-          <nav className="daily-ops__nav" role="tablist" aria-label="Report sections">
-            {DAILY_OPS_TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                id={`daily-ops-tab-${t.id}`}
-                aria-selected={reportTab === t.id}
-                aria-controls={`daily-ops-panel-${t.id}`}
-                className={`daily-ops__nav-btn${reportTab === t.id ? " daily-ops__nav-btn--active" : ""}`}
-                onClick={() => setReportTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
+          {err ? <p className="daily-ops__banner">{err}</p> : null}
 
-          <div className="daily-ops__tab-panels">
-            {reportTab === "hubs" ? (
-              <div
-                id="daily-ops-panel-hubs"
-                role="tabpanel"
-                aria-labelledby="daily-ops-tab-hubs"
-                className="daily-ops__panel"
-              >
-                {data.terminalHubs.length === 0 ? (
-                  <p className="daily-ops__empty">No terminal arrivals for this date.</p>
-                ) : (
-                  <div className="daily-ops__hub-grid">
-                    {data.terminalHubs.map((h) => (
-                      <div key={h.terminal} className={hubCardClass(h.tier)} title={h.tierHint}>
-                        <div className="daily-ops__hub-name">{h.terminal}</div>
-                        <div className="daily-ops__hub-tier">{h.tierLabel}</div>
-                        <div className="daily-ops__hub-stats">
-                          On-time {h.onTime}/{h.arrivals} ({h.onTimePct}%) · Late {h.late} · Early {h.early}
-                        </div>
-                      </div>
-                    ))}
+          {!data && !err && loading ? (
+            <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-fleet daily-ops__panel-shell daily-ops__panel-shell--loading">
+              <p className="reports-hub__placeholder">Compiling telemetry &amp; dispatch records…</p>
+            </div>
+          ) : null}
+
+          {data ? (
+            <>
+              <section className="reports-page__exec reports-page__exec--intel daily-ops__kpi-grid" aria-label="Report summary">
+                <article className="reports-page__stat reports-page__stat--hero">
+                  <div className="reports-page__stat-label-row">
+                    <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                    Report day
                   </div>
-                )}
-              </div>
-            ) : null}
+                  <strong className="daily-ops__mono">{data.reportDate}</strong>
+                  <span className="reports-page__stat-note">{formatHeaderDate(data.reportDate)}</span>
+                </article>
 
-            {reportTab === "arrival" ? (
-              <div
-                id="daily-ops-panel-arrival"
-                role="tabpanel"
-                aria-labelledby="daily-ops-tab-arrival"
-                className="daily-ops__panel"
-              >
-                {data.arrivalPrecision.length === 0 ? (
-                  <p className="daily-ops__empty">No arrival rows for this date.</p>
-                ) : (
-                  <div className="daily-ops__table-wrap">
+                <article className="reports-page__stat reports-page__stat--hero">
+                  <div className="reports-page__stat-label-row daily-ops__stat-label-row--split">
+                    <span className="daily-ops__stat-label-cluster">
+                      <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                      Fleet status (live GPS snapshot)
+                    </span>
+                    <span className="reports-hub__live-badge">
+                      <span className="reports-hub__live-dot reports-hub__animate-heartbeat" aria-hidden />
+                      LIVE
+                    </span>
+                  </div>
+                  <strong className="daily-ops__fleet-strong">
+                    <span className="daily-ops__tag--active">Moving: {fleet?.activeGps ?? 0}</span>
+                    <span className="daily-ops__tag-sep" aria-hidden>
+                      {" "}
+                      ·{" "}
+                    </span>
+                    <span className="daily-ops__tag--stall">Stopped: {fleet?.stationary ?? 0}</span>
+                    <span className="daily-ops__tag-sep" aria-hidden>
+                      {" "}
+                      ·{" "}
+                    </span>
+                    <span className="daily-ops__tag--sos">SOS: {fleet?.sosCount ?? 0}</span>
+                  </strong>
+                  <span className="reports-page__stat-note">Live snapshot from fleet GPS</span>
+                </article>
+
+                <article className="reports-page__stat reports-page__stat--hero">
+                  <div className="reports-page__stat-label-row">
+                    <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                    Bus registry · report built at
+                  </div>
+                  <strong>
+                    {fleet?.totalRegistered ?? "—"} <span className="daily-ops__stat-soft">buses registered</span>
+                  </strong>
+                  <span className="reports-page__stat-note daily-ops__mono">
+                    {new Date(data.generatedAt).toISOString().replace("T", " ").slice(0, 19)} UTC
+                  </span>
+                </article>
+
+                <article className="reports-page__stat reports-page__stat--hero">
+                  <div className="reports-page__stat-label-row">
+                    <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                    Arrival precision (24h)
+                  </div>
+                  <strong>{data.arrivalSummary?.precisionPct ?? 0}%</strong>
+                  <span className="reports-page__stat-note">
+                    {data.arrivalSummary?.onTimeTrips ?? 0}/{data.arrivalSummary?.totalTrips ?? 0} on-time trips
+                  </span>
+                </article>
+              </section>
+
+              <div className="reports-exec-forecast daily-ops__sync-strip" role="status">
+                <span className="reports-exec-forecast__dot reports-hub__animate-heartbeat" aria-hidden />
+                <p className="reports-exec-forecast__text">
+                  Live sync · report built {new Date(data.generatedAt).toISOString().replace("T", " ").slice(0, 19)} UTC ·
+                  route delay sentiment — STABLE
+                </p>
+              </div>
+
+              <nav className="daily-ops__nav reports-hub__nav-group" role="tablist" aria-label="Report sections">
+                {DAILY_OPS_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    id={`daily-ops-tab-${t.id}`}
+                    aria-selected={reportTab === t.id}
+                    aria-controls={`daily-ops-panel-${t.id}`}
+                    className={`reports-hub__nav-btn${reportTab === t.id ? " reports-hub__nav-btn--active" : ""}`}
+                    onClick={() => setReportTab(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="daily-ops__tab-panels">
+                {reportTab === "hubs" ? (
+                  <div
+                    id="daily-ops-panel-hubs"
+                    role="tabpanel"
+                    aria-labelledby="daily-ops-tab-hubs"
+                    className="daily-ops__panel"
+                  >
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-fleet daily-ops__panel-shell">
+                      {data.terminalHubs.length === 0 ? (
+                        <div className="reports-page__exec reports-page__exec--intel daily-ops__hub-empty-exec">
+                          <article className="reports-page__stat reports-page__stat--hero daily-ops__hub-empty-article" role="status">
+                            <div className="reports-page__stat-label-row">
+                              <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                              Terminal hub health
+                            </div>
+                            <strong>No terminal arrivals for this date</strong>
+                            <span className="reports-page__stat-note">
+                              Hub cards appear when geofence arrivals exist for the selected day. Try another date or refresh
+                              after live trips complete.
+                            </span>
+                          </article>
+                        </div>
+                      ) : (
+                        <div className="reports-page__exec reports-page__exec--intel daily-ops__hub-exec">
+                          {data.terminalHubs.map((h) => (
+                            <article
+                              key={h.terminal}
+                              className={`reports-page__stat reports-page__stat--hero daily-ops__hub-stat ${hubTierClass(h.tier)}`}
+                              title={h.tierHint}
+                            >
+                              <div className="reports-page__stat-label-row">
+                                <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                                {h.terminal}
+                              </div>
+                              <div className="daily-ops__hub-tier">{h.tierLabel}</div>
+                              <strong>
+                                On-time {h.onTime}/{h.arrivals} ({h.onTimePct}%)
+                              </strong>
+                              <span className="reports-page__stat-note">
+                                Late {h.late} · Early {h.early}
+                              </span>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                {reportTab === "arrival" ? (
+                  <div
+                    id="daily-ops-panel-arrival"
+                    role="tabpanel"
+                    aria-labelledby="daily-ops-tab-arrival"
+                    className="daily-ops__panel"
+                  >
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-revenue daily-ops__panel-shell">
+                      {data.arrivalPrecision.length === 0 ? (
+                        <div className="reports-page__exec reports-page__exec--intel daily-ops__hub-empty-exec">
+                          <article className="reports-page__stat reports-page__stat--hero daily-ops__hub-empty-article" role="status">
+                            <div className="reports-page__stat-label-row">
+                              <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                              Arrival precision
+                            </div>
+                            <strong>No arrival rows for this date</strong>
+                            <span className="reports-page__stat-note">Geofence timestamps will populate this grid when trips complete.</span>
+                          </article>
+                        </div>
+                      ) : (
+                        <div className="daily-ops__table-wrap">
                     <table className="daily-ops__table">
                       <thead>
                         <tr>
@@ -448,102 +530,126 @@ export function DailyOperationsReportPanel() {
                         ))}
                       </tbody>
                     </table>
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            {reportTab === "incidents" ? (
-              <div
-                id="daily-ops-panel-incidents"
-                role="tabpanel"
-                aria-labelledby="daily-ops-tab-incidents"
-                className="daily-ops__panel"
-              >
-                {data.incidentTable.length === 0 ? (
-                  <p className="daily-ops__empty">No incidents for this date.</p>
-                ) : (
-                  <div className="daily-ops__table-wrap">
-                    <table className="daily-ops__table">
-                      <thead>
-                        <tr>
-                          <th>Bus</th>
-                          <th>Staff</th>
-                          <th>Incident</th>
-                          <th>Speed</th>
-                          <th>Location / detail</th>
-                          <th>Time (UTC)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.incidentTable.map((r, i) => (
-                          <tr key={`${r.busId}-inc-${i}`}>
-                            <td className="daily-ops__mono">{r.busId}</td>
-                            <td className="daily-ops__mono">{r.staff}</td>
-                            <td>
-                              {incidentGlyph(r.incident)} {r.incident}
-                            </td>
-                            <td className="daily-ops__mono">
-                              {r.speedKph != null && Number.isFinite(r.speedKph) ? `${r.speedKph.toFixed(0)} km/h` : "—"}
-                            </td>
-                            <td className="daily-ops__mono">{r.location}</td>
-                            <td className="daily-ops__mono">
-                              {r.timestamp
-                                ? String(r.timestamp).replace("T", " ").slice(0, 19)
-                                : r.varianceMinutes != null
-                                  ? `Δ${r.varianceMinutes}m · sched ${r.scheduledBoard ?? "—"}`
-                                  : "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {(data.speedingPeakByBus ?? []).length > 0 ? (
-                  <div className="daily-ops__panel-stack">
-                    <h4 className="daily-ops__panel-subtitle">Peak speed by bus</h4>
-                    <div className="daily-ops__table-wrap">
-                      <table className="daily-ops__table">
-                        <thead>
-                          <tr>
-                            <th>Bus</th>
-                            <th>Attendant</th>
-                            <th>Top speed</th>
-                            <th>Time (UTC)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(data.speedingPeakByBus ?? []).map((p, i) => (
-                            <tr key={`${p.busId}-peak-${i}`}>
-                              <td className="daily-ops__mono">{p.busId}</td>
-                              <td className="daily-ops__mono">{p.attendantName}</td>
-                              <td className="daily-ops__mono">{p.topSpeedKph} km/h</td>
-                              <td className="daily-ops__mono">
-                                {p.at ? String(p.at).replace("T", " ").slice(0, 19) : "—"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : null}
-              </div>
-            ) : null}
 
-            {reportTab === "speed" ? (
-              <div
-                id="daily-ops-panel-speed"
-                role="tabpanel"
-                aria-labelledby="daily-ops-tab-speed"
-                className="daily-ops__panel"
-              >
-                {speedRowsForTab.length === 0 ? (
-                  <p className="daily-ops__empty">No speed violations recorded yet.</p>
-                ) : (
-                  <div className="daily-ops__table-wrap">
-                    <table className="daily-ops__table">
+                {reportTab === "incidents" ? (
+                  <div
+                    id="daily-ops-panel-incidents"
+                    role="tabpanel"
+                    aria-labelledby="daily-ops-tab-incidents"
+                    className="daily-ops__panel"
+                  >
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-passenger daily-ops__panel-shell">
+                      {data.incidentTable.length === 0 ? (
+                        <div className="reports-page__exec reports-page__exec--intel daily-ops__hub-empty-exec">
+                          <article className="reports-page__stat reports-page__stat--hero daily-ops__hub-empty-article" role="status">
+                            <div className="reports-page__stat-label-row">
+                              <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                              Incident board
+                            </div>
+                            <strong>No incidents for this date</strong>
+                            <span className="reports-page__stat-note">Logged incidents and alerts will appear in this board.</span>
+                          </article>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="daily-ops__table-wrap">
+                            <table className="daily-ops__table">
+                              <thead>
+                                <tr>
+                                  <th>Bus</th>
+                                  <th>Staff</th>
+                                  <th>Incident</th>
+                                  <th>Speed</th>
+                                  <th>Location / detail</th>
+                                  <th>Time (UTC)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {data.incidentTable.map((r, i) => (
+                                  <tr key={`${r.busId}-inc-${i}`}>
+                                    <td className="daily-ops__mono">{r.busId}</td>
+                                    <td className="daily-ops__mono">{r.staff}</td>
+                                    <td>
+                                      {incidentGlyph(r.incident)} {r.incident}
+                                    </td>
+                                    <td className="daily-ops__mono">
+                                      {r.speedKph != null && Number.isFinite(r.speedKph) ? `${r.speedKph.toFixed(0)} km/h` : "—"}
+                                    </td>
+                                    <td className="daily-ops__mono">{r.location}</td>
+                                    <td className="daily-ops__mono">
+                                      {r.timestamp
+                                        ? String(r.timestamp).replace("T", " ").slice(0, 19)
+                                        : r.varianceMinutes != null
+                                          ? `Δ${r.varianceMinutes}m · sched ${r.scheduledBoard ?? "—"}`
+                                          : "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          {(data.speedingPeakByBus ?? []).length > 0 ? (
+                            <div className="daily-ops__panel-stack">
+                              <h4 className="daily-ops__panel-subtitle">Peak speed by bus</h4>
+                              <div className="daily-ops__table-wrap">
+                                <table className="daily-ops__table">
+                                  <thead>
+                                    <tr>
+                                      <th>Bus</th>
+                                      <th>Attendant</th>
+                                      <th>Top speed</th>
+                                      <th>Time (UTC)</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(data.speedingPeakByBus ?? []).map((p, i) => (
+                                      <tr key={`${p.busId}-peak-${i}`}>
+                                        <td className="daily-ops__mono">{p.busId}</td>
+                                        <td className="daily-ops__mono">{p.attendantName}</td>
+                                        <td className="daily-ops__mono">{p.topSpeedKph} km/h</td>
+                                        <td className="daily-ops__mono">
+                                          {p.at ? String(p.at).replace("T", " ").slice(0, 19) : "—"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                {reportTab === "speed" ? (
+                  <div
+                    id="daily-ops-panel-speed"
+                    role="tabpanel"
+                    aria-labelledby="daily-ops-tab-speed"
+                    className="daily-ops__panel"
+                  >
+                    <div className="reports-hub__chart-shell reports-hub__chart-shell--ambient-fleet daily-ops__panel-shell">
+                      {speedRowsForTab.length === 0 ? (
+                        <div className="reports-page__exec reports-page__exec--intel daily-ops__hub-empty-exec">
+                          <article className="reports-page__stat reports-page__stat--hero daily-ops__hub-empty-article" role="status">
+                            <div className="reports-page__stat-label-row">
+                              <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
+                              Fleet speed violations
+                            </div>
+                            <strong>No speed violations recorded yet</strong>
+                            <span className="reports-page__stat-note">Security log speed events will list here when captured.</span>
+                          </article>
+                        </div>
+                      ) : (
+                        <div className="daily-ops__table-wrap">
+                          <table className="daily-ops__table">
                       <thead>
                         <tr>
                           <th>Time (UTC)</th>
@@ -580,14 +686,17 @@ export function DailyOperationsReportPanel() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+                ) : null}
               </div>
-            ) : null}
-          </div>
-        </>
-      ) : null}
-    </section>
+            </>
+          ) : null}
+        </div>
+      </section>
+    </div>
   );
 }

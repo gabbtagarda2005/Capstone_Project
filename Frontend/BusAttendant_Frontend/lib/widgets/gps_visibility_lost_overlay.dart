@@ -24,7 +24,7 @@ class GpsVisibilityLostOverlay extends StatelessWidget {
               Icon(
                 Icons.location_off_rounded,
                 size: 56,
-                color: TacticalColors.alertRed.withOpacity(0.95),
+                color: TacticalColors.alertRed.withValues(alpha: 0.95),
               ),
               const SizedBox(height: 20),
               Text(
@@ -41,7 +41,7 @@ class GpsVisibilityLostOverlay extends StatelessWidget {
                 'Please enable GPS to continue. Ticketing and corridor map sync are locked until your position is restored.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.78),
+                  color: Colors.white.withValues(alpha: 0.78),
                   fontSize: 14,
                   height: 1.45,
                 ),

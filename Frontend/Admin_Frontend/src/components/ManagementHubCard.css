@@ -30,10 +30,6 @@
   transition: transform 0.5s ease-in-out;
 }
 
-.mgmt-bento-card-link:hover .mgmt-bento-card {
-  transform: rotate3d(1, 1, 0, 22deg);
-}
-
 .mgmt-bento-card-link:focus-visible {
   outline: none;
 }
@@ -250,45 +246,9 @@
   transform: translate3d(0, 0, 0);
 }
 
-.mgmt-bento-card-link:hover .mgmt-bento-card__icon {
-  transform: translate3d(0, 0, 32px);
-}
-
-.mgmt-bento-card-link:hover .mgmt-bento-card__cta {
-  filter: brightness(1.08);
-  transform: translate3d(0, 0, 40px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 22px -4px rgba(0, 0, 0, 0.3), 0 0 36px rgba(59, 130, 246, 0.5);
-}
-
-.mgmt-bento-card-link:hover .mgmt-bento-card__card {
-  box-shadow:
-    0 0 0 1px rgba(59, 130, 246, 0.2),
-    0 -18px 28px 0 rgba(255, 255, 255, 0.07) inset,
-    0 28px 56px rgba(0, 0, 0, 0.55),
-    0 0 56px -8px var(--blue-glow),
-    28px 40px 36px -28px rgba(0, 0, 0, 0.35);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .mgmt-bento-card__border-sweep {
     animation: none;
-  }
-
-  .mgmt-bento-card-link:hover .mgmt-bento-card {
-    transform: none;
-  }
-
-  .mgmt-bento-card-link:hover .mgmt-bento-card__icon,
-  .mgmt-bento-card-link:hover .mgmt-bento-card__cta {
-    transform: none;
-  }
-
-  .mgmt-bento-card-link:hover .mgmt-bento-card__card {
-    box-shadow:
-      0 0 0 1px rgba(59, 130, 246, 0.12),
-      0 -18px 28px 0 rgba(255, 255, 255, 0.06) inset,
-      0 24px 48px rgba(0, 0, 0, 0.5),
-      0 0 48px -12px var(--blue-ambient);
   }
 }
 

@@ -18,6 +18,11 @@
   gap: 0.65rem;
 }
 
+.admin-audit-panel__list--timeline {
+  position: relative;
+  padding-left: 0.15rem;
+}
+
 .admin-audit-panel__row {
   display: flex;
   align-items: flex-start;
@@ -29,50 +34,116 @@
   transition: background 0.15s ease;
 }
 
+.admin-audit-panel__row--timeline {
+  position: relative;
+}
+
 .admin-audit-panel__row:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
-a.admin-audit-panel__row--link {
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-a.admin-audit-panel__row--link:focus-visible {
-  outline: 2px solid rgba(96, 165, 250, 0.85);
-  outline-offset: 2px;
-}
-
-.admin-audit-panel__icon {
+.admin-audit-panel__emoji-wrap {
   flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
+  width: 2.35rem;
+  height: 2.35rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
+  border-radius: 0.65rem;
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
-.admin-audit-panel__icon--delete {
+.admin-audit-panel__emoji-wrap--gps {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.admin-audit-panel__emoji-wrap--delete {
   background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
 }
 
-.admin-audit-panel__icon--edit {
+.admin-audit-panel__emoji-wrap--edit {
   background: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
 }
 
-.admin-audit-panel__icon--broadcast {
-  background: rgba(168, 85, 247, 0.2);
-  color: #c4b5fd;
+.admin-audit-panel__emoji-wrap--broadcast {
+  background: rgba(168, 85, 247, 0.22);
 }
 
-.admin-audit-panel__icon--view,
-.admin-audit-panel__icon--add {
+.admin-audit-panel__emoji-wrap--add,
+.admin-audit-panel__emoji-wrap--view {
   background: rgba(59, 130, 246, 0.18);
-  color: #93c5fd;
+}
+
+.admin-audit-panel__emoji-wrap--login {
+  background: rgba(20, 184, 166, 0.2);
+}
+
+.admin-audit-panel__emoji {
+  display: block;
+  transform: translateY(0.5px);
+}
+
+.admin-audit-panel__sentence {
+  margin: 0.2rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--dg-text, #f1f5f9);
+}
+
+.admin-audit-panel__module-line {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--dg-muted, rgba(148, 163, 184, 0.88));
+}
+
+.admin-audit-panel__actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.admin-audit-panel__info {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.45rem;
+  background: rgba(2, 6, 23, 0.35);
+  color: #bae6fd;
+  font-size: 0.78rem;
+  font-weight: 800;
+  width: 2rem;
+  height: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.admin-audit-panel__info:hover {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.admin-audit-panel__detail-link {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none;
+  color: #7dd3fc;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  padding: 0.35rem 0.45rem;
+}
+
+.admin-audit-panel__detail-link:hover {
+  background: rgba(125, 211, 252, 0.12);
+}
+
+.admin-audit-panel__detail-link:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.85);
+  outline-offset: 2px;
 }
 
 .admin-audit-panel__body {
@@ -97,49 +168,9 @@ a.admin-audit-panel__row--link:focus-visible {
 }
 
 .admin-audit-panel__time {
-  font-size: 0.62rem;
-  font-family: ui-monospace, monospace;
-  color: var(--dg-muted, rgba(148, 163, 184, 0.85));
-}
-
-.admin-audit-panel__badge {
-  display: inline-block;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.15rem 0.4rem;
-  border-radius: 0.35rem;
-  margin-right: 0.45rem;
-  vertical-align: middle;
-}
-
-.admin-audit-panel__badge--delete {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fecaca;
-}
-
-.admin-audit-panel__badge--edit {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fde68a;
-}
-
-.admin-audit-panel__badge--broadcast {
-  background: rgba(168, 85, 247, 0.22);
-  color: #e9d5ff;
-}
-
-.admin-audit-panel__badge--view,
-.admin-audit-panel__badge--add {
-  background: rgba(59, 130, 246, 0.2);
-  color: #bfdbfe;
-}
-
-.admin-audit-panel__detail {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--dg-muted, rgba(203, 213, 225, 0.92));
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--dg-muted, rgba(186, 230, 253, 0.95));
 }
 
 .admin-audit-panel__module {

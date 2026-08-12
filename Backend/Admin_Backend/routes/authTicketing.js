@@ -3,15 +3,16 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const { isAuthorizedAdminEmail, normalizeEmail } = require("../config/adminWhitelist");
+const { normalizeEmail } = require("../config/adminWhitelist");
 const { getAdminTier } = require("../config/adminRoles");
-const { getRbacRoleForEmail } = require("../services/adminRbac");
+const { getRbacRoleForEmail, isAuthorizedAdminEmailDynamic } = require("../services/adminRbac");
 const {
   isLockedOut,
   recordFailedLoginAttempt,
   clearLockoutOnSuccess,
 } = require("../services/adminAuthLockout");
 const PortalUser = require("../models/PortalUser");
+const AdminAuditLog = require("../models/AdminAuditLog");
 const Bus = require("../models/Bus");
 const PasswordResetToken = require("../models/PasswordResetToken");
 const AdminOtpCode = require("../models/AdminOtpCode");
@@ -153,6 +154,20 @@ function splitName(displayName) {
   };
 }
 
+/** Fire-and-forget: never let audit logging block or fail a login response. */
+function logAdminLogin(email, method) {
+  AdminAuditLog.create({
+    email,
+    module: "Authentication",
+    action: "LOGIN",
+    details: `Signed in to the admin portal (${method}).`,
+    httpMethod: "POST",
+    path: method === "google" ? "/api/auth/google-login" : "/api/auth/login",
+    statusCode: 200,
+    source: "http",
+  }).catch(() => {});
+}
+
 function signToken(userPayload, secret) {
   const base = {
     sub: String(userPayload.sub),
@@ -181,7 +196,7 @@ function createAuthTicketingRouter() {
       return res.status(400).json({ error: "Email and password required" });
     }
 
-    if (!isAuthorizedAdminEmail(email)) {
+    if (!(await isAuthorizedAdminEmailDynamic(email))) {
       return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
     }
 
@@ -214,6 +229,7 @@ function createAuthTicketingRouter() {
         { sub: doc._id.toString(), role: doc.role, email: doc.email, authStore: "mongo" },
         secret
       );
+      logAdminLogin(email, "password");
       return res.json({ token, user: await withAdminProfile(mapMongoUser(doc)) });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -231,7 +247,7 @@ function createAuthTicketingRouter() {
       const decoded = await verifyFirebaseIdToken(idToken);
       const email = normalizeEmail(decoded.email);
       if (!email) return res.status(400).json({ error: "Google account has no email" });
-      if (!isAuthorizedAdminEmail(email)) {
+      if (!(await isAuthorizedAdminEmailDynamic(email))) {
         return res.status(403).json({
           error:
             "This Google account is not authorized. Only whitelisted admin emails may use the admin portal.",
@@ -263,6 +279,7 @@ function createAuthTicketingRouter() {
         { sub: doc._id.toString(), role: doc.role, email: doc.email, authStore: "mongo" },
         secret
       );
+      logAdminLogin(email, "google");
       return res.json({ token, user: await withAdminProfile(mapMongoUser(doc)) });
     } catch (e) {
       return res.status(401).json({ error: e.message || "Google login failed" });
@@ -658,7 +675,7 @@ function createAuthTicketingRouter() {
       const doc = await PortalUser.findById(oid);
       const user = mapMongoUser(doc);
       if (!user) return res.status(401).json({ error: "User not found" });
-      if (!isAuthorizedAdminEmail(user.email)) {
+      if (!(await isAuthorizedAdminEmailDynamic(user.email))) {
         return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
       }
       if (user.role === "Admin") {
@@ -676,7 +693,7 @@ function createAuthTicketingRouter() {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    if (!isAuthorizedAdminEmail(email)) {
+    if (!(await isAuthorizedAdminEmailDynamic(email))) {
       return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
     }
 
@@ -717,7 +734,7 @@ function createAuthTicketingRouter() {
       if (!email) return res.status(400).json({ error: "Email is required" });
       const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       if (!validEmail) return res.status(400).json({ error: "Invalid email format" });
-      if (!isAuthorizedAdminEmail(email)) {
+      if (!(await isAuthorizedAdminEmailDynamic(email))) {
         return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
       }
 
@@ -853,9 +870,12 @@ function createAuthTicketingRouter() {
       if (row.purpose === "operator") {
         return res.status(400).json({ error: "This reset link is for the attendant app, not the admin portal." });
       }
+      if (row.purpose === "it_account") {
+        return res.status(400).json({ error: "This code is for creating a new IT account, not resetting a password." });
+      }
 
       const email = normalizeEmail(row.email);
-      if (!isAuthorizedAdminEmail(email)) {
+      if (!(await isAuthorizedAdminEmailDynamic(email))) {
         return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
       }
 

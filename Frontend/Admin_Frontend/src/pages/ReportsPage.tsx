@@ -107,7 +107,7 @@ export function ReportsPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [hubTab, setHubTab] = useState<HubTab>("passenger");
   const lastNonExportHubTabRef = useRef<Exclude<HubTab, "export">>("passenger");
-  const [reportsMainTab, setReportsMainTab] = useState<"dashboard" | "archive">("dashboard");
+  const [reportsMainTab, setReportsMainTab] = useState<"dashboard" | "archive" | "dailyOps">("dashboard");
 
   function handleHubTab(t: HubTab) {
     if (t !== "export") {
@@ -308,34 +308,44 @@ export function ReportsPage() {
         >
           Archive
         </button>
+        <button
+          type="button"
+          role="tab"
+          className={`reports-page__subtab${reportsMainTab === "dailyOps" ? " reports-page__subtab--active" : ""}`}
+          aria-selected={reportsMainTab === "dailyOps"}
+          onClick={() => setReportsMainTab("dailyOps")}
+        >
+          Daily Operations
+        </button>
       </div>
 
-      {loadError ? <p className="reports-page__banner">{loadError}</p> : null}
+      {reportsMainTab === "dashboard" && loadError ? <p className="reports-page__banner">{loadError}</p> : null}
 
       {reportsMainTab === "archive" ? (
         <ReportsSnapshotsArchive />
+      ) : reportsMainTab === "dailyOps" ? (
+        <div className="reports-page__daily-wrap">
+          <DailyOperationsReportPanel />
+        </div>
       ) : (
         <>
-      <ReportsExecutiveMetrics analytics={hubData} isLive={!!data} goalAnomalyPulse={goalAnomalyPulse} />
+          <ReportsExecutiveMetrics analytics={hubData} isLive={!!data} goalAnomalyPulse={goalAnomalyPulse} />
 
-      <ReportsIntelligenceHub
-        data={hubData}
-        hubTab={hubTab}
-        onHubTab={handleHubTab}
-        onCancelExport={() => setHubTab(lastNonExportHubTabRef.current)}
-        exportProgress={exportProgress}
-        refundAlert={refundAlert}
-        onRunMasterExport={(args) => runMasterExport(args)}
-        exportDisabled={pdfBusy}
-        exportBusy={pdfBusy}
-        sentimentLabel={sentimentLabel}
-        predictiveInsight={predictiveInsight}
-        peakSubtitle={peakSubtitle}
-        monthlyRev={monthlyRev}
-      />
-
-      <DailyOperationsReportPanel />
-
+          <ReportsIntelligenceHub
+            data={hubData}
+            hubTab={hubTab}
+            onHubTab={handleHubTab}
+            onCancelExport={() => setHubTab(lastNonExportHubTabRef.current)}
+            exportProgress={exportProgress}
+            refundAlert={refundAlert}
+            onRunMasterExport={(args) => runMasterExport(args)}
+            exportDisabled={pdfBusy}
+            exportBusy={pdfBusy}
+            sentimentLabel={sentimentLabel}
+            predictiveInsight={predictiveInsight}
+            peakSubtitle={peakSubtitle}
+            monthlyRev={monthlyRev}
+          />
         </>
       )}
     </div>

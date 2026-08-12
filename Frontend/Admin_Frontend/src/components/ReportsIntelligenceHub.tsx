@@ -385,6 +385,11 @@ export function ReportsIntelligenceHub({
   const [passengerRevenuePeriod, setPassengerRevenuePeriod] = useState<PassengerCongestionPeriod>("hour");
   const [routeRevenuePeriod, setRouteRevenuePeriod] = useState<PassengerCongestionPeriod>("hour");
   const [busTicketPeriod, setBusTicketPeriod] = useState<PassengerCongestionPeriod>("hour");
+  const [busRevenueFilter, setBusRevenueFilter] = useState<string>("all");
+  const selectedBusRow = useMemo(
+    () => (busRevenueFilter === "all" ? null : buses.find((b) => b.busLabel === busRevenueFilter) ?? null),
+    [buses, busRevenueFilter]
+  );
 
   const [exportBundles, setExportBundles] = useState<Set<ReportExportBundleId>>(
     () =>
@@ -1153,47 +1158,85 @@ export function ReportsIntelligenceHub({
                     </div>
                   </div>
                   <div className="reports-hub__col">
-                    {panelHead("Top 5 buses", "Share of fare by bus identifier", "muted")}
-                    <div className="reports-hub__chart-shell reports-hub__chart-shell--pad reports-hub__chart-shell--donut reports-hub__chart-shell--ambient-fleet">
-                      <div className="reports-hub__chart-canvas">
-                        {busPie.length === 0 ? (
-                          <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
+                    <header className="reports-hub__col-head reports-hub__col-head--split">
+                      <div>
+                        <h3 className="reports-hub__col-title">Revenue by bus</h3>
+                        <p className="reports-hub__col-sub">
+                          {selectedBusRow ? `Selected — ${selectedBusRow.busLabel}` : "Share of fare by bus identifier (top 5)"}
+                        </p>
+                      </div>
+                      <label className="reports-hub__bus-filter">
+                        <span className="reports-hub__export-date-label">Filter by bus</span>
+                        <select
+                          className="reports-hub__bus-filter-select"
+                          value={busRevenueFilter}
+                          onChange={(e) => setBusRevenueFilter(e.target.value)}
+                        >
+                          <option value="all">All buses (top 5)</option>
+                          {buses.map((b) => (
+                            <option key={b.busLabel} value={b.busLabel}>
+                              {b.busLabel}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </header>
+                    {busRevenueFilter !== "all" ? (
+                      <div className="reports-hub__chart-shell reports-hub__chart-shell--pad reports-hub__chart-shell--ambient-fleet">
+                        {selectedBusRow ? (
+                          <div className="reports-hub__bus-stat">
+                            <span className="reports-hub__bus-stat-label">{selectedBusRow.busLabel}</span>
+                            <span className="reports-hub__bus-stat-value">
+                              ₱{selectedBusRow.revenue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="reports-hub__bus-stat-meta">{selectedBusRow.tickets.toLocaleString()} tickets</span>
+                          </div>
                         ) : (
-                          <HubChartContainer>
-                            <PieChart>
-                              {hubSvgGlowDefs()}
-                              <Pie
-                                data={busPie}
-                                dataKey="revenue"
-                                nameKey="name"
-                                innerRadius="58%"
-                                outerRadius="88%"
-                                paddingAngle={2}
-                                stroke="rgba(4,14,35,0.5)"
-                                strokeWidth={1}
-                                labelLine={false}
-                              >
-                                {busPie.map((_, i) => (
-                                  <Cell key={i} className="reports-hub__chart-glow" fill={PIE_COLORS_FLEET[i % PIE_COLORS_FLEET.length]} />
-                                ))}
-                                <Label content={donutMtdCenterContent(monthlyRev) as ComponentProps<typeof Label>["content"]} />
-                              </Pie>
-                              <Tooltip formatter={(v) => `₱${Number(v ?? 0).toFixed(2)}`} contentStyle={hubTooltipStyle} />
-                            </PieChart>
-                          </HubChartContainer>
+                          <p className="reports-hub__placeholder">No revenue data for this bus in the current cycle.</p>
                         )}
                       </div>
-                      {busPie.length > 0 ? (
-                        <ul className="reports-hub__donut-legend">
-                          {busPie.map((r, i) => (
-                            <li key={r.name} className="reports-hub__donut-legend-item">
-                              <span className="reports-hub__donut-swatch" style={{ background: PIE_COLORS_FLEET[i % PIE_COLORS_FLEET.length] }} aria-hidden />
-                              <span className="reports-hub__donut-legend-label">{truncateLabel(r.name, 22)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
+                    ) : (
+                      <div className="reports-hub__chart-shell reports-hub__chart-shell--pad reports-hub__chart-shell--donut reports-hub__chart-shell--ambient-fleet">
+                        <div className="reports-hub__chart-canvas">
+                          {busPie.length === 0 ? (
+                            <p className="reports-hub__placeholder">No live revenue data detected for this cycle.</p>
+                          ) : (
+                            <HubChartContainer>
+                              <PieChart>
+                                {hubSvgGlowDefs()}
+                                <Pie
+                                  data={busPie}
+                                  dataKey="revenue"
+                                  nameKey="name"
+                                  innerRadius="58%"
+                                  outerRadius="88%"
+                                  paddingAngle={2}
+                                  stroke="rgba(4,14,35,0.5)"
+                                  strokeWidth={1}
+                                  labelLine={false}
+                                >
+                                  {busPie.map((_, i) => (
+                                    <Cell key={i} className="reports-hub__chart-glow" fill={PIE_COLORS_FLEET[i % PIE_COLORS_FLEET.length]} />
+                                  ))}
+                                  <Label content={donutMtdCenterContent(monthlyRev) as ComponentProps<typeof Label>["content"]} />
+                                </Pie>
+                                <Tooltip formatter={(v) => `₱${Number(v ?? 0).toFixed(2)}`} contentStyle={hubTooltipStyle} />
+                              </PieChart>
+                            </HubChartContainer>
+                          )}
+                        </div>
+                        {busPie.length > 0 ? (
+                          <ul className="reports-hub__donut-legend">
+                            {busPie.map((r, i) => (
+                              <li key={r.name} className="reports-hub__donut-legend-item">
+                                <span className="reports-hub__donut-swatch" style={{ background: PIE_COLORS_FLEET[i % PIE_COLORS_FLEET.length] }} aria-hidden />
+                                <span className="reports-hub__donut-legend-label">{truncateLabel(r.name, 22)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </>
               ) : null}

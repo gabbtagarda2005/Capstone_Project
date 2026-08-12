@@ -1,8 +1,11 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { requireAdminJwt } = require("../middleware/requireAdminJwt");
 const { requireSuperAdmin } = require("../middleware/requireSuperAdmin");
 const { ADMIN_EMAIL_WHITELIST, normalizeEmail } = require("../config/adminWhitelist");
 const AdminAuditLog = require("../models/AdminAuditLog");
+const AdminItAccountOtp = require("../models/AdminItAccountOtp");
 const AdminRbacAssignment = require("../models/AdminRbacAssignment");
 const AttendantRegistry = require("../models/AttendantRegistry");
 const Bus = require("../models/Bus");
@@ -11,11 +14,15 @@ const Driver = require("../models/Driver");
 const FareMatrixEntry = require("../models/FareMatrixEntry");
 const FareRoute = require("../models/FareRoute");
 const IssuedTicketRecord = require("../models/IssuedTicketRecord");
+const PasswordResetToken = require("../models/PasswordResetToken");
 const PortalUser = require("../models/PortalUser");
 const RouteCoverage = require("../models/RouteCoverage");
 const liveDispatchStore = require("../services/liveDispatchStore");
 const { getPortalSettingsLean, updatePortalSettings } = require("../services/adminPortalSettingsService");
 const { getRbacRoleForEmail } = require("../services/adminRbac");
+const { getSystemEvents } = require("../services/systemHealthLog");
+const { getApiMetrics } = require("../middleware/apiMetrics");
+const { sendItAccountOtpEmail } = require("../services/mailer");
 const {
   listDailyOpsSnapshots,
   downloadDailyOpsSnapshot,
@@ -249,13 +256,21 @@ function createAdminPortalRouter() {
 
   router.get("/rbac", requireAdminJwt, async (_req, res) => {
     try {
-      const items = await Promise.all(
+      const whitelisted = await Promise.all(
         ADMIN_EMAIL_WHITELIST.map(async (em) => {
           const email = normalizeEmail(em);
           const role = await getRbacRoleForEmail(email);
           return { email, role };
         })
       );
+      // Include pre-assigned roles for not-yet-whitelisted emails too (e.g. an IT account
+      // waiting on its server allowlist entry) so the portal doesn't lose track of them.
+      const extraDocs = await AdminRbacAssignment.find({
+        email: { $nin: whitelisted.map((r) => r.email) },
+      })
+        .sort({ email: 1 })
+        .lean();
+      const items = [...whitelisted, ...extraDocs.map((d) => ({ email: d.email, role: d.role }))];
       res.json({ items });
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -268,7 +283,7 @@ function createAdminPortalRouter() {
       if (!Array.isArray(items)) {
         return res.status(400).json({ error: "items array required" });
       }
-      const allowed = new Set(["super_admin", "fleet_manager", "auditor"]);
+      const allowed = new Set(["super_admin", "fleet_manager", "auditor", "it_support"]);
       const wl = new Set(ADMIN_EMAIL_WHITELIST.map((e) => normalizeEmail(e)));
       for (const row of items) {
         const email = normalizeEmail(row?.email);
@@ -276,7 +291,9 @@ function createAdminPortalRouter() {
         if (!email || !allowed.has(role)) {
           return res.status(400).json({ error: "Each item needs email and a valid role" });
         }
-        if (!wl.has(email)) {
+        // Non-whitelisted emails may still be pre-assigned a role (e.g. a new IT account) —
+        // it has no effect until the email is separately added to ADMIN_EMAIL_WHITELIST.
+        if (!wl.has(email) && role !== "it_support") {
           return res.status(400).json({ error: "Email not in admin whitelist" });
         }
         await AdminRbacAssignment.findOneAndUpdate(
@@ -294,6 +311,162 @@ function createAdminPortalRouter() {
     }
   });
 
+  /**
+   * "Add IT account" self-service creation (Settings → Admins): email → OTP → password.
+   * Super admin only — proves the target inbox is real before it ever gets a working login.
+   */
+  router.post("/it-accounts/send-otp", requireAdminJwt, requireSuperAdmin, async (req, res) => {
+    try {
+      const email = normalizeEmail(req.body?.email);
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: "Valid email is required" });
+      }
+
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const count = await AdminItAccountOtp.countDocuments({ email, createdAt: { $gte: oneHourAgo } });
+      if (count >= 3) {
+        return res.status(429).json({ error: "Too many OTP requests for this email. Try again in about an hour." });
+      }
+
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      const otpHash = await bcrypt.hash(otp, 10);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      const otpDoc = await AdminItAccountOtp.create({ email, otpHash, expiresAt, consumed: false, attempts: 0 });
+
+      let sent;
+      try {
+        sent = await sendItAccountOtpEmail({ to: email, otp });
+      } catch (mailErr) {
+        await AdminItAccountOtp.deleteOne({ _id: otpDoc._id });
+        return res.status(502).json({
+          error: mailErr.message || "Could not send email. Check SMTP_* settings in .env.",
+        });
+      }
+
+      const payload = {
+        message: sent.simulated
+          ? "OTP generated. Email was not sent (configure SMTP in .env to deliver by mail)."
+          : "OTP sent to that email address.",
+        simulatedEmail: sent.simulated === true,
+      };
+
+      if (sent.simulated && process.env.NODE_ENV !== "production") {
+        console.info(`[IT account OTP] ${email} → ${otp} (expires in 5 min — SMTP not configured)`);
+        payload.hint =
+          "No email was sent. The OTP is in the Admin_Backend terminal. Add SMTP_* to .env to email it, or set OTP_DEV_REVEAL=true to show the code here.";
+        if (process.env.OTP_DEV_REVEAL === "true") {
+          payload.devOtp = otp;
+        }
+      }
+
+      return res.json(payload);
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Failed to send OTP" });
+    }
+  });
+
+  router.post("/it-accounts/verify-otp", requireAdminJwt, requireSuperAdmin, async (req, res) => {
+    try {
+      const email = normalizeEmail(req.body?.email);
+      const otp = String(req.body?.otp || "").trim();
+      if (!email) return res.status(400).json({ error: "Email is required" });
+      if (!/^\d{6}$/.test(otp)) return res.status(400).json({ error: "OTP must be 6 digits" });
+
+      const row = await AdminItAccountOtp.findOne({ email, consumed: false }).sort({ createdAt: -1 });
+      if (!row || row.expiresAt < new Date()) {
+        return res.status(400).json({ error: "OTP is invalid or expired" });
+      }
+      if (row.attempts >= 5) {
+        return res.status(429).json({ error: "Too many invalid attempts. Request a new OTP." });
+      }
+
+      const ok = await bcrypt.compare(otp, row.otpHash);
+      if (!ok) {
+        row.attempts += 1;
+        await row.save();
+        return res.status(400).json({ error: "Invalid OTP" });
+      }
+
+      row.consumed = true;
+      await row.save();
+
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await PasswordResetToken.deleteMany({ email, purpose: "it_account" });
+      await PasswordResetToken.create({ email, token: resetToken, expiresAt, purpose: "it_account" });
+
+      return res.json({ message: "OTP verified", resetToken });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "OTP verification failed" });
+    }
+  });
+
+  router.post("/it-accounts/create", requireAdminJwt, requireSuperAdmin, async (req, res) => {
+    try {
+      const token = String(req.body?.token || "");
+      const password = String(req.body?.password || "");
+      const confirmPassword = String(req.body?.confirmPassword ?? req.body?.confirm ?? "");
+      if (!token || !password) {
+        return res.status(400).json({ error: "Token and password required" });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+      if (confirmPassword && password !== confirmPassword) {
+        return res.status(400).json({ error: "Passwords do not match" });
+      }
+
+      const row = await PasswordResetToken.findOne({ token, purpose: "it_account" });
+      if (!row || row.expiresAt < new Date()) {
+        return res.status(400).json({ error: "Verification expired. Start over and request a new code." });
+      }
+
+      const email = normalizeEmail(row.email);
+      const existing = await PortalUser.findOne({ email }).select("role").lean();
+      if (existing && existing.role !== "Admin") {
+        return res.status(409).json({
+          error: `${email} is already a ${existing.role} account. Choose a different email for the IT account.`,
+        });
+      }
+
+      const hash = await bcrypt.hash(password, 10);
+      const doc = await PortalUser.findOneAndUpdate(
+        { email },
+        {
+          $set: { email, role: "Admin", password: hash, authProvider: "password" },
+          $setOnInsert: { firstName: "IT", lastName: "Support" },
+        },
+        { upsert: true, new: true }
+      );
+      await AdminRbacAssignment.findOneAndUpdate(
+        { email },
+        { $set: { email, role: "it_support" } },
+        { upsert: true }
+      );
+
+      await PasswordResetToken.deleteMany({ email, purpose: "it_account" });
+
+      return res.json({
+        message: `IT account created for ${email}. They can sign in now with this email and password.`,
+        email: doc.email,
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Could not create IT account" });
+    }
+  });
+
+  /** Real backend events (Mongo state changes, uncaught route errors) — powers System Health's Recent Errors panel. */
+  router.get("/system-events", requireAdminJwt, (req, res) => {
+    const { level, service, limit } = req.query;
+    res.json({ items: getSystemEvents({ level, service, limit }) });
+  });
+
+  /** Real measured per-route request counts / avg latency / error counts since process start. */
+  router.get("/api-metrics", requireAdminJwt, (_req, res) => {
+    res.json({ items: getApiMetrics(40) });
+  });
+
   router.get("/audit-log", requireAdminJwt, async (req, res) => {
     try {
       const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
@@ -308,6 +481,8 @@ function createAdminPortalRouter() {
           timestamp: r.createdAt,
           source: r.source,
           statusCode: r.statusCode,
+          path: r.path || "",
+          httpMethod: r.httpMethod || "",
         })),
       });
     } catch (e) {

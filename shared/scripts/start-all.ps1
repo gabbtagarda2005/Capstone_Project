@@ -36,10 +36,10 @@ $adminApi = Join-Path $Root "Backend\Admin_Backend"
 $adminUi = Join-Path $Root "Frontend\Admin_Frontend"
 $passUi = Join-Path $Root "Frontend\Passenger_Frontend"
 
-Start-Process powershell -WorkingDirectory $adminApi -ArgumentList @("-NoExit", "-Command", "npm run dev")
+Start-Process powershell -WorkingDirectory $adminApi -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", "npm run dev")
 Start-Sleep -Milliseconds 400
-Start-Process powershell -WorkingDirectory $adminUi -ArgumentList @("-NoExit", "-Command", "npm run dev")
+Start-Process powershell -WorkingDirectory $adminUi -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", "npm run dev")
 Start-Sleep -Milliseconds 400
-Start-Process powershell -WorkingDirectory $passUi -ArgumentList @("-NoExit", "-Command", "npm run dev")
+Start-Process powershell -WorkingDirectory $passUi -ArgumentList @("-NoExit", "-ExecutionPolicy", "Bypass", "-Command", "npm run dev")
 
 Write-Host "`nDone. Close those windows to stop the servers." -ForegroundColor Green

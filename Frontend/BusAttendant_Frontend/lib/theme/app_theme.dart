@@ -124,25 +124,93 @@ ThemeData buildDarkAppTheme() {
 
   return base.copyWith(
     textTheme: _busAttendantTextTheme(base.colorScheme),
+    splashFactory: InkRipple.splashFactory,
+    splashColor: MintObsidian.mint.withValues(alpha: 0.12),
+    highlightColor: MintObsidian.mint.withValues(alpha: 0.05),
     appBarTheme: const AppBarTheme(
       elevation: 0,
       centerTitle: true,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.white,
     ),
+    cardTheme: CardThemeData(
+      color: MintObsidian.surfaceElevated,
+      elevation: 0,
+      shadowColor: Colors.black.withValues(alpha: 0.5),
+      surfaceTintColor: Colors.transparent,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: Colors.white.withValues(alpha: 0.08),
+      thickness: 1,
+      space: 1,
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: MintObsidian.surfaceElevated,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      textStyle: const TextStyle(color: MintObsidian.textPrimary, fontSize: 12.5),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: MintObsidian.surfaceElevated,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: const Color(0xFF1E293B),
+      contentTextStyle: const TextStyle(color: MintObsidian.textPrimary, fontWeight: FontWeight.w600),
+      actionTextColor: MintObsidian.mint,
+      behavior: SnackBarBehavior.floating,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? MintObsidian.mint : Colors.white,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? MintObsidian.mint.withValues(alpha: 0.4)
+            : Colors.white.withValues(alpha: 0.18),
+      ),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? MintObsidian.mint : Colors.transparent,
+      ),
+      checkColor: const WidgetStatePropertyAll(MintObsidian.textOnMint),
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
       border: UnderlineInputBorder(
-        borderSide: BorderSide(color: AppColors.white.withOpacity(0.6)),
+        borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.6)),
       ),
       enabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: AppColors.white.withOpacity(0.5)),
+        borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.5)),
       ),
       focusedBorder: const UnderlineInputBorder(
         borderSide: BorderSide(color: AppColors.white, width: 1.5),
       ),
+      errorBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: TacticalColors.alertRed.withValues(alpha: 0.85)),
+      ),
+      focusedErrorBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: TacticalColors.alertRed, width: 1.5),
+      ),
       labelStyle: const TextStyle(color: AppColors.white),
-      hintStyle: TextStyle(color: AppColors.white.withOpacity(0.75)),
+      hintStyle: TextStyle(color: AppColors.white.withValues(alpha: 0.75)),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -152,6 +220,8 @@ ThemeData buildDarkAppTheme() {
         backgroundColor: const Color(0xFF5EE396),
         foregroundColor: MintObsidian.textOnMint,
         textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+      ).copyWith(
+        overlayColor: WidgetStateProperty.all(Colors.black.withValues(alpha: 0.08)),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -162,6 +232,8 @@ ThemeData buildDarkAppTheme() {
         backgroundColor: const Color(0xFF5EE396),
         foregroundColor: MintObsidian.textOnMint,
         textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5),
+      ).copyWith(
+        overlayColor: WidgetStateProperty.all(Colors.black.withValues(alpha: 0.08)),
       ),
     ),
   );
@@ -183,32 +255,89 @@ ThemeData buildLightAppTheme() {
 
   return base.copyWith(
     textTheme: _busAttendantTextTheme(base.colorScheme),
+    splashFactory: InkRipple.splashFactory,
+    splashColor: const Color(0xFF0EA5A4).withValues(alpha: 0.1),
+    highlightColor: const Color(0xFF0EA5A4).withValues(alpha: 0.04),
     appBarTheme: const AppBarTheme(
       elevation: 0,
       centerTitle: true,
       backgroundColor: Colors.transparent,
       foregroundColor: Color(0xFF111827),
     ),
-    cardTheme: const CardThemeData(
+    cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 0,
-      shadowColor: Color(0x14000000),
+      shadowColor: const Color(0x14000000),
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: Colors.black.withValues(alpha: 0.08),
+      thickness: 1,
+      space: 1,
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 12.5),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: const Color(0xFF111827),
+      contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+      actionTextColor: const Color(0xFF5EE396),
+      behavior: SnackBarBehavior.floating,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? const Color(0xFF0EA5A4) : Colors.white,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? const Color(0xFF0EA5A4).withValues(alpha: 0.4)
+            : Colors.black.withValues(alpha: 0.15),
+      ),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? const Color(0xFF0EA5A4) : Colors.transparent,
+      ),
+      checkColor: const WidgetStatePropertyAll(Colors.white),
+      side: BorderSide(color: Colors.black.withValues(alpha: 0.32)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
       border: UnderlineInputBorder(
-        borderSide: BorderSide(color: Colors.black.withOpacity(0.24)),
+        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.24)),
       ),
       enabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: Colors.black.withOpacity(0.2)),
+        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.2)),
       ),
       focusedBorder: const UnderlineInputBorder(
         borderSide: BorderSide(color: Color(0xFF0EA5A4), width: 1.5),
       ),
+      errorBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: TacticalColors.alertRed.withValues(alpha: 0.85)),
+      ),
+      focusedErrorBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: TacticalColors.alertRed, width: 1.5),
+      ),
       labelStyle: const TextStyle(color: Color(0xFF111827)),
-      hintStyle: TextStyle(color: Colors.black.withOpacity(0.56)),
+      hintStyle: TextStyle(color: Colors.black.withValues(alpha: 0.56)),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -218,6 +347,8 @@ ThemeData buildLightAppTheme() {
         backgroundColor: const Color(0xFF5EE396),
         foregroundColor: const Color(0xFF111827),
         textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+      ).copyWith(
+        overlayColor: WidgetStateProperty.all(Colors.black.withValues(alpha: 0.06)),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -228,6 +359,8 @@ ThemeData buildLightAppTheme() {
         backgroundColor: const Color(0xFF5EE396),
         foregroundColor: const Color(0xFF111827),
         textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5),
+      ).copyWith(
+        overlayColor: WidgetStateProperty.all(Colors.black.withValues(alpha: 0.06)),
       ),
     ),
   );
