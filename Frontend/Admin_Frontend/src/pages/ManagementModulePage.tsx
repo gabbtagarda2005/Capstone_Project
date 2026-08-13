@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import L from "leaflet";
-import { Circle, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { Circle, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { AddAttendantWizard } from "@/components/AddAttendantWizard";
 import { AddAdminModal } from "@/components/AddAdminModal";
@@ -187,6 +187,16 @@ function LocationMapJump({ jump }: { jump: { lat: number; lng: number; key: numb
     if (!jump) return;
     map.flyTo([jump.lat, jump.lng], jump.zoom ?? 15, { duration: 0.85 });
   }, [jump, map]);
+  return null;
+}
+
+/** Click-to-place: captures the exact Leaflet click coordinate, no rounding, no map-center fallback. */
+function LocationMapClickCapture({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
   return null;
 }
 
@@ -736,6 +746,11 @@ function LocationManagementPanel() {
     pickupOnly: boolean;
     /** Per-stop geofence (m); default 100 when deploying. */
     geofenceRadiusM?: number;
+    /** Road-snap audit trail — set once a validate-location check resolves for this stop. */
+    snapStatus?: "checking" | "snapped" | "no_road";
+    originalLatitude?: number;
+    originalLongitude?: number;
+    roadSnapDistanceM?: number;
   };
 
   type CoverageDoc = {
@@ -844,6 +859,176 @@ function LocationManagementPanel() {
     Math.abs(latNum) <= 90 &&
     Math.abs(lngNum) <= 180 &&
     !(latNum === 0 && lngNum === 0);
+
+  // ---- Road-snapping: validate/snap a candidate terminal coordinate before it's saved ----
+  type SnapStatus = "idle" | "checking" | "snapped" | "no_road" | "error";
+  type SnapState = {
+    status: SnapStatus;
+    originalLat: number | null;
+    originalLng: number | null;
+    distanceFromOriginal: number | null;
+    roadDistance: number | null;
+    message: string | null;
+  };
+  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [snapState, setSnapState] = useState<SnapState>({
+    status: "idle",
+    originalLat: null,
+    originalLng: null,
+    distanceFromOriginal: null,
+    roadDistance: null,
+    message: null,
+  });
+  const snapRequestIdRef = useRef(0);
+
+  type ValidateLocationResult = {
+    valid: boolean;
+    inServiceArea: boolean;
+    snapped: boolean;
+    latitude: number;
+    longitude: number;
+    distanceFromOriginal: number;
+    roadDistance: number | null;
+    reason: string | null;
+  };
+
+  const runSnapCheck = useCallback(
+    async (checkLat: number, checkLng: number) => {
+      if (!snapEnabled) {
+        setSnapState({
+          status: "idle",
+          originalLat: null,
+          originalLng: null,
+          distanceFromOriginal: null,
+          roadDistance: null,
+          message: null,
+        });
+        return;
+      }
+      const requestId = ++snapRequestIdRef.current;
+      setSnapState((prev) => ({ ...prev, status: "checking" }));
+      try {
+        const r = await api<ValidateLocationResult>("/api/locations/coverage/validate-location", {
+          method: "POST",
+          json: { latitude: checkLat, longitude: checkLng, coverageId: hubId ?? undefined, snapEnabled: true },
+        });
+        if (snapRequestIdRef.current !== requestId) return;
+        if (r.snapped) {
+          setLat(String(r.latitude));
+          setLng(String(r.longitude));
+          setSnapState({
+            status: "snapped",
+            originalLat: checkLat,
+            originalLng: checkLng,
+            distanceFromOriginal: r.distanceFromOriginal,
+            roadDistance: r.roadDistance,
+            message: `📍 Location snapped to road (moved ${r.distanceFromOriginal.toFixed(1)} m)`,
+          });
+        } else {
+          setSnapState({
+            status: "no_road",
+            originalLat: checkLat,
+            originalLng: checkLng,
+            distanceFromOriginal: 0,
+            roadDistance: r.roadDistance,
+            message:
+              r.reason === "outside_service_area"
+                ? "This location is outside the supported service area."
+                : "Unable to find a nearby road.",
+          });
+        }
+      } catch {
+        if (snapRequestIdRef.current !== requestId) return;
+        setSnapState({
+          status: "error",
+          originalLat: checkLat,
+          originalLng: checkLng,
+          distanceFromOriginal: null,
+          roadDistance: null,
+          message: "Could not check road location.",
+        });
+      }
+    },
+    [snapEnabled, hubId]
+  );
+
+  function dismissSnapBanner() {
+    setSnapState({
+      status: "idle",
+      originalLat: null,
+      originalLng: null,
+      distanceFromOriginal: null,
+      roadDistance: null,
+      message: null,
+    });
+  }
+
+  /** Runs the same validator for a stop row (added via Nominatim search) and updates it in place. */
+  const checkStopSnap = useCallback(async (stopId: string, checkLat: number, checkLng: number) => {
+    setSelectedStops((prev) => prev.map((s) => (s.id === stopId ? { ...s, snapStatus: "checking" } : s)));
+    try {
+      const r = await api<ValidateLocationResult>("/api/locations/coverage/validate-location", {
+        method: "POST",
+        json: { latitude: checkLat, longitude: checkLng, snapEnabled: true },
+      });
+      setSelectedStops((prev) =>
+        prev.map((s) => {
+          if (s.id !== stopId) return s;
+          if (r.snapped) {
+            return {
+              ...s,
+              latitude: r.latitude,
+              longitude: r.longitude,
+              originalLatitude: checkLat,
+              originalLongitude: checkLng,
+              roadSnapDistanceM: r.distanceFromOriginal,
+              snapStatus: "snapped",
+            };
+          }
+          return { ...s, snapStatus: "no_road" };
+        })
+      );
+    } catch {
+      setSelectedStops((prev) => prev.map((s) => (s.id === stopId ? { ...s, snapStatus: undefined } : s)));
+    }
+  }, []);
+
+  // ---- Existing-stops audit: read-only report, never auto-modifies saved coordinates ----
+  type AuditItem = {
+    coverageId: string;
+    locationName: string;
+    kind: "terminal" | "stop";
+    stopIndex?: number;
+    name: string;
+    latitude: number;
+    longitude: number;
+    roadDistance: number | null;
+    suspicious: boolean;
+    reason: string | null;
+  };
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditItems, setAuditItems] = useState<AuditItem[] | null>(null);
+
+  async function runAudit() {
+    setAuditOpen(true);
+    setAuditLoading(true);
+    try {
+      const r = await api<{ items: AuditItem[] }>("/api/locations/coverage/audit");
+      setAuditItems(r.items.filter((i) => i.suspicious));
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Audit failed");
+      setAuditItems(null);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function jumpToAuditItem(item: AuditItem) {
+    const cov = coverageDocs.find((c) => c._id === item.coverageId);
+    if (cov) loadCoverageIntoForm(cov);
+    setMapJumpTo({ lat: item.latitude, lng: item.longitude, key: Date.now(), zoom: 18 });
+  }
 
   const GENERIC_TERMINAL_QUERY_WORDS = new Set(["terminal", "bus", "station", "transport", "stop", "poi"]);
 
@@ -1478,6 +1663,7 @@ function LocationManagementPanel() {
     setTerminalAcOpen(false);
     triggerCoordsPulse();
     setMapJumpTo({ lat: s.lat, lng: s.lng, key: Date.now(), zoom: 18 });
+    void runSnapCheck(s.lat, s.lng);
   }
 
   function onPickGeoLocation(s: GeoSuggestion) {
@@ -1520,6 +1706,7 @@ function LocationManagementPanel() {
 
   function addStopFromGeoSuggestion(s: GeoSuggestion) {
     if (s.type === "terminal") return;
+    const stopId = `geo-${s.id}`;
     setSelectedStops((prev) => {
       const exists = prev.some((p) => p.name === s.label && p.latitude === s.lat && p.longitude === s.lng);
       if (exists) return prev;
@@ -1527,7 +1714,7 @@ function LocationManagementPanel() {
       return [
         ...prev,
         {
-          id: `geo-${s.id}`,
+          id: stopId,
           name: s.label,
           latitude: s.lat,
           longitude: s.lng,
@@ -1539,6 +1726,7 @@ function LocationManagementPanel() {
     });
     setStopSearch("");
     setStopAcOpen(false);
+    void checkStopSnap(stopId, s.lat, s.lng);
   }
 
   function removeSelectedStop(stopId: string) {
@@ -1630,6 +1818,12 @@ function LocationManagementPanel() {
         geofenceRadiusM: Number.isFinite(radiusNum) && radiusNum > 0 ? radiusNum : 500,
         pickupOnly: strictTerminalAndStopsOnly,
       };
+      if (snapState.status === "snapped" && snapState.originalLat != null && snapState.originalLng != null) {
+        terminalPayload.originalLatitude = snapState.originalLat;
+        terminalPayload.originalLongitude = snapState.originalLng;
+        terminalPayload.roadSnapped = true;
+        if (snapState.distanceFromOriginal != null) terminalPayload.roadSnapDistanceM = snapState.distanceFromOriginal;
+      }
 
       await api("/api/locations/coverage", {
         method: "POST",
@@ -1646,6 +1840,14 @@ function LocationManagementPanel() {
             sequence: i + 1,
             geofenceRadiusM: Number.isFinite(Number(s.geofenceRadiusM)) ? Number(s.geofenceRadiusM) : 100,
             pickupOnly: s.pickupOnly !== false,
+            ...(s.snapStatus === "snapped" && s.originalLatitude != null && s.originalLongitude != null
+              ? {
+                  originalLatitude: s.originalLatitude,
+                  originalLongitude: s.originalLongitude,
+                  roadSnapped: true,
+                  ...(s.roadSnapDistanceM != null ? { roadSnapDistanceM: s.roadSnapDistanceM } : {}),
+                }
+              : {}),
           })),
         },
       });
@@ -1669,6 +1871,7 @@ function LocationManagementPanel() {
       setStopAcOpen(false);
       setPickedLocationPin(null);
       setPickedTerminalPin(null);
+      dismissSnapBanner();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to deploy location";
       if (/already exists/i.test(msg)) {
@@ -1852,6 +2055,9 @@ function LocationManagementPanel() {
                   onChange={(e) => {
                     setLat(e.target.value);
                   }}
+                  onBlur={() => {
+                    if (hasValidCoords) void runSnapCheck(latNum, lngNum);
+                  }}
                 />
               </label>
               <label className="mgmt-loc-field">
@@ -1865,9 +2071,55 @@ function LocationManagementPanel() {
                   onChange={(e) => {
                     setLng(e.target.value);
                   }}
+                  onBlur={() => {
+                    if (hasValidCoords) void runSnapCheck(latNum, lngNum);
+                  }}
                 />
               </label>
             </div>
+            <label className="mgmt-loc-snap-toggle">
+              <input
+                type="checkbox"
+                checked={snapEnabled}
+                onChange={(e) => {
+                  setSnapEnabled(e.target.checked);
+                  dismissSnapBanner();
+                }}
+              />
+              <span>Snap to road</span>
+            </label>
+            {snapState.status === "checking" ? (
+              <p className="mgmt-loc-snap-banner mgmt-loc-snap-banner--checking" role="status">
+                Checking road location…
+              </p>
+            ) : null}
+            {snapState.status === "snapped" ? (
+              <p className="mgmt-loc-snap-banner mgmt-loc-snap-banner--ok" role="status">
+                {snapState.message}
+              </p>
+            ) : null}
+            {snapState.status === "no_road" || snapState.status === "error" ? (
+              <div className="mgmt-loc-snap-banner mgmt-loc-snap-banner--warn" role="alert">
+                <span>{snapState.message}</span>
+                <div className="mgmt-loc-snap-banner__actions">
+                  <button type="button" className="mgmt-loc-snap-banner__btn" onClick={dismissSnapBanner}>
+                    Adjust Location
+                  </button>
+                  <button type="button" className="mgmt-loc-snap-banner__btn" onClick={dismissSnapBanner}>
+                    Save Without Snapping
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {hasValidCoords && (snapState.originalLat != null || snapState.status !== "idle") ? (
+              <p className="mgmt-loc-snap-debug">
+                Original: {snapState.originalLat != null ? `${snapState.originalLat.toFixed(6)}, ${snapState.originalLng!.toFixed(6)}` : "—"}
+                {" · "}
+                Snapped: {snapState.status === "snapped" ? `${latNum.toFixed(6)}, ${lngNum.toFixed(6)}` : "—"}
+                {" · "}
+                Moved: {snapState.distanceFromOriginal != null ? `${snapState.distanceFromOriginal.toFixed(1)} m` : "—"}
+              </p>
+            ) : null}
           </div>
 
           <label className="mgmt-loc-field">
@@ -1992,6 +2244,9 @@ function LocationManagementPanel() {
                       </div>
                       <span className="mgmt-loc-stop-item__coords">
                         {s.latitude.toFixed(5)}, {s.longitude.toFixed(5)}
+                        {s.snapStatus === "checking" ? " · checking road…" : null}
+                        {s.snapStatus === "snapped" ? ` · 📍 snapped ${(s.roadSnapDistanceM ?? 0).toFixed(1)} m` : null}
+                        {s.snapStatus === "no_road" ? " · ⚠️ needs review" : null}
                       </span>
                     </div>
                     <div className="mgmt-loc-stop-item__right">
@@ -2057,6 +2312,31 @@ function LocationManagementPanel() {
           <button type="button" className="mgmt-loc-btn" disabled={saving} onClick={() => void handleSavePoint()}>
             {saving ? "Deploying..." : "Deploy location"}
           </button>
+
+          <div className="mgmt-loc-audit">
+            <button type="button" className="mgmt-loc-audit__toggle" onClick={() => void runAudit()} disabled={auditLoading}>
+              {auditLoading ? "Checking saved locations…" : "🔍 Audit existing locations"}
+            </button>
+            {auditOpen && !auditLoading && auditItems ? (
+              auditItems.length === 0 ? (
+                <p className="mgmt-loc-audit__empty">No flagged locations — everything checks out.</p>
+              ) : (
+                <div className="mgmt-loc-audit__list">
+                  {auditItems.map((item) => (
+                    <div key={`${item.coverageId}-${item.kind}-${item.stopIndex ?? "t"}`} className="mgmt-loc-audit__item">
+                      <span>
+                        ⚠️ Location needs review — {item.name} ({item.locationName}),{" "}
+                        {item.roadDistance != null ? `${item.roadDistance.toFixed(0)} m from nearest road` : "outside service area"}
+                      </span>
+                      <button type="button" className="mgmt-loc-audit__item-btn" onClick={() => jumpToAuditItem(item)}>
+                        Review
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : null}
+          </div>
         </section>
 
         <section className="mgmt-loc-map">
@@ -2074,6 +2354,14 @@ function LocationManagementPanel() {
             <MapContainer center={mapFallbackCenter} zoom={12} scrollWheelZoom className="mgmt-loc-map__leaflet">
               <LocationMapFitBounds points={mapFitPoints} fallbackCenter={mapFallbackCenter} />
               <LocationMapJump jump={mapJumpTo} />
+              <LocationMapClickCapture
+                onPick={(clickLat, clickLng) => {
+                  setLat(String(clickLat));
+                  setLng(String(clickLng));
+                  triggerCoordsPulse();
+                  void runSnapCheck(clickLat, clickLng);
+                }}
+              />
               <TileLayer
                 attribution='&copy; <a href="https://openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -2157,7 +2445,20 @@ function LocationManagementPanel() {
                       weight: 2,
                     }}
                   />
-                  <Marker position={[latNum, lngNum]} icon={MGMT_LOC_TERMINAL_HEX_ICON} zIndexOffset={900}>
+                  <Marker
+                    position={[latNum, lngNum]}
+                    icon={MGMT_LOC_TERMINAL_HEX_ICON}
+                    zIndexOffset={900}
+                    draggable
+                    eventHandlers={{
+                      dragend: (e) => {
+                        const p = (e.target as L.Marker).getLatLng();
+                        setLat(String(p.lat));
+                        setLng(String(p.lng));
+                        void runSnapCheck(p.lat, p.lng);
+                      },
+                    }}
+                  >
                     <Tooltip direction="top" offset={[0, -14]} opacity={1} className="mgmt-loc-map__leaflet-tip mgmt-loc-map__leaflet-tip--hub">
                       <div className="mgmt-loc-map__tip-title">
                         {pickedTerminalPin?.label || terminalName.trim() || name.trim() || "Terminal"}

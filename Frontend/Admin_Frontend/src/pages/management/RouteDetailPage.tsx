@@ -328,12 +328,6 @@ export function RouteDetailPage() {
             </section>
             <section className="rte-dossier__module">
               <h2 className="rte-dossier__module-title">Passenger efficiency</h2>
-              <p className="rte-dossier__module-hint">
-                Today (Asia/Manila): tickets issued on buses assigned to this corridor ÷ combined seat capacity of those
-                buses. Buses match if the route label includes both corridor endpoints (outbound or return). Live GPS
-                arrival at the destination terminal can auto-flip the bus assignment to the reverse direction — the
-                passenger app then shows the updated leg.
-              </p>
               <div className="rte-dossier__ring-wrap">
                 <RouteCorridorEfficiencyRing efficiencyPct={efficiencyPct} caption="Seat use today" />
               </div>

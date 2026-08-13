@@ -2,7 +2,6 @@ import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
-import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 import { pushAdminAudit } from "@/lib/adminAudit";
 import { useAuth } from "@/context/AuthContext";
@@ -114,7 +113,6 @@ function SwitchRow({ id, label, hint, checked, disabled, onChange }: SwitchRowPr
 export function SettingsPage() {
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
-  const { theme, setTheme } = useTheme();
   const { branding, setBranding, applyServerSettings } = useAdminBranding();
   const rbac = user?.rbacRole ?? null;
   const isAuditor = rbac === "auditor";
@@ -620,9 +618,8 @@ export function SettingsPage() {
             content={
               <ul className="admin-settings__info-list">
                 <li>
-                  <strong>General</strong> — <strong>Appearance</strong>: theme applies to the admin shell, sidebar, and this
-                  page. <strong>Regional</strong>: choose the portal timezone for shift logs and scheduled jobs (stored as an
-                  IANA zone such as Asia/Manila).
+                  <strong>General</strong> — <strong>Regional</strong>: choose the portal timezone for shift logs and
+                  scheduled jobs (stored as an IANA zone such as Asia/Manila).
                 </li>
                 <li>
                   <strong>Security</strong> — Login protection (attempts and lockout), session timeout, where those rules
@@ -667,27 +664,7 @@ export function SettingsPage() {
           {toolMsg ? <p className="admin-settings__flash">{toolMsg}</p> : null}
 
           {tab === "general" ? (
-            <section className="admin-settings__section" aria-labelledby={`${idBase}-gen-h`}>
-              <InfoHeadingRow
-                h2Id={`${idBase}-gen-h`}
-                title="Appearance"
-                infoKey="appearance"
-                panelId={`${idBase}-inf-appearance`}
-              >
-                <p>
-                  <strong>Theme</strong> applies to the admin shell, sidebar, and this page.
-                </p>
-                <p>
-                  <strong>Dark interface</strong> — Turn off for light mode — optimized for bright displays.
-                </p>
-              </InfoHeadingRow>
-              <SwitchRow
-                id={`${idBase}-dark`}
-                label="Dark interface"
-                checked={theme === "dark"}
-                onChange={(on) => setTheme(on ? "dark" : "light")}
-              />
-
+            <section className="admin-settings__section" aria-labelledby={`${idBase}-gen-reg-h`}>
               <InfoHeadingRow
                 h2Id={`${idBase}-gen-reg-h`}
                 title="Regional"

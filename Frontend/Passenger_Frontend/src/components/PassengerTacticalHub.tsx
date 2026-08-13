@@ -9,7 +9,8 @@ import {
 } from "@/lib/fetchPublicFareQuote";
 import { fetchPublicPostJson } from "@/lib/fetchWithPublicApiBases";
 import { routeEndpointsFromLabel } from "@/lib/routeEndpointsFromLabel";
-import { getPassengerLocationSession } from "@/lib/passengerLocationGate";
+import { usePassengerLiveLocation } from "@/lib/usePassengerLiveLocation";
+import { rankDeployedTerminalsByDistance } from "@/lib/passengerNearestTerminal";
 import { PassengerArrivalAlarm } from "@/components/PassengerArrivalAlarm";
 import "./PassengerTacticalPanels.css";
 import "./PassengerTacticalHub.css";
@@ -37,13 +38,14 @@ function collectLocationLabels(rows: DeployedPointItem[]): string[] {
 
 export type PassengerRouteCalculatorProps = {
   onClose?: () => void;
-  /** Collapses the sheet to focus the map (e.g. “Track Bus”). */
-  onTrackBus?: () => void;
 };
 
-export function PassengerRouteCalculator({ onClose, onTrackBus }: PassengerRouteCalculatorProps) {
+export function PassengerRouteCalculator({ onClose }: PassengerRouteCalculatorProps) {
+  const [deployedRows, setDeployedRows] = useState<DeployedPointItem[]>([]);
   const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const [origin, setOrigin] = useState("");
+  const [originAutoFilled, setOriginAutoFilled] = useState(false);
+  const originEditedRef = useRef(false);
   const [destination, setDestination] = useState("");
   const [category, setCategory] = useState<FareCategoryUi>("regular");
   const [quote, setQuote] = useState<PublicFareQuoteResponse | null>(null);
@@ -63,26 +65,50 @@ export function PassengerRouteCalculator({ onClose, onTrackBus }: PassengerRoute
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  useEffect(() => {
-    const s = getPassengerLocationSession();
-    if (s?.nearestLabel) {
-      setOrigin((o) => (o.trim() ? o : s.nearestLabel));
-    }
-  }, []);
+  const liveLocation = usePassengerLiveLocation(true);
 
   useEffect(() => {
     let cancelled = false;
     fetchDeployedPoints()
       .then((rows) => {
-        if (!cancelled) setLocationOptions(collectLocationLabels(rows));
+        if (cancelled) return;
+        setDeployedRows(rows);
+        setLocationOptions(collectLocationLabels(rows));
       })
       .catch(() => {
-        if (!cancelled) setLocationOptions([]);
+        if (!cancelled) {
+          setDeployedRows([]);
+          setLocationOptions([]);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Auto-detect the passenger's current location to suggest a starting terminal — never
+  // overwrites an origin the passenger has typed/selected themselves.
+  useEffect(() => {
+    if (originEditedRef.current) return;
+    if (!liveLocation.position || deployedRows.length === 0 || locationOptions.length === 0) return;
+    const ranked = rankDeployedTerminalsByDistance(liveLocation.position.lat, liveLocation.position.lng, deployedRows);
+    const nearest = ranked[0];
+    if (!nearest) return;
+    const label = locationOptions.includes(nearest.name)
+      ? nearest.name
+      : locationOptions.includes(nearest.locationName)
+        ? nearest.locationName
+        : null;
+    if (!label) return;
+    setOrigin(label);
+    setOriginAutoFilled(true);
+  }, [liveLocation.position, deployedRows, locationOptions]);
+
+  function handleOriginChange(next: string) {
+    originEditedRef.current = true;
+    setOriginAutoFilled(false);
+    setOrigin(next);
+  }
 
   useEffect(() => {
     if (prevCategory.current !== category) {
@@ -180,7 +206,7 @@ export function PassengerRouteCalculator({ onClose, onTrackBus }: PassengerRoute
                 <select
                   className="pd-fare-select"
                   value={origin}
-                  onChange={(e) => setOrigin(e.target.value)}
+                  onChange={(e) => handleOriginChange(e.target.value)}
                 >
                   <option value="">Select origin…</option>
                   {locationOptions.map((opt) => (
@@ -193,11 +219,16 @@ export function PassengerRouteCalculator({ onClose, onTrackBus }: PassengerRoute
                 <input
                   className="pd-fare-select pd-fare-select--text"
                   value={origin}
-                  onChange={(e) => setOrigin(e.target.value)}
+                  onChange={(e) => handleOriginChange(e.target.value)}
                   placeholder="e.g. Valencia Terminal"
                   autoComplete="off"
                 />
               )}
+              {originAutoFilled ? (
+                <p className="pd-fare-engine__hint" role="status">
+                  📍 Using your current location
+                </p>
+              ) : null}
             </label>
             <label className="pd-fare-engine__field">
               <span className="pd-fare-engine__label">Destination location</span>
@@ -264,14 +295,6 @@ export function PassengerRouteCalculator({ onClose, onTrackBus }: PassengerRoute
               </span>
             </div>
           </div>
-
-          {onTrackBus ? (
-            <div className="pd-check-buses__track-row">
-              <button type="button" className="pd-check-buses__track-btn" onClick={onTrackBus}>
-                Track Bus
-              </button>
-            </div>
-          ) : null}
 
           <PassengerArrivalAlarm />
 

@@ -1,0 +1,344 @@
+.psf {
+  display: grid;
+  gap: 0.85rem;
+  min-height: 0;
+  border-radius: 24px;
+  padding: 1rem 1.05rem 1.15rem;
+  background: rgba(15, 23, 42, 0.88);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--pw-text);
+}
+
+.psf__head h2,
+.psf__nav-title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--pw-text);
+}
+
+.psf__head p {
+  margin: 0.25rem 0 0;
+  color: var(--pw-muted);
+  font-size: 0.82rem;
+  font-weight: 300;
+  line-height: 1.45;
+}
+
+.psf__nav-head {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.psf__nav-eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pw-accent);
+}
+
+.psf__nav-metrics {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+  color: var(--pw-muted);
+}
+
+.psf__nav-metric-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--pw-text);
+}
+
+.psf__nav-metric-sep {
+  opacity: 0.6;
+}
+
+.psf__search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 14px;
+  border: 1px solid var(--pw-border);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.6rem 0.75rem;
+}
+
+.psf__search-icon {
+  opacity: 0.75;
+}
+
+.psf__search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--pw-text);
+  font-size: 0.92rem;
+  outline: none;
+}
+
+.psf__search-input::placeholder {
+  color: var(--pw-muted);
+}
+
+.psf__nearest-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--pw-text);
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--pw-transition-fast), border-color var(--pw-transition-fast);
+}
+
+.psf__nearest-btn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: var(--pw-accent);
+}
+
+.psf__nearest-btn-icon {
+  font-size: 1.05rem;
+}
+
+.psf__list {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.psf__station {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 14px;
+  border: 1px solid var(--pw-border);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.65rem 0.75rem;
+}
+
+.psf__station-main {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.psf__station-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.psf__station-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--pw-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.psf__station-meta {
+  font-size: 0.78rem;
+  color: var(--pw-muted);
+  margin-top: 0.1rem;
+}
+
+.psf__empty {
+  margin: 0;
+  padding: 0.9rem;
+  text-align: center;
+  color: var(--pw-muted);
+  font-size: 0.85rem;
+}
+
+.psf__banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.psf__banner--info {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: var(--pw-text);
+}
+
+.psf__banner--warn {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fde68a;
+}
+
+.psf__banner--error {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+.psf__banner--success {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #bbf7d0;
+}
+
+.psf__arrived {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  background: rgba(74, 222, 128, 0.14);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #dcfce7;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.psf__map-wrap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 260px;
+  border: 1px solid var(--pw-border);
+}
+
+.psf__map {
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+}
+
+.psf__map-loading {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  background: rgba(2, 6, 23, 0.7);
+  color: var(--pw-text);
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--pw-border);
+}
+
+.psf__actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.psf__btn {
+  border-radius: 12px;
+  padding: 0.62rem 1rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--pw-transition-fast), border-color var(--pw-transition-fast), transform var(--pw-transition-fast);
+}
+
+.psf__btn--primary {
+  background: var(--pw-primary);
+  color: #fff;
+}
+
+.psf__btn--primary:hover {
+  background: var(--pw-primary-strong);
+}
+
+.psf__btn--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--pw-border);
+  color: var(--pw-text);
+  flex: 1;
+}
+
+.psf__btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.psf__btn--danger {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+  flex: 1;
+}
+
+.psf__btn--danger:hover {
+  background: rgba(248, 113, 113, 0.26);
+}
+
+.psf-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.psf-marker--passenger {
+  position: relative;
+}
+
+.psf-marker__core {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--pw-accent);
+  border: 2px solid #ffffff;
+  box-sizing: border-box;
+}
+
+.psf-marker__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.35);
+  animation: psf-pulse 1.8s ease-out infinite;
+}
+
+@keyframes psf-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.psf-marker__pin {
+  width: 22px;
+  height: 30px;
+  background: #34d399;
+  border: 2px solid #065f46;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+@media (min-width: 720px) {
+  .psf__map-wrap {
+    min-height: 340px;
+  }
+  .psf__map {
+    min-height: 340px;
+  }
+}

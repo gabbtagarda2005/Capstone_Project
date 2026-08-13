@@ -88,10 +88,16 @@ function createReportsRouter() {
   /**
    * Live financial & operational metrics from MongoDB ticketing (`issued_ticket_records`).
    */
-  router.get("/analytics", requireAdminJwt, async (_req, res) => {
+  router.get("/analytics", requireAdminJwt, async (req, res) => {
     try {
       if (mongoose.connection.readyState === 1) {
-        const mongoPayload = await buildReportsAnalyticsFromMongo();
+        const filters = {
+          startDate: String(req.query.startDate || "").trim() || undefined,
+          endDate: String(req.query.endDate || "").trim() || undefined,
+          busNumber: String(req.query.busNumber || "").trim() || undefined,
+          route: String(req.query.route || "").trim() || undefined,
+        };
+        const mongoPayload = await buildReportsAnalyticsFromMongo(filters);
         if (mongoPayload) {
           return res.json(mongoPayload);
         }

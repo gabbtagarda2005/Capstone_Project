@@ -726,112 +726,47 @@
   }
 }
 
-[data-theme="light"] .admin-settings__title,
-[data-theme="light"] .admin-settings__h2 {
-  color: #0f172a;
-}
 
-[data-theme="light"] .admin-settings__lead,
-[data-theme="light"] .admin-settings__hint {
-  color: rgba(51, 65, 85, 0.88);
-}
 
-[data-theme="light"] .admin-settings__card {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(51, 65, 85, 0.12);
-}
 
-[data-theme="light"] .admin-settings__label {
-  color: rgba(71, 85, 105, 0.9);
-}
 
-[data-theme="light"] .admin-settings__input {
-  background: #fff;
-  border-color: rgba(51, 65, 85, 0.2);
-  color: #0f172a;
-}
 
-[data-theme="light"] .admin-settings__preview {
-  background: rgba(241, 245, 249, 0.9);
-  border-color: rgba(51, 65, 85, 0.15);
-}
 
-[data-theme="light"] .admin-settings__brand-upload {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(51, 65, 85, 0.22);
-  box-shadow: 0 36px 28px -36px rgba(15, 23, 42, 0.2);
-}
 
-[data-theme="light"] .admin-settings__brand-upload-text span {
-  color: rgba(51, 65, 85, 0.9);
-}
 
-[data-theme="light"] .admin-settings__btn {
-  background: #fff;
-  border-color: rgba(51, 65, 85, 0.2);
-  color: #334155;
-}
 
-[data-theme="light"] .admin-settings__theme-btn {
-  background: #fff;
-  border-color: rgba(51, 65, 85, 0.2);
-  color: #334155;
-}
 
-[data-theme="light"] .admin-settings__theme-btn--active {
-  border-color: rgba(124, 58, 237, 0.55);
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(34, 211, 238, 0.12));
-  color: #5b21b6;
-}
 
-[data-theme="light"] .admin-settings__shell {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(51, 65, 85, 0.12);
-}
 
-[data-theme="light"] .admin-settings__tab {
-  color: rgba(71, 85, 105, 0.95);
-}
 
-[data-theme="light"] .admin-settings__tab--active {
-  color: #5b21b6;
-}
 
-[data-theme="light"] .admin-settings__switch-label {
-  color: #0f172a;
-}
 
-[data-theme="light"] .admin-settings__hint--emph {
-  color: rgba(15, 23, 42, 0.92);
-}
 
-[data-theme="light"] .admin-settings__info-trigger {
-  border-color: rgba(51, 65, 85, 0.22);
-  background: rgba(255, 255, 255, 0.92);
-  color: #5b21b6;
-}
 
-[data-theme="light"] .admin-settings__info-trigger:hover {
-  background: rgba(237, 233, 254, 0.95);
-  border-color: rgba(124, 58, 237, 0.35);
-  color: #4c1d95;
-}
 
-[data-theme="light"] .admin-settings__info-trigger--open {
-  background: rgba(237, 233, 254, 0.98);
-  border-color: rgba(124, 58, 237, 0.45);
-  color: #4c1d95;
-}
 
-[data-theme="light"] .admin-settings__info-panel {
-  background: rgba(241, 245, 249, 0.98);
-  border-color: rgba(51, 65, 85, 0.14);
-  color: rgba(51, 65, 85, 0.92);
-}
 
-[data-theme="light"] .admin-settings__info-panel strong {
-  color: #0f172a;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .admin-settings__h2--spaced {
   margin-top: 1.75rem;
@@ -935,22 +870,13 @@
   margin-top: 0;
 }
 
-[data-theme="light"] .admin-settings__security-card {
-  background: rgba(248, 250, 252, 0.82);
-  border-color: rgba(51, 65, 85, 0.14);
-}
 
-[data-theme="light"] .admin-settings__security-intro {
-  color: rgba(51, 65, 85, 0.85);
-}
 
-[data-theme="light"] .admin-settings__security-intro strong {
-  color: #0f172a;
-}
 
-[data-theme="light"] .admin-settings__h3--security-app {
-  border-top-color: rgba(51, 65, 85, 0.14);
-}
+
+
+
+
 
 @media (max-width: 920px) {
   .admin-settings__security-grid {
@@ -1046,11 +972,7 @@
   font-family: inherit;
 }
 
-[data-theme="light"] .admin-settings__rbac-select {
-  background: #f8fafc;
-  color: #2563eb;
-  border-color: rgba(51, 65, 85, 0.2);
-}
+
 
 /* Info — portal dialogs */
 .admin-settings__dialog-backdrop {
@@ -1227,32 +1149,15 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-[data-theme="light"] .admin-settings__dialog {
-  background: rgba(255, 255, 255, 0.96);
-  border-color: rgba(59, 130, 246, 0.28);
-  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.18);
-}
 
-[data-theme="light"] .admin-settings__dialog-title {
-  color: #0f172a;
-}
 
-[data-theme="light"] .admin-settings__dialog-body,
-[data-theme="light"] .admin-settings__dialog-sub {
-  color: rgba(51, 65, 85, 0.92);
-}
 
-[data-theme="light"] .admin-settings__dialog-input {
-  background: #f8fafc;
-  color: #0f172a;
-  border-color: rgba(51, 65, 85, 0.2);
-}
 
-[data-theme="light"] .admin-settings__dialog-close {
-  background: #f1f5f9;
-  color: #334155;
-  border-color: rgba(51, 65, 85, 0.2);
-}
+
+
+
+
+
 
 .admin-settings__field--stack {
   margin-top: 0.75rem;

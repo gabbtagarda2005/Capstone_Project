@@ -1,0 +1,49 @@
+.reports-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  background: rgba(2, 6, 23, 0.4);
+}
+
+.reports-filter-bar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.reports-filter-bar__label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.reports-filter-bar__select {
+  cursor: pointer;
+}
+
+.reports-filter-bar__reset {
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reports-filter-bar__reset:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.4);
+}
+
+.reports-filter-bar__reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -169,6 +169,24 @@ export async function fetchCorridorRoutes(): Promise<{ items: CorridorRouteRow[]
   return api("/api/corridor-routes/");
 }
 
+/** PLANNED route geometry for a bus's assigned corridor (road-following polyline) — separate from its live GPS. */
+export type BusRouteGeometry = {
+  busId: string;
+  available: boolean;
+  reason?: string;
+  routeId?: string;
+  routeLabel?: string;
+  origin?: { name: string; latitude: number; longitude: number };
+  destination?: { name: string; latitude: number; longitude: number };
+  geometry?: { type: "LineString"; coordinates: [number, number][] };
+  distanceMeters?: number;
+  durationSeconds?: number;
+};
+
+export async function fetchBusRouteGeometry(busId: string): Promise<BusRouteGeometry> {
+  return api(`/api/public/buses/${encodeURIComponent(busId)}/route`);
+}
+
 export async function createCorridorRoute(body: {
   displayName?: string;
   originCoverageId: string;
@@ -428,8 +446,21 @@ export async function postAdminBroadcast(body: {
   return api("/api/admin/broadcast", { method: "POST", json: body });
 }
 
-export async function fetchReportsAnalytics(): Promise<ReportsAnalyticsDto> {
-  return api("/api/reports/analytics");
+export type ReportsAnalyticsFilters = {
+  startDate?: string;
+  endDate?: string;
+  busNumber?: string;
+  route?: string;
+};
+
+export async function fetchReportsAnalytics(filters?: ReportsAnalyticsFilters): Promise<ReportsAnalyticsDto> {
+  const params = new URLSearchParams();
+  if (filters?.startDate) params.set("startDate", filters.startDate);
+  if (filters?.endDate) params.set("endDate", filters.endDate);
+  if (filters?.busNumber) params.set("busNumber", filters.busNumber);
+  if (filters?.route) params.set("route", filters.route);
+  const qs = params.toString();
+  return api(`/api/reports/analytics${qs ? `?${qs}` : ""}`);
 }
 
 export type MasterReportExportArea =

@@ -44,7 +44,9 @@ async function fetchOsrmRoute(lat1, lon1, lat2, lon2) {
     // OSRM format: /route/v1/{profile}/{coordinates}
     // Coordinates must be [lon,lat] (GeoJSON order)
     const coords = `${lon1.toFixed(6)},${lat1.toFixed(6)};${lon2.toFixed(6)},${lat2.toFixed(6)}`;
-    const path = `/route/v1/driving/${coords}?steps=false&annotations=duration,distance,speed`;
+    // geometries=geojson so callers that need the actual route path (not just duration/distance)
+    // get a usable {type:"LineString", coordinates:[[lng,lat],...]} instead of an encoded polyline string.
+    const path = `/route/v1/driving/${coords}?steps=false&annotations=duration,distance,speed&geometries=geojson`;
 
     const response = await new Promise((resolve, reject) => {
       const timeout = setTimeout(
@@ -126,23 +128,41 @@ function getEtaFromOsrmRoute(route, speedMultiplier = 1.0) {
   return Math.max(1, etaMinutes);
 }
 
+/** Haversine distance in meters — local copy to keep this module dependency-free. */
+function metersBetween(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
 /**
- * Snap GPS coordinates to nearest road (using OSRM match service).
- * This corrects GPS drift that puts the bus off-road.
- * Returns: { latitude, longitude, snappedDistance }
+ * Snap a single GPS coordinate to the nearest road, using OSRM's `/nearest` service.
+ *
+ * NOTE: this used to call `/match/v1/driving/...`, which is OSRM's GPS-*trace* map-matching
+ * service — it requires at least two coordinates ("Number of coordinates needs to be at least
+ * two", verified directly against the live OSRM demo) and simply cannot snap a single point.
+ * `/nearest` is the correct OSRM service for "find the nearest road to this one point".
+ *
+ * Returns `{ latitude, longitude, snappedDistance }` on a real match (snappedDistance is the
+ * haversine distance in meters between the input point and the matched road point), or `null` if
+ * OSRM is disabled, unreachable, or found no match — callers must not treat a missing result as
+ * "distance 0 / already on road".
  */
 async function snapGpsToRoad(latitude, longitude) {
   if (!ENABLE_OSRM) {
-    return { latitude, longitude, snappedDistance: 0 };
+    return null;
   }
 
   try {
     const coords = `${longitude.toFixed(6)},${latitude.toFixed(6)}`;
-    const path = `/match/v1/driving/${coords}?steps=false`;
+    const path = `/nearest/v1/driving/${coords}?number=1`;
 
     const response = await new Promise((resolve, reject) => {
       const timeout = setTimeout(
-        () => reject(new Error("OSRM match timeout")),
+        () => reject(new Error("OSRM nearest timeout")),
         OSRM_TIMEOUT_MS
       );
 
@@ -161,7 +181,7 @@ async function snapGpsToRoad(latitude, longitude) {
             try {
               resolve(JSON.parse(data));
             } catch (e) {
-              reject(new Error("Failed to parse OSRM match response"));
+              reject(new Error("Failed to parse OSRM nearest response"));
             }
           });
         }
@@ -175,24 +195,23 @@ async function snapGpsToRoad(latitude, longitude) {
 
     if (
       response.code === "Ok" &&
-      response.matchings &&
-      response.matchings.length > 0 &&
-      response.matchings[0].location
+      response.waypoints &&
+      response.waypoints.length > 0 &&
+      response.waypoints[0].location
     ) {
-      const [lon, lat] = response.matchings[0].location;
-      const distance = response.matchings[0].distance || 0;
+      const [lon, lat] = response.waypoints[0].location;
 
       return {
         latitude: lat,
         longitude: lon,
-        snappedDistance: distance,
+        snappedDistance: metersBetween(latitude, longitude, lat, lon),
       };
     }
 
-    return { latitude, longitude, snappedDistance: 0 };
+    return null;
   } catch (err) {
     console.warn(`[OSRM] GPS snap failed: ${err.message}`);
-    return { latitude, longitude, snappedDistance: 0 };
+    return null;
   }
 }
 

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/context/ToastContext";
 
 export function ResetPasswordPage() {
@@ -70,9 +69,6 @@ export function ResetPasswordPage() {
 
   return (
     <div className="auth-shell">
-      <div className="auth-shell__bar">
-        <ThemeToggle />
-      </div>
       <div className="auth-card">
         <div className="auth-card__brand">
           <span className="auth-card__badge">Security</span>

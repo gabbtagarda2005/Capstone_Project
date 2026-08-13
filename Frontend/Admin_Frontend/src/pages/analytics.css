@@ -22,15 +22,7 @@
   box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.45);
 }
 
-[data-theme="light"] .dash-analytics {
-  --card: rgba(255, 255, 255, 0.72);
-  --border: rgba(51, 65, 85, 0.18);
-  --glow-cyan: rgba(8, 145, 178, 0.25);
-  --glow-mag: rgba(147, 51, 234, 0.2);
-  --dash-overlay: linear-gradient(180deg, rgba(248, 250, 252, 0.88) 0%, rgba(241, 245, 249, 0.92) 50%, rgba(226, 232, 240, 0.94) 100%);
-  background-color: #f1f5f9;
-  box-shadow: inset 0 0 80px rgba(255, 255, 255, 0.5);
-}
+
 
 @media (max-width: 900px) {
   .dash-analytics {
@@ -54,11 +46,7 @@
   background-clip: text;
 }
 
-[data-theme="light"] .dash-analytics__title {
-  background: linear-gradient(90deg, #0f172a, #475569);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
+
 
 .dash-analytics__sub {
   margin: 0.35rem 0 0;
@@ -66,9 +54,7 @@
   color: rgba(148, 163, 184, 0.95);
 }
 
-[data-theme="light"] .dash-analytics__sub {
-  color: rgba(51, 65, 85, 0.92);
-}
+
 
 .dash-analytics__grid {
   display: grid;
@@ -114,57 +100,29 @@
     inset 0 -18px 28px rgba(15, 23, 42, 0.24);
 }
 
-[data-theme="light"] .neo-card {
-  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
 
-[data-theme="light"] .neo-card__label,
-[data-theme="light"] .neo-card__hint {
-  color: rgba(51, 65, 85, 0.88);
-}
 
-[data-theme="light"] .neo-card__value {
-  color: #0f172a;
-}
 
-[data-theme="light"] .neo-list-row {
-  color: #334155;
-  border-bottom-color: rgba(51, 65, 85, 0.12);
-}
 
-[data-theme="light"] .neo-globe-wrap {
-  border-color: rgba(51, 65, 85, 0.15);
-  background: rgba(255, 255, 255, 0.5);
-}
 
-[data-theme="light"] .neo-globe__caption {
-  color: rgba(51, 65, 85, 0.85);
-}
 
-[data-theme="light"] .neo-tab {
-  color: rgba(71, 85, 105, 0.95);
-}
 
-[data-theme="light"] .neo-tab:hover {
-  color: #0f172a;
-}
 
-[data-theme="light"] .neo-chart-title h3 {
-  color: #0f172a;
-}
 
-[data-theme="light"] .neo-stat-sm__lbl {
-  color: rgba(71, 85, 105, 0.95);
-}
 
-[data-theme="light"] .neo-stat-sm__val {
-  color: #0f172a;
-}
 
-[data-theme="light"] .neo-forecast__box {
-  background: rgba(255, 255, 255, 0.6);
-  border-color: rgba(51, 65, 85, 0.1);
-}
+
+
+
+
+
+
+
+
+
+
+
+
 
 .neo-card__label {
   font-size: 0.72rem;
@@ -485,19 +443,14 @@
   stroke: rgba(100, 120, 200, 0.12);
 }
 
-[data-theme="light"] .recharts-cartesian-grid-horizontal line,
-[data-theme="light"] .recharts-cartesian-grid-vertical line {
-  stroke: rgba(100, 116, 139, 0.18);
-}
+
 
 .recharts-text {
   fill: rgba(148, 163, 184, 0.85) !important;
   font-size: 11px !important;
 }
 
-[data-theme="light"] .recharts-text {
-  fill: rgba(71, 85, 105, 0.9) !important;
-}
+
 
 @media (max-width: 768px) {
   .dash-analytics {
@@ -534,10 +487,7 @@
   transition: opacity 0.4s ease;
 }
 
-[data-theme="light"] .dash-mission.dash-analytics::before {
-  mix-blend-mode: multiply;
-  opacity: 0.35;
-}
+
 
 .dash-mission__scroller {
   flex: 1;
@@ -603,11 +553,7 @@
   background-clip: text;
 }
 
-[data-theme="light"] .dash-mission__panel-title {
-  background: linear-gradient(90deg, #0f172a, #475569);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
+
 
 .dash-mission__panel-sub {
   margin: 0;
@@ -616,9 +562,7 @@
   max-width: 42rem;
 }
 
-[data-theme="light"] .dash-mission__panel-sub {
-  color: rgba(51, 65, 85, 0.9);
-}
+
 
 .dash-mission__banner {
   margin-bottom: 1rem;
@@ -704,10 +648,7 @@
     inset 0 -20px 36px rgba(15, 23, 42, 0.35);
 }
 
-[data-theme="light"] .neo-card--obsidian {
-  background: linear-gradient(155deg, rgba(255, 255, 255, 0.82), rgba(241, 245, 249, 0.72));
-  border-color: rgba(51, 65, 85, 0.12);
-}
+
 
 .dash-mission__grid-strategic {
   display: grid;
@@ -766,9 +707,7 @@
   letter-spacing: -0.02em;
 }
 
-[data-theme="light"] .dash-mission__goal-pct {
-  color: #2563eb;
-}
+
 
 .dash-mission__grid-ops {
   display: grid;
@@ -886,9 +825,7 @@
   color: rgba(226, 232, 240, 0.95);
 }
 
-[data-theme="light"] .dash-mission__live-line {
-  color: #334155;
-}
+
 
 .dash-mission__fleet-btn {
   margin-top: 1rem;
@@ -909,9 +846,7 @@
   transform: translateY(-1px);
 }
 
-[data-theme="light"] .dash-mission__fleet-btn {
-  color: #1e293b;
-}
+
 
 .dash-mission__globe {
   min-height: min(52vh, 420px);

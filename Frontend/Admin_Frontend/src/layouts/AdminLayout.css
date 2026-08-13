@@ -542,59 +542,19 @@
   line-height: 1.5;
 }
 
-/* Light theme — admin shell (data-theme on <html>) */
-[data-theme="light"] .admin-shell {
-  --neo-bg: #f1f5f9;
-  --neo-panel: rgba(255, 255, 255, 0.92);
-  --neo-border: rgba(51, 65, 85, 0.14);
-  --neo-text: #0f172a;
-  --neo-surface: transparent;
-  --neo-muted: rgba(71, 85, 105, 0.88);
-  color: var(--neo-text);
-  background: var(--neo-bg);
-}
 
-[data-theme="light"] .admin-shell__bg {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.12), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(34, 211, 238, 0.06), transparent 45%),
-    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
-}
 
-[data-theme="light"] .admin-sidebar {
-  background: var(--neo-surface);
-  box-shadow: none;
-}
 
-[data-theme="light"] .admin-nav-link {
-  color: var(--neo-muted);
-}
 
-[data-theme="light"] .admin-nav-link:hover {
-  color: var(--neo-text);
-  background: rgba(15, 23, 42, 0.05);
-}
 
-[data-theme="light"] .admin-nav-link--active {
-  color: #5b21b6;
-  background: linear-gradient(90deg, rgba(168, 85, 247, 0.15), rgba(34, 211, 238, 0.1));
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.12);
-}
 
-[data-theme="light"] .admin-sidebar__brand-text {
-  color: var(--neo-text);
-}
 
-[data-theme="light"] .admin-sidebar__logout {
-  border-color: rgba(220, 38, 38, 0.35);
-  background: rgba(254, 226, 226, 0.6);
-  color: #b91c1c;
-}
 
-[data-theme="light"] .admin-main {
-  background: transparent;
-}
+
+
+
+
+
 
 /* Restricted IT-account shell — no sidebar, no other route, just system health. */
 .admin-it-only {

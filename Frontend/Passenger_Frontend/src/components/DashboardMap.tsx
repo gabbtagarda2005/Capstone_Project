@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./DashboardMap.css";
 import { PassengerMapBasemapDock } from "@/components/PassengerMapBasemapDock";
 import {
+  fetchBusRouteGeometry,
   fetchDeployedPoints,
   fetchLiveBusPositions,
+  type BusRouteGeometry,
   type DeployedPointItem,
   type LiveBusPosition,
 } from "@/lib/fetchPassengerMapData";
@@ -82,7 +84,85 @@ const USER_LOCATION_ICON = L.divIcon({
   iconAnchor: [16, 16],
 });
 
+const ROUTE_START_ICON = L.divIcon({
+  className: "dashboard-map__marker-route-start",
+  html:
+    '<div class="dashboard-map__route-endpoint dashboard-map__route-endpoint--start" aria-hidden="true"><span>A</span></div>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 26],
+});
+
+const ROUTE_DESTINATION_ICON = L.divIcon({
+  className: "dashboard-map__marker-route-destination",
+  html:
+    '<div class="dashboard-map__route-endpoint dashboard-map__route-endpoint--destination" aria-hidden="true"><span>B</span></div>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 26],
+});
+
 const NEARBY_BUS_RADIUS_KM = 40;
+
+/** Splits a route polyline at the vertex nearest the bus, for a completed/remaining visual split. */
+function splitRouteAtBusPosition(
+  positions: [number, number][],
+  bus: [number, number] | null
+): { done: [number, number][]; remaining: [number, number][] } {
+  if (!bus || positions.length < 2) return { done: [], remaining: positions };
+  let bestIdx = 0;
+  let bestKm = Infinity;
+  for (let i = 0; i < positions.length; i++) {
+    const p = positions[i];
+    if (!p) continue;
+    const km = haversineKm(bus[0], bus[1], p[0], p[1]);
+    if (km < bestKm) {
+      bestKm = km;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx <= 0) return { done: [], remaining: positions };
+  if (bestIdx >= positions.length - 1) return { done: positions, remaining: [] };
+  return { done: positions.slice(0, bestIdx + 1), remaining: positions.slice(bestIdx) };
+}
+
+type RouteLoadState = {
+  status: "idle" | "loading" | "ready" | "unavailable" | "error";
+  data: BusRouteGeometry | null;
+};
+
+function routeUnavailableMessage(reason?: string): string {
+  switch (reason) {
+    case "no_route_assigned":
+    case "route_not_matched":
+    case "missing_terminal_coords":
+      return "Route information unavailable.";
+    default:
+      return "Route information unavailable.";
+  }
+}
+
+/** One-shot bounds fit for the selected route — only re-fits when `fitKey` changes, never on every GPS tick. */
+function FitToSelectedRoute({
+  fitKey,
+  points,
+}: {
+  fitKey: string;
+  points: [number, number][];
+}) {
+  const map = useMap();
+  const lastKey = useRef("");
+  useEffect(() => {
+    if (!fitKey || points.length === 0) return;
+    if (lastKey.current === fitKey) return;
+    lastKey.current = fitKey;
+    try {
+      const b = L.latLngBounds(points);
+      map.fitBounds(b, { padding: [56, 56], maxZoom: 16 });
+    } catch {
+      /* ignore */
+    }
+  }, [map, fitKey, points]);
+  return null;
+}
 
 function formatDistanceToTerminal(km: number): string {
   if (!Number.isFinite(km) || km < 0) return "—";
@@ -155,6 +235,9 @@ type Props = {
   suppressBrandChrome?: boolean;
   /** Fired when `/api/passenger/map-config` resolves so the parent can show the region in the top ticker. */
   onMapRegionLabel?: (label: string) => void;
+  /** Bus selected from Quick ETA — when set, the map draws that bus's planned route (separate from its live GPS marker). */
+  selectedBusId?: string | null;
+  onClearSelection?: () => void;
 };
 
 export function DashboardMap({
@@ -163,6 +246,8 @@ export function DashboardMap({
   chromeSubtitle,
   suppressBrandChrome,
   onMapRegionLabel,
+  selectedBusId,
+  onClearSelection,
 }: Props) {
   const [userSession] = useState(() => getPassengerLocationSession());
   const [nearbyBusesOnly, setNearbyBusesOnly] = useState(false);
@@ -173,8 +258,64 @@ export function DashboardMap({
   const [fleetById, setFleetById] = useState<Map<string, PublicFleetBus>>(new Map());
   const [dataError, setDataError] = useState<string | null>(null);
   const [operationsDeckLive, setOperationsDeckLive] = useState(true);
+  const [routeState, setRouteState] = useState<RouteLoadState>({ status: "idle", data: null });
+  const [routeRetryNonce, setRouteRetryNonce] = useState(0);
+  const routeCacheRef = useRef<Map<string, BusRouteGeometry>>(new Map());
 
   const busIcon = useMemo(() => busDivIcon(), []);
+
+  useEffect(() => {
+    if (!selectedBusId) {
+      setRouteState({ status: "idle", data: null });
+      return;
+    }
+    const cached = routeCacheRef.current.get(selectedBusId);
+    if (cached) {
+      setRouteState({ status: cached.available ? "ready" : "unavailable", data: cached });
+      return;
+    }
+    let cancelled = false;
+    setRouteState({ status: "loading", data: null });
+    fetchBusRouteGeometry(selectedBusId)
+      .then((r) => {
+        if (cancelled) return;
+        routeCacheRef.current.set(selectedBusId, r);
+        setRouteState({ status: r.available ? "ready" : "unavailable", data: r });
+      })
+      .catch(() => {
+        if (!cancelled) setRouteState({ status: "error", data: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBusId, routeRetryNonce]);
+
+  const selectedRoutePositions = useMemo<[number, number][]>(() => {
+    const coords = routeState.data?.geometry?.coordinates;
+    if (!coords) return [];
+    return coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+  }, [routeState.data]);
+
+  const selectedBusLive = useMemo(() => {
+    if (!selectedBusId) return null;
+    const b = liveBuses.find((x) => x.busId === selectedBusId);
+    if (!b || !Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) return null;
+    return [b.latitude, b.longitude] as [number, number];
+  }, [selectedBusId, liveBuses]);
+
+  const routeSplit = useMemo(
+    () => splitRouteAtBusPosition(selectedRoutePositions, selectedBusLive),
+    [selectedRoutePositions, selectedBusLive]
+  );
+
+  const routeFitPoints = useMemo<[number, number][]>(() => {
+    if (!routeState.data?.available) return [];
+    const pts: [number, number][] = [...selectedRoutePositions];
+    if (routeState.data.origin) pts.push([routeState.data.origin.latitude, routeState.data.origin.longitude]);
+    if (routeState.data.destination) pts.push([routeState.data.destination.latitude, routeState.data.destination.longitude]);
+    if (selectedBusLive) pts.push(selectedBusLive);
+    return pts;
+  }, [routeState.data, selectedRoutePositions, selectedBusLive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -347,9 +488,32 @@ export function DashboardMap({
               <strong>{userSession.nearestLabel}</strong>
             </p>
           ) : null}
+          {selectedBusId && routeState.status === "loading" ? (
+            <p className="dashboard-map__route-banner" role="status">
+              Loading route…
+            </p>
+          ) : null}
+          {selectedBusId && routeState.status === "unavailable" ? (
+            <p className="dashboard-map__route-banner" role="status">
+              {routeUnavailableMessage(routeState.data?.reason)}
+            </p>
+          ) : null}
+          {selectedBusId && routeState.status === "error" ? (
+            <p className="dashboard-map__route-banner dashboard-map__route-banner--err" role="alert">
+              Unable to load route.{" "}
+              <button type="button" className="dashboard-map__route-retry" onClick={() => setRouteRetryNonce((n) => n + 1)}>
+                Retry
+              </button>
+            </p>
+          ) : null}
         </div>
-        {userSession ? (
-          <div className="dashboard-map__chrome-actions">
+        <div className="dashboard-map__chrome-actions">
+          {selectedBusId ? (
+            <button type="button" className="dashboard-map__nearby-btn" onClick={onClearSelection}>
+              ✕ Clear route
+            </button>
+          ) : null}
+          {userSession ? (
             <button
               type="button"
               className={
@@ -359,8 +523,8 @@ export function DashboardMap({
             >
               {nearbyBusesOnly ? "Show all buses" : "Show nearby buses"}
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
       <div className="dashboard-map__frame">
         <MapContainer
@@ -461,6 +625,46 @@ export function DashboardMap({
               </Marker>
             );
           })}
+
+          {routeState.status === "ready" && routeState.data?.available ? (
+            <>
+              <FitToSelectedRoute fitKey={selectedBusId || ""} points={routeFitPoints} />
+              {routeSplit.done.length > 1 ? (
+                <Polyline
+                  positions={routeSplit.done}
+                  pathOptions={{ color: "#94a3b8", weight: 5, opacity: 0.65, dashArray: "2 10" }}
+                />
+              ) : null}
+              {routeSplit.remaining.length > 1 ? (
+                <Polyline
+                  positions={routeSplit.remaining}
+                  pathOptions={{ color: "#f97316", weight: 5, opacity: 0.9 }}
+                />
+              ) : null}
+              {routeState.data.origin ? (
+                <Marker
+                  position={[routeState.data.origin.latitude, routeState.data.origin.longitude]}
+                  icon={ROUTE_START_ICON}
+                >
+                  <Popup>
+                    <strong>Route start</strong>
+                    <div>{routeState.data.origin.name}</div>
+                  </Popup>
+                </Marker>
+              ) : null}
+              {routeState.data.destination ? (
+                <Marker
+                  position={[routeState.data.destination.latitude, routeState.data.destination.longitude]}
+                  icon={ROUTE_DESTINATION_ICON}
+                >
+                  <Popup>
+                    <strong>Route destination</strong>
+                    <div>{routeState.data.destination.name}</div>
+                  </Popup>
+                </Marker>
+              ) : null}
+            </>
+          ) : null}
         </MapContainer>
 
         <PassengerMapBasemapDock

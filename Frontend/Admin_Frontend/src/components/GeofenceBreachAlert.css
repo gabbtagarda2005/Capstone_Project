@@ -197,18 +197,10 @@
   height: 1.1rem;
 }
 
-[data-theme="light"] .geofence-breach-alert__card {
-  background: rgba(254, 242, 242, 0.95);
-}
 
-[data-theme="light"] .geofence-breach-alert__title {
-  color: #450a0a;
-}
 
-[data-theme="light"] .geofence-breach-alert__text {
-  color: #334155;
-}
 
-[data-theme="light"] .geofence-breach-alert__mono {
-  color: #0f172a;
-}
+
+
+
+

@@ -58,6 +58,40 @@
   font-family: inherit;
 }
 
+.rte-corridor-map__marker-endpoint {
+  background: transparent;
+  border: none;
+}
+
+.rte-corridor-map__endpoint {
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 2px solid #ffffff;
+  box-sizing: border-box;
+}
+
+.rte-corridor-map__endpoint span {
+  display: inline-block;
+  transform: rotate(45deg);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.rte-corridor-map__endpoint--origin {
+  background: #16a34a;
+}
+
+.rte-corridor-map__endpoint--destination {
+  background: #dc2626;
+}
+
 .rte-corridor-map__bus-dot {
   animation: rte-corridor-bus-pulse 2.2s ease-in-out infinite;
 }

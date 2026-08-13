@@ -71,15 +71,8 @@
   width: 100%;
 }
 
-[data-theme="light"] .peak-load-chart {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(51, 65, 85, 0.12);
-}
 
-[data-theme="light"] .peak-load-chart__title {
-  color: #0f172a;
-}
 
-[data-theme="light"] .peak-load-chart__sub {
-  color: rgba(71, 85, 105, 0.9);
-}
+
+
+

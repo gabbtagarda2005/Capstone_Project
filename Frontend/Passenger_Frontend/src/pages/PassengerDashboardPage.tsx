@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { DashboardMap } from "@/components/DashboardMap";
-import { PassengerDepartureBoard, PassengerFeedbackConsole } from "@/components/PassengerTacticalPanels";
+import { PassengerFeedbackConsole } from "@/components/PassengerTacticalPanels";
 import { PassengerTopBar } from "@/components/PassengerTopBar";
 import { PassengerLostFound, PassengerRouteCalculator } from "@/components/PassengerTacticalHub";
+import { PassengerStationFinder } from "@/components/PassengerStationFinder";
 import {
   PassengerDashboardSpaStateProvider,
   usePassengerDashboardSpaState,
@@ -48,6 +49,11 @@ function PassengerDashboardPageInner() {
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [logoBroken, setLogoBroken] = useState(false);
   const [mapTickerRegion, setMapTickerRegion] = useState("Malaybalay · Bukidnon");
+  const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
+
+  function handleSelectBus(busId: string) {
+    setSelectedBusId((prev) => (prev === busId ? null : busId));
+  }
   const [renderedSection, setRenderedSection] = useState<PassengerSpaSection>("eta");
   const [switchPhase, setSwitchPhase] = useState<"idle" | "out" | "in">("idle");
   const { activeSection, setActiveSection, sheetCollapsed, expandSheet, toggleSheet } =
@@ -79,15 +85,6 @@ function PassengerDashboardPageInner() {
     clearPassengerLocationGate();
     setNotifOpen(false);
     navigate("/", { replace: true });
-  }
-
-  function handleTrackBus() {
-    setActiveSection("track");
-    setNotifOpen(false);
-    expandSheet();
-    window.requestAnimationFrame(() => {
-      document.querySelector(".pd-spa")?.scrollTo({ top: 0, behavior: "smooth" });
-    });
   }
 
   useEffect(() => {
@@ -209,11 +206,18 @@ function PassengerDashboardPageInner() {
   function renderActiveSection(section: PassengerSpaSection) {
     switch (section) {
       case "eta":
-        return <QuickEtaSection rows={quickEtaRows} loadError={liveBoardError} />;
+        return (
+          <QuickEtaSection
+            rows={quickEtaRows}
+            loadError={liveBoardError}
+            selectedBusId={selectedBusId}
+            onSelectBus={handleSelectBus}
+          />
+        );
       case "planner":
         return (
           <div className="pd-spa-card pd-spa-card--stack-shell pd-spa-card--planner-tool">
-            <PassengerRouteCalculator onTrackBus={handleTrackBus} />
+            <PassengerRouteCalculator />
           </div>
         );
       case "support":
@@ -229,12 +233,8 @@ function PassengerDashboardPageInner() {
             </div>
           </div>
         );
-      case "track":
-        return (
-          <div className="pd-spa-card pd-spa-card--stack-shell" aria-label="Live fleet departures">
-            <PassengerDepartureBoard subheading="Same live board as operations · Manila (PHT)" />
-          </div>
-        );
+      case "station":
+        return <PassengerStationFinder />;
       default:
         return null;
     }
@@ -246,7 +246,13 @@ function PassengerDashboardPageInner() {
         <div className="pd__glow" aria-hidden />
         <div className="pd-spa__map-layer">
           <div className="pd-spa__map-fill">
-            <DashboardMap apiBase={API_BASE} suppressBrandChrome onMapRegionLabel={setMapTickerRegion} />
+            <DashboardMap
+              apiBase={API_BASE}
+              suppressBrandChrome
+              onMapRegionLabel={setMapTickerRegion}
+              selectedBusId={selectedBusId}
+              onClearSelection={() => setSelectedBusId(null)}
+            />
           </div>
           <PassengerTopBar
             companyName={companyName}
@@ -270,17 +276,7 @@ function PassengerDashboardPageInner() {
             <SectionChip icon="🕒" label="Quick ETA" active={activeSection === "eta"} onClick={() => goToSection("eta")} />
             <SectionChip icon="🚌" label="Trip Planner" active={activeSection === "planner"} onClick={() => goToSection("planner")} />
             <SectionChip icon="🎒" label="Support" active={activeSection === "support"} onClick={() => goToSection("support")} />
-            <button
-              type="button"
-              className={"pd-spa-nav__map-btn" + (activeSection === "track" ? " pd-spa-nav__map-btn--active" : "")}
-              onClick={handleTrackBus}
-              aria-pressed={activeSection === "track"}
-            >
-              <span className="pd-spa-nav__chip-icon" aria-hidden>
-                📍
-              </span>
-              <span className="pd-spa-nav__chip-label">Track Bus</span>
-            </button>
+            <SectionChip icon="🚏" label="Station" active={activeSection === "station"} onClick={() => goToSection("station")} />
           </nav>
         </div>
         <main className="pd-spa__main-below">
@@ -606,8 +602,19 @@ function QuickEtaBusGlyph({ className }: { className?: string }) {
   );
 }
 
-function PassengerQuickEtaTile({ row, layout }: { row: PassengerQuickEtaRow; layout: "card" | "peek" }) {
-  const rootClass = "pd-spa-eta-tile" + (layout === "peek" ? " pd-spa-eta-tile--peek" : "");
+function PassengerQuickEtaTile({
+  row,
+  layout,
+  selected,
+  onSelect,
+}: {
+  row: PassengerQuickEtaRow;
+  layout: "card" | "peek";
+  selected?: boolean;
+  onSelect?: () => void;
+}) {
+  const rootClass =
+    "pd-spa-eta-tile" + (layout === "peek" ? " pd-spa-eta-tile--peek" : "") + (selected ? " pd-spa-eta-tile--selected" : "");
   const { origin, dest } = splitRouteEnds(row.routePath);
   const heroMain = `~${Math.max(0, row.etaMinutes)} min`;
   const heroLive = row.statusActive;
@@ -721,31 +728,47 @@ function PassengerQuickEtaTile({ row, layout }: { row: PassengerQuickEtaRow; lay
   }
 
   return (
-    <article className={"pd-spa-eta-item " + rootClass} role="listitem">
+    <button
+      type="button"
+      className={"pd-spa-eta-item " + rootClass}
+      aria-pressed={Boolean(selected)}
+      aria-label={`${row.busLabel}, ${row.statusLabel}, ETA ${Math.max(0, row.etaMinutes)} minutes. ${selected ? "Selected — showing route on map." : "Show this bus's route on the map."}`}
+      onClick={onSelect}
+    >
       {inner}
-    </article>
+    </button>
   );
 }
 
 function QuickEtaSection({
   rows,
   loadError,
+  selectedBusId,
+  onSelectBus,
 }: {
   rows: PassengerQuickEtaRow[];
   loadError: string | null;
+  selectedBusId: string | null;
+  onSelectBus: (busId: string) => void;
 }) {
   return (
     <section className="pd-spa-card pd-spa-card--eta" aria-label="Quick ETA">
       <header className="pd-spa-card__head">
         <h2>Quick ETA</h2>
-        <p>Next 3 buses from live dispatch</p>
+        <p>Next 3 buses from live dispatch · tap a bus to see its route</p>
       </header>
       {rows.length === 0 ? (
         <p className="pd-spa-card__empty">{loadError || "Waiting for live departures..."}</p>
       ) : (
         <div className="pd-spa-eta-row" role="list">
           {rows.map((row) => (
-            <PassengerQuickEtaTile key={row.key} row={row} layout="card" />
+            <PassengerQuickEtaTile
+              key={row.key}
+              row={row}
+              layout="card"
+              selected={row.busId === selectedBusId}
+              onSelect={() => onSelectBus(row.busId)}
+            />
           ))}
         </div>
       )}

@@ -5,6 +5,18 @@ const { requireSuperAdmin } = require("../middleware/requireSuperAdmin");
 const RouteCoverage = require("../models/RouteCoverage");
 const TicketLocation = require("../models/TicketLocation");
 const { syncRouteCoverageToRtdb, removeRouteCoverageFromRtdb } = require("../services/hybridRtdbSync");
+const { validateBusStopLocation, MAX_SNAP_DISTANCE_M } = require("../services/busStopLocationValidation");
+
+/** `undefined`/missing on the wire = leave unset; only copy through when the client actually sent them. */
+function roadSnapAuditFields(src) {
+  if (!src || typeof src !== "object") return {};
+  const out = {};
+  if (Number.isFinite(Number(src.originalLatitude))) out.originalLatitude = Number(src.originalLatitude);
+  if (Number.isFinite(Number(src.originalLongitude))) out.originalLongitude = Number(src.originalLongitude);
+  if (typeof src.roadSnapped === "boolean") out.roadSnapped = src.roadSnapped;
+  if (Number.isFinite(Number(src.roadSnapDistanceM))) out.roadSnapDistanceM = Number(src.roadSnapDistanceM);
+  return out;
+}
 
 function escapeRegex(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -48,6 +60,7 @@ function buildStopsArray(rawStops) {
           if (Number.isFinite(km) && km >= 0) row.kilometersFromStart = km;
         }
       }
+      Object.assign(row, roadSnapAuditFields(s));
       return row;
     })
     .filter((s) => s.name && Number.isFinite(s.latitude) && Number.isFinite(s.longitude));
@@ -79,6 +92,7 @@ function mergeTerminalForSave(bodyTerminal, existingTerminal) {
   ) {
     out.kilometersFromStart = Number(existingTerminal.kilometersFromStart);
   }
+  Object.assign(out, roadSnapAuditFields(bodyTerminal));
   return out;
 }
 
@@ -213,6 +227,86 @@ function createLocationsTicketingRouter() {
     }
 
     res.status(201).json(doc);
+  });
+
+  /**
+   * Preview-only road-snap check for a candidate stop/terminal coordinate — does NOT write
+   * anything. The admin UI calls this before Save so it can move the marker to the snapped
+   * position and let the admin confirm/override, matching the click → check → move → confirm
+   * → save flow.
+   * Body: { latitude, longitude, coverageId?, snapEnabled? }
+   */
+  router.post("/coverage/validate-location", requireAdminJwt, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const coverageIdRaw = body.coverageId != null ? String(body.coverageId).trim() : "";
+      const coverageId = coverageIdRaw && mongoose.Types.ObjectId.isValid(coverageIdRaw) ? coverageIdRaw : undefined;
+      const result = await validateBusStopLocation({
+        latitude: body.latitude,
+        longitude: body.longitude,
+        coverageId,
+        snapEnabled: body.snapEnabled !== false,
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e.message || "validation failed" });
+    }
+  });
+
+  /**
+   * Read-only audit of every saved terminal/stop coordinate against the road-snap validator.
+   * Never mutates RouteCoverage — flags entries for manual review only.
+   */
+  router.get("/coverage/audit", requireAdminJwt, async (_req, res) => {
+    try {
+      const docs = await RouteCoverage.find().lean();
+      const items = [];
+      for (const doc of docs) {
+        const t = doc.terminal;
+        if (t && Number.isFinite(t.latitude) && Number.isFinite(t.longitude)) {
+          const r = await validateBusStopLocation({
+            latitude: t.latitude,
+            longitude: t.longitude,
+            coverageId: doc._id,
+          });
+          items.push({
+            coverageId: String(doc._id),
+            locationName: doc.locationName,
+            kind: "terminal",
+            name: t.name,
+            latitude: t.latitude,
+            longitude: t.longitude,
+            roadDistance: r.roadDistance,
+            suspicious: !r.inServiceArea || (r.roadDistance != null && r.roadDistance > MAX_SNAP_DISTANCE_M),
+            reason: r.reason,
+          });
+        }
+        for (let i = 0; i < (doc.stops || []).length; i++) {
+          const s = doc.stops[i];
+          if (!Number.isFinite(s.latitude) || !Number.isFinite(s.longitude)) continue;
+          const r = await validateBusStopLocation({
+            latitude: s.latitude,
+            longitude: s.longitude,
+            coverageId: doc._id,
+          });
+          items.push({
+            coverageId: String(doc._id),
+            locationName: doc.locationName,
+            kind: "stop",
+            stopIndex: i,
+            name: s.name,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            roadDistance: r.roadDistance,
+            suspicious: !r.inServiceArea || (r.roadDistance != null && r.roadDistance > MAX_SNAP_DISTANCE_M),
+            reason: r.reason,
+          });
+        }
+      }
+      res.json({ items });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "audit failed" });
+    }
   });
 
   /** Partial update: `geofenceRadiusM` (50–50000 m) and/or `pickupOnly` on terminal. */

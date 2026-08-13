@@ -56,3 +56,21 @@ export async function fetchLiveBusPositions(): Promise<LiveBusPosition[]> {
   const data = await fetchPublicGetJson<{ items?: LiveBusPosition[]; error?: string }>("/api/buses/live");
   return Array.isArray(data.items) ? data.items : [];
 }
+
+/** PLANNED route geometry for a bus's assigned corridor — never the bus's live GPS position. */
+export type BusRouteGeometry = {
+  busId: string;
+  available: boolean;
+  reason?: string;
+  routeId?: string;
+  routeLabel?: string;
+  origin?: { name: string; latitude: number; longitude: number };
+  destination?: { name: string; latitude: number; longitude: number };
+  geometry?: { type: "LineString"; coordinates: [number, number][] };
+  distanceMeters?: number;
+  durationSeconds?: number;
+};
+
+export async function fetchBusRouteGeometry(busId: string): Promise<BusRouteGeometry> {
+  return fetchPublicGetJson<BusRouteGeometry>(`/api/public/buses/${encodeURIComponent(busId)}/route`);
+}

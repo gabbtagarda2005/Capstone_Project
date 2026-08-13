@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-export type PassengerSpaSection = "eta" | "planner" | "support" | "track";
+export type PassengerSpaSection = "eta" | "planner" | "support" | "station";
 
 type PassengerDashboardSpaStateValue = {
   activeSection: PassengerSpaSection;

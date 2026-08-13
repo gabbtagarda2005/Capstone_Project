@@ -1,11 +1,25 @@
 import { useEffect, useMemo } from "react";
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { BusLiveLogRow, CorridorHubPin } from "@/lib/types";
 import "./RouteCorridorMapInset.css";
 
 const BUKIDNON: [number, number] = [8.0515, 125.0];
+
+const ORIGIN_PIN_ICON = L.divIcon({
+  className: "rte-corridor-map__marker-endpoint",
+  html: '<div class="rte-corridor-map__endpoint rte-corridor-map__endpoint--origin"><span>A</span></div>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 26],
+});
+
+const DESTINATION_PIN_ICON = L.divIcon({
+  className: "rte-corridor-map__marker-endpoint",
+  html: '<div class="rte-corridor-map__endpoint rte-corridor-map__endpoint--destination"><span>B</span></div>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 26],
+});
 
 type Props = {
   corridorLine: [number, number][];
@@ -14,15 +28,7 @@ type Props = {
   liveBuses: BusLiveLogRow[];
 };
 
-function hubMarkerStyle(kind: CorridorHubPin["kind"]) {
-  if (kind === "origin") {
-    return { color: "#6ee7b7", fillColor: "#34d399", weight: 2, fillOpacity: 0.95 };
-  }
-  if (kind === "destination") {
-    return { color: "#fda4af", fillColor: "#fb7185", weight: 2, fillOpacity: 0.95 };
-  }
-  return { color: "#fcd34d", fillColor: "#fbbf24", weight: 2, fillOpacity: 0.95 };
-}
+const VIA_MARKER_STYLE = { color: "#fcd34d", fillColor: "#fbbf24", weight: 2, fillOpacity: 0.95 };
 
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
@@ -75,16 +81,20 @@ export function RouteCorridorMapInset({ corridorLine, hubPins = [], liveBuses }:
   const zoom = fitPoints.length >= 2 ? 11 : fitPoints.length === 1 ? 12 : 9;
 
   const chromeHint = useStopLine
-    ? "Stop polyline · dark matter basemap"
+    ? "Stop polyline · route line + terminals"
     : hubLine.length >= 2
-      ? "Terminal hubs · path"
+      ? "Terminal hubs · route line + terminals"
       : hubLine.length === 1
         ? "Terminal hub"
         : liveBuses.length > 0
           ? "Live units"
           : "No coordinates";
 
-  const showHubMarkers = !useStopLine && hubPins.length > 0;
+  const showViaMarkers = !useStopLine && hubPins.length > 0;
+  const originPin = hubPins.find((p) => p.kind === "origin" && Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
+  const destinationPin = hubPins.find(
+    (p) => p.kind === "destination" && Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
+  );
 
   return (
     <div className="rte-corridor-map">
@@ -101,12 +111,16 @@ export function RouteCorridorMapInset({ corridorLine, hubPins = [], liveBuses }:
           attributionControl={false}
         >
           {fitPoints.length > 0 ? <FitBounds points={fitPoints} /> : null}
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" subdomains="abcd" maxZoom={20} />
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            subdomains="abcd"
+            maxZoom={20}
+          />
           {linePositions.length >= 2 ? (
             <Polyline
               positions={linePositions}
               pathOptions={{
-                color: "#38bdf8",
+                color: "#2563eb",
                 weight: 4,
                 opacity: 0.92,
                 lineCap: "round",
@@ -116,29 +130,48 @@ export function RouteCorridorMapInset({ corridorLine, hubPins = [], liveBuses }:
               }}
             />
           ) : null}
-          {showHubMarkers
-            ? hubPins.map((p, i) => {
-                if (!Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) return null;
-                const st = hubMarkerStyle(p.kind);
-                return (
-                  <CircleMarker
-                    key={`hub-${p.kind}-${i}-${p.label}`}
-                    center={[p.latitude, p.longitude]}
-                    radius={8}
-                    pathOptions={{
-                      ...st,
-                      className: `rte-corridor-map__hub rte-corridor-map__hub--${p.kind}`,
-                    }}
-                  >
-                    <Popup>
-                      <strong>{p.kind === "origin" ? "Start" : p.kind === "destination" ? "End" : "Via"}</strong>
-                      <br />
-                      {p.label}
-                    </Popup>
-                  </CircleMarker>
-                );
-              })
+          {showViaMarkers
+            ? hubPins
+                .filter((p) => p.kind === "via")
+                .map((p, i) => {
+                  if (!Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) return null;
+                  return (
+                    <CircleMarker
+                      key={`hub-via-${i}-${p.label}`}
+                      center={[p.latitude, p.longitude]}
+                      radius={8}
+                      pathOptions={{
+                        ...VIA_MARKER_STYLE,
+                        className: "rte-corridor-map__hub rte-corridor-map__hub--via",
+                      }}
+                    >
+                      <Popup>
+                        <strong>Via</strong>
+                        <br />
+                        {p.label}
+                      </Popup>
+                    </CircleMarker>
+                  );
+                })
             : null}
+          {originPin ? (
+            <Marker position={[originPin.latitude, originPin.longitude]} icon={ORIGIN_PIN_ICON}>
+              <Popup>
+                <strong>Start</strong>
+                <br />
+                {originPin.label}
+              </Popup>
+            </Marker>
+          ) : null}
+          {destinationPin ? (
+            <Marker position={[destinationPin.latitude, destinationPin.longitude]} icon={DESTINATION_PIN_ICON}>
+              <Popup>
+                <strong>End</strong>
+                <br />
+                {destinationPin.label}
+              </Popup>
+            </Marker>
+          ) : null}
           {liveBuses.map((b) =>
             Number.isFinite(b.latitude) && Number.isFinite(b.longitude) ? (
               <CircleMarker

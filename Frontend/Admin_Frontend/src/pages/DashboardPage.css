@@ -621,15 +621,6 @@ a.dg-link-btn:hover {
   color: #fff;
 }
 
-[data-theme="light"] .admin-mgmt {
-  --dg-text: #0f172a;
-  --dg-muted: rgba(71, 85, 105, 0.9);
-  --dg-glass: rgba(255, 255, 255, 0.75);
-  --dg-border: rgba(51, 65, 85, 0.15);
-  --dg-input-bg: rgba(255, 255, 255, 0.95);
-}
 
-[data-theme="light"] .admin-mgmt select option {
-  background: #fff;
-  color: #0f172a;
-}
+
+

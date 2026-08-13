@@ -11,6 +11,7 @@ const CorridorRoute = require("./models/CorridorRoute");
 const Bus = require("./models/Bus");
 const GpsLog = require("./models/GpsLog");
 const { enrichPublicFleetBuses } = require("./services/passengerFleetIntel");
+const { fetchOsrmRoute } = require("./services/osrmTrafficService");
 const { Server } = require("socket.io");
 
 const { registerSocketHandlers, setLiveBoardSnapshotProvider, broadcastLocationUpdate } = require("./sockets/socket");
@@ -684,6 +685,125 @@ app.get("/api/public/fleet-buses", async (req, res) => {
     res.json({ items: enriched });
   } catch (e) {
     res.status(500).json({ error: e.message || "Failed to list fleet buses" });
+  }
+});
+
+/**
+ * Road-following route geometry for a bus's assigned corridor — for the passenger map's
+ * "select a bus, see its route" feature. Public, no JWT (matches every other /api/public/* route).
+ *
+ * This is PLANNED-ROUTE geometry only (a fixed polyline for the corridor), separate from live bus
+ * GPS (`/api/buses/live`) — the two must never be conflated on the frontend.
+ */
+const busRouteGeometryCache = new Map();
+const BUS_ROUTE_GEOMETRY_CACHE_TTL_MS = 10 * 60 * 1000;
+const { buildOrderedRouteWaypoints, stitchRouteGeometry } = require("./services/corridorGeometry");
+
+/**
+ * Small, intentionally-separate copy of /api/public/fleet-buses' matchRouteEndpoints() heuristic
+ * (see that handler above) that additionally returns the matched corridor document itself. Kept
+ * independent rather than refactored/shared so this new endpoint can never regress the already-
+ * live fleet-buses route/routeStart/routeEnd resolution.
+ */
+function resolveCorridorForBusRoute(routeStr, corridorDocs) {
+  function hubLabel(cov) {
+    if (!cov || typeof cov !== "object") return null;
+    const t = cov.terminal && String(cov.terminal.name || "").trim();
+    if (t) return t;
+    const ln = String(cov.locationName || "").trim();
+    return ln || null;
+  }
+  function normRouteKey(s) {
+    return String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[–—−]/g, "-")
+      .replace(/↔/g, "->")
+      .replace(/→/g, "->");
+  }
+  const raw = String(routeStr || "").trim();
+  if (!raw) return null;
+  const n = normRouteKey(raw);
+  const metas = corridorDocs.map((doc) => {
+    const start = hubLabel(doc.originCoverageId);
+    const end = hubLabel(doc.destinationCoverageId);
+    const display =
+      (doc.displayName && String(doc.displayName).trim()) || (start && end ? `${start} → ${end}` : null);
+    return { doc, start, end, display };
+  });
+  for (const m of metas) {
+    if (!m.display) continue;
+    if (normRouteKey(m.display) === n && m.start && m.end) return m.doc;
+    if (m.start && m.end) {
+      const arrow = normRouteKey(`${m.start} → ${m.end}`);
+      const dash = normRouteKey(`${m.start} - ${m.end}`);
+      const bi = normRouteKey(`${m.start} ↔ ${m.end}`);
+      if (arrow === n || dash === n || bi === n) return m.doc;
+    }
+  }
+  const idxMatch = /^route\s*(\d+)\s*$/i.exec(raw);
+  if (idxMatch) {
+    const sorted = [...metas].sort((a, b) => (a.display || "").localeCompare(b.display || "", undefined, { sensitivity: "base" }));
+    const idx = parseInt(idxMatch[1], 10) - 1;
+    if (idx >= 0 && idx < sorted.length && sorted[idx].start && sorted[idx].end) return sorted[idx].doc;
+  }
+  return null;
+}
+
+app.get("/api/public/buses/:busId/route", async (req, res) => {
+  const busId = String(req.params.busId || "").trim();
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ busId, available: false, reason: "database_unavailable" });
+    }
+    const bus = await Bus.findOne({ busId }).lean();
+    if (!bus || !bus.route || !String(bus.route).trim()) {
+      return res.json({ busId, available: false, reason: "no_route_assigned" });
+    }
+
+    const corridorDocs = await CorridorRoute.find({ suspended: { $ne: true } })
+      .populate("originCoverageId")
+      .populate("destinationCoverageId")
+      .lean();
+    const matched = resolveCorridorForBusRoute(bus.route, corridorDocs);
+    if (!matched) {
+      return res.json({ busId, available: false, reason: "route_not_matched" });
+    }
+
+    const origin = matched.originCoverageId?.terminal;
+    const destination = matched.destinationCoverageId?.terminal;
+    if (
+      !origin || !Number.isFinite(origin.latitude) || !Number.isFinite(origin.longitude) ||
+      !destination || !Number.isFinite(destination.latitude) || !Number.isFinite(destination.longitude)
+    ) {
+      return res.json({ busId, available: false, reason: "missing_terminal_coords" });
+    }
+
+    const cacheKey = String(matched._id);
+    const cached = busRouteGeometryCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < BUS_ROUTE_GEOMETRY_CACHE_TTL_MS) {
+      return res.json({ busId, available: true, ...cached.payload });
+    }
+
+    const waypoints = buildOrderedRouteWaypoints(origin, matched.authorizedStops, destination);
+    const { coordinates, distanceMeters: totalDistanceM, durationSeconds: totalDurationS } =
+      await stitchRouteGeometry(waypoints);
+
+    const payload = {
+      routeId: cacheKey,
+      routeLabel: (matched.displayName && String(matched.displayName).trim()) || String(bus.route).trim(),
+      origin: { name: origin.name, latitude: origin.latitude, longitude: origin.longitude },
+      destination: { name: destination.name, latitude: destination.latitude, longitude: destination.longitude },
+      geometry: { type: "LineString", coordinates },
+      distanceMeters: Math.round(totalDistanceM),
+      durationSeconds: Math.round(totalDurationS),
+    };
+    busRouteGeometryCache.set(cacheKey, { ts: Date.now(), payload });
+    return res.json({ busId, available: true, ...payload });
+  } catch (e) {
+    console.error("[public/buses/:busId/route] failed:", e.message || e);
+    return res.status(500).json({ busId, available: false, reason: "server_error" });
   }
 });
 

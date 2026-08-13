@@ -117,6 +117,7 @@ app.post("/api/public/fare-quote", proxyAdminPublic);
 app.post("/api/public/passenger-feedback", proxyAdminPublic);
 app.post("/api/public/passenger-lost-item", proxyAdminPublic);
 app.get("/api/buses/live", proxyAdminPublic);
+app.get("/api/public/buses/:busId/route", proxyAdminPublic);
 
 function startHttp() {
   const port = Number(process.env.PORT) || 4000;

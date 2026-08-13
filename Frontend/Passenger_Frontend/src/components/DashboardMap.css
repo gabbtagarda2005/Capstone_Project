@@ -145,6 +145,77 @@
   font-weight: 800;
 }
 
+.dashboard-map__route-banner {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  max-width: 40rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-map__route-banner--err {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.3);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.dashboard-map__route-retry {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.15);
+  color: #fecaca;
+  cursor: pointer;
+}
+
+.dashboard-map__route-retry:hover {
+  background: rgba(248, 113, 113, 0.28);
+}
+
+.dashboard-map__route-endpoint {
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  border: 2px solid #ffffff;
+  box-sizing: border-box;
+}
+
+.dashboard-map__route-endpoint span {
+  display: inline-block;
+  transform: rotate(45deg);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0b1220;
+}
+
+.dashboard-map__route-endpoint--start {
+  background: #38bdf8;
+}
+
+.dashboard-map__route-endpoint--destination {
+  background: #f97316;
+}
+
+.dashboard-map__marker-route-start,
+.dashboard-map__marker-route-destination {
+  background: transparent;
+  border: none;
+}
+
 .dashboard-map__frame {
   height: min(52vh, 420px);
   min-height: 280px;

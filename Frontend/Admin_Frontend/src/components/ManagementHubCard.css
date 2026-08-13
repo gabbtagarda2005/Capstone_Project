@@ -252,20 +252,10 @@
   }
 }
 
-[data-theme="light"] .mgmt-bento-card__card {
-  background-color: rgba(15, 23, 42, 0.82);
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2), 0 -14px 24px 0 rgba(255, 255, 255, 0.08) inset, 0 20px 40px rgba(0, 0, 0, 0.25),
-    0 0 40px -10px var(--blue-ambient);
-}
 
-[data-theme="light"] .mgmt-bento-card__card-title {
-  color: #f8fafc;
-}
 
-[data-theme="light"] .mgmt-bento-card__card-paragraph {
-  color: rgba(226, 232, 240, 0.88);
-}
 
-[data-theme="light"] .mgmt-bento-card__list-text {
-  color: #f1f5f9;
-}
+
+
+
+

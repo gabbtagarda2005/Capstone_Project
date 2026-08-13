@@ -29,11 +29,13 @@ import { useAuth } from "@/context/AuthContext";
 import {
   ADMIN_API_ORIGIN,
   api,
+  fetchBusRouteGeometry,
   fetchCorridorBuilderContext,
   fetchCorridorRoutes,
   fetchLiveDispatchBlocks,
   getToken,
   postAdminTestGps,
+  type BusRouteGeometry,
 } from "@/lib/api";
 import type { CorridorBuilderTerminal, CorridorRouteRow, TicketRow, BusLiveLogRow, BusRow, LiveDispatchBlock } from "@/lib/types";
 import { haversineMeters, minDistanceToPolylineMetersWithClosestSegment } from "@/lib/haversineMeters";
@@ -248,6 +250,23 @@ const GOOGLE_CYAN_WAYPOINT_FLEX_ICON: google.maps.Icon = {
   scaledSize: { width: 22, height: 22 } as google.maps.Size,
   anchor: { x: 11, y: 11 } as google.maps.Point,
 };
+/** Selected-bus route start/end pins (A = origin green, B = destination red) — Google Maps. */
+function googleRouteEndpointIcon(letter: "A" | "B", fill: string, stroke: string): google.maps.Icon {
+  return {
+    url:
+      "data:image/svg+xml;charset=UTF-8," +
+      encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38">' +
+          `<path d="M15 2c-7.2 0-13 5.8-13 13 0 9.7 13 21 13 21s13-11.3 13-21c0-7.2-5.8-13-13-13z" fill="${fill}" stroke="${stroke}" stroke-width="2"/>` +
+          `<text x="15" y="20" font-size="13" font-weight="800" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif">${letter}</text>` +
+          "</svg>"
+      ),
+    scaledSize: { width: 30, height: 38 } as google.maps.Size,
+    anchor: { x: 15, y: 36 } as google.maps.Point,
+  };
+}
+const GOOGLE_ROUTE_ORIGIN_ICON = googleRouteEndpointIcon("A", "#16a34a", "#ffffff");
+const GOOGLE_ROUTE_DESTINATION_ICON = googleRouteEndpointIcon("B", "#dc2626", "#ffffff");
 const GOOGLE_DARK_STYLE = [
   { elementType: "geometry", stylers: [{ color: "#0b1220" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#93a4c3" }] },
@@ -292,6 +311,22 @@ const LEAFLET_BUS_ICON = L.divIcon({
   iconSize: [20, 20],
   iconAnchor: [10, 10],
 });
+/** Selected-bus route start/end pins (A = origin green, B = destination red) — Leaflet, inline-styled to match this file's other divIcons. */
+function leafletRouteEndpointIcon(letter: "A" | "B", fill: string) {
+  return L.divIcon({
+    className: "locations-page__leaflet-route-endpoint",
+    html:
+      `<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);` +
+      `display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);` +
+      `border:2px solid #ffffff;box-sizing:border-box;background:${fill}">` +
+      `<span style="display:inline-block;transform:rotate(45deg);font-size:12px;font-weight:800;color:#fff">${letter}</span>` +
+      `</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 26],
+  });
+}
+const LEAFLET_ROUTE_ORIGIN_ICON = leafletRouteEndpointIcon("A", "#16a34a");
+const LEAFLET_ROUTE_DESTINATION_ICON = leafletRouteEndpointIcon("B", "#dc2626");
 
 /** Sidebar legend — same geometry/colors as map terminal hex (Leaflet / Google). */
 function LocationsLegendTerminalPin() {
@@ -423,6 +458,12 @@ export function LocationsPage() {
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [flySeq, setFlySeq] = useState(0);
   const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
+  /** Selected bus's PLANNED route geometry (road-following polyline) — separate from its live GPS marker. */
+  const [selectedBusRoute, setSelectedBusRoute] = useState<{
+    status: "idle" | "loading" | "ready" | "unavailable" | "error";
+    data: BusRouteGeometry | null;
+  }>({ status: "idle", data: null });
+  const busRouteCacheRef = useRef<Map<string, BusRouteGeometry>>(new Map());
   const [lastSyncMsByBus, setLastSyncMsByBus] = useState<Record<string, number>>({});
   /** Re-render periodically so "Last sync" / stale state updates without new socket events */
   const [fleetTicker, setFleetTicker] = useState(0);
@@ -445,6 +486,38 @@ export function LocationsPage() {
   const [sosRingUntil, setSosRingUntil] = useState<Record<string, number>>({});
   /** Click bus near a terminal: pulse terminal geofence ring. */
   const [terminalPulseUntil, setTerminalPulseUntil] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!selectedBusId) {
+      setSelectedBusRoute({ status: "idle", data: null });
+      return;
+    }
+    const cached = busRouteCacheRef.current.get(selectedBusId);
+    if (cached) {
+      setSelectedBusRoute({ status: cached.available ? "ready" : "unavailable", data: cached });
+      return;
+    }
+    let cancelled = false;
+    setSelectedBusRoute({ status: "loading", data: null });
+    fetchBusRouteGeometry(selectedBusId)
+      .then((r) => {
+        if (cancelled) return;
+        busRouteCacheRef.current.set(selectedBusId, r);
+        setSelectedBusRoute({ status: r.available ? "ready" : "unavailable", data: r });
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedBusRoute({ status: "error", data: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBusId]);
+
+  const selectedRoutePositions = useMemo<[number, number][]>(() => {
+    const coords = selectedBusRoute.data?.geometry?.coordinates;
+    if (!coords) return [];
+    return coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+  }, [selectedBusRoute.data]);
 
   useEffect(() => {
     const onSpeed = (e: Event) => {
@@ -1377,6 +1450,43 @@ export function LocationsPage() {
                       );
                     })
                   : null}
+
+                {selectedBusRoute.status === "ready" && selectedBusRoute.data?.available ? (
+                  <>
+                    {selectedRoutePositions.length >= 2 ? (
+                      <LeafletPolyline
+                        positions={selectedRoutePositions}
+                        pathOptions={{ color: "#f97316", weight: 5, opacity: 0.92 }}
+                      />
+                    ) : null}
+                    {selectedBusRoute.data.origin ? (
+                      <LeafletMarker
+                        position={[selectedBusRoute.data.origin.latitude, selectedBusRoute.data.origin.longitude]}
+                        icon={LEAFLET_ROUTE_ORIGIN_ICON}
+                        zIndexOffset={950}
+                      >
+                        <Popup>
+                          <strong>Route start</strong>
+                          <br />
+                          {selectedBusRoute.data.origin.name}
+                        </Popup>
+                      </LeafletMarker>
+                    ) : null}
+                    {selectedBusRoute.data.destination ? (
+                      <LeafletMarker
+                        position={[selectedBusRoute.data.destination.latitude, selectedBusRoute.data.destination.longitude]}
+                        icon={LEAFLET_ROUTE_DESTINATION_ICON}
+                        zIndexOffset={950}
+                      >
+                        <Popup>
+                          <strong>Route destination</strong>
+                          <br />
+                          {selectedBusRoute.data.destination.name}
+                        </Popup>
+                      </LeafletMarker>
+                    ) : null}
+                  </>
+                ) : null}
               </MapContainer>
             ) : !isGoogleLoaded ? (
               <div className="locations-page__map-skeleton" aria-hidden>
@@ -1626,6 +1736,36 @@ export function LocationsPage() {
                       );
                     })
                   : null}
+
+                {selectedBusRoute.status === "ready" && selectedBusRoute.data?.available ? (
+                  <>
+                    {selectedRoutePositions.length >= 2 ? (
+                      <PolylineF
+                        path={selectedRoutePositions.map(([lat, lng]) => ({ lat, lng }))}
+                        options={{ strokeColor: "#f97316", strokeWeight: 5, strokeOpacity: 0.92, zIndex: 900 }}
+                      />
+                    ) : null}
+                    {selectedBusRoute.data.origin ? (
+                      <MarkerF
+                        position={{ lat: selectedBusRoute.data.origin.latitude, lng: selectedBusRoute.data.origin.longitude }}
+                        icon={GOOGLE_ROUTE_ORIGIN_ICON}
+                        zIndex={9600}
+                        title={`Route start — ${selectedBusRoute.data.origin.name}`}
+                      />
+                    ) : null}
+                    {selectedBusRoute.data.destination ? (
+                      <MarkerF
+                        position={{
+                          lat: selectedBusRoute.data.destination.latitude,
+                          lng: selectedBusRoute.data.destination.longitude,
+                        }}
+                        icon={GOOGLE_ROUTE_DESTINATION_ICON}
+                        zIndex={9600}
+                        title={`Route destination — ${selectedBusRoute.data.destination.name}`}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
               </GoogleMap>
             )}
             {mounted ? (
@@ -1677,6 +1817,27 @@ export function LocationsPage() {
           </div>
         </div>
         {testGpsMessage ? <p className="locations-page__legend-card-sub locations-page__test-gps-hint">{testGpsMessage}</p> : null}
+        {selectedBusId ? (
+          <p className="locations-page__legend-card-sub" style={{ margin: "0 0 0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            {selectedBusRoute.status === "loading" ? (
+              <span>🛣️ Loading route for {selectedBusId}…</span>
+            ) : selectedBusRoute.status === "ready" ? (
+              <span>🛣️ Showing route for {selectedBusId} — {selectedBusRoute.data?.routeLabel}</span>
+            ) : selectedBusRoute.status === "unavailable" ? (
+              <span>Route information unavailable for {selectedBusId}.</span>
+            ) : selectedBusRoute.status === "error" ? (
+              <span>Unable to load route for {selectedBusId}.</span>
+            ) : null}
+            <button
+              type="button"
+              className="locations-page__test-gps-btn"
+              style={{ padding: "0.2rem 0.6rem", fontSize: "0.7rem" }}
+              onClick={() => setSelectedBusId(null)}
+            >
+              ✕ Clear route
+            </button>
+          </p>
+        ) : null}
         {busState.length === 0 ? (
           <p className="locations-page__legend-card-sub" style={{ margin: 0 }}>
             {busRows.length > 0 ? (
@@ -1706,6 +1867,10 @@ export function LocationsPage() {
                   lastSyncLine={`Last sync ${b.lastSyncLabel}`}
                   active={selectedBusId === b.busId}
                   onClick={() => {
+                    if (selectedBusId === b.busId) {
+                      setSelectedBusId(null);
+                      return;
+                    }
                     setSelectedBusId(b.busId);
                     setFlyTarget(b.pos);
                     setFlySeq((n) => n + 1);

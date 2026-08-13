@@ -641,7 +641,7 @@ export function BusDetailPage() {
         <div className="bus-hub__tile bus-hub__grid--map" style={{ gridColumn: "1 / -1" }}>
           <div className="bus-hub__tile-label">Live position · Bukidnon corridor</div>
           <div className="bus-hub__map-wrap">
-            <span className="bus-hub__map-badge">Dark matter · beacon</span>
+            <span className="bus-hub__map-badge">Voyager · standard</span>
             {socketPhase !== "connected" ? (
               <span className="bus-hub__map-socket-badge" role="status">
                 {socketPhase === "reconnecting" ? "🟠 Reconnecting…" : "🟠 Connecting…"}
@@ -656,7 +656,7 @@ export function BusDetailPage() {
             >
               <TileLayer
                 attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
               />
               {polyline.length >= 2 ? (
                 <Polyline positions={polyline} pathOptions={{ color: "#22d3ee", weight: 3, opacity: 0.55 }} />

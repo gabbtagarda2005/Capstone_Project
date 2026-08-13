@@ -34,10 +34,31 @@ function manilaWallClock(d) {
   };
 }
 
-async function buildReportsAnalyticsFromMongo() {
+/**
+ * @param {{startDate?: string, endDate?: string, busNumber?: string, route?: string}} filters
+ *   startDate/endDate are YYYY-MM-DD (Manila calendar days). busNumber is an exact match against
+ *   IssuedTicketRecord.busNumber. route is the "A → B" label produced elsewhere in this file
+ *   (topRoutes/allRoutes), split back into startLocation/destination for an exact match.
+ */
+async function buildReportsAnalyticsFromMongo(filters = {}) {
   if (mongoose.connection.readyState !== 1) return null;
 
-  const docs = await IssuedTicketRecord.find({})
+  const query = {};
+  if (filters.startDate || filters.endDate) {
+    query.createdAt = {};
+    if (filters.startDate) query.createdAt.$gte = new Date(`${filters.startDate}T00:00:00+08:00`);
+    if (filters.endDate) query.createdAt.$lte = new Date(`${filters.endDate}T23:59:59.999+08:00`);
+  }
+  if (filters.busNumber) query.busNumber = filters.busNumber;
+  if (filters.route) {
+    const parts = String(filters.route).split(/\s*→\s*/);
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      query.startLocation = parts[0];
+      query.destination = parts[1];
+    }
+  }
+
+  const docs = await IssuedTicketRecord.find(query)
     .select({ startLocation: 1, destination: 1, fare: 1, createdAt: 1, busNumber: 1, issuedByName: 1, issuerSub: 1, passengerId: 1 })
     .lean();
 

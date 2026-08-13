@@ -1615,6 +1615,132 @@
   color: rgba(148, 163, 184, 0.92);
 }
 
+.mgmt-loc-snap-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.9);
+  margin: 0.2rem 0 0.5rem;
+  cursor: pointer;
+}
+
+.mgmt-loc-snap-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.78rem;
+  margin-bottom: 0.5rem;
+}
+
+.mgmt-loc-snap-banner--checking {
+  color: #c8daf5;
+  background: rgba(31, 88, 133, 0.25);
+  border: 1px solid rgba(31, 88, 133, 0.5);
+}
+
+.mgmt-loc-snap-banner--ok {
+  color: #bbf7d0;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.mgmt-loc-snap-banner--warn {
+  color: #fde68a;
+  background: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.mgmt-loc-snap-banner__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mgmt-loc-snap-banner__btn {
+  border-radius: 8px;
+  border: 1px solid rgba(253, 230, 138, 0.5);
+  background: rgba(253, 230, 138, 0.12);
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.mgmt-loc-snap-banner__btn:hover {
+  background: rgba(253, 230, 138, 0.22);
+}
+
+.mgmt-loc-snap-debug {
+  font-size: 0.68rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: rgba(148, 163, 184, 0.85);
+  margin: 0 0 0.6rem;
+}
+
+.mgmt-loc-audit {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  padding-top: 0.75rem;
+}
+
+.mgmt-loc-audit__toggle {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.65);
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+}
+
+.mgmt-loc-audit__list {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.mgmt-loc-audit__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.1);
+  color: #fde68a;
+  font-size: 0.74rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.mgmt-loc-audit__item-btn {
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(253, 230, 138, 0.5);
+  background: rgba(253, 230, 138, 0.12);
+  color: #fde68a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+}
+
+.mgmt-loc-audit__empty {
+  font-size: 0.76rem;
+  color: rgba(148, 163, 184, 0.85);
+  margin-top: 0.5rem;
+}
+
 .mgmt-loc-btn {
   width: 100%;
   min-height: 2.5rem;

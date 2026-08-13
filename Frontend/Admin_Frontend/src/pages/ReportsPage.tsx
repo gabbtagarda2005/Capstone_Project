@@ -3,7 +3,9 @@ import {
   downloadReportsMasterExport,
   fetchReportsAnalytics,
   postAdminAuditEvent,
+  type ReportsAnalyticsFilters,
 } from "@/lib/api";
+import { ReportsFilterBar } from "@/components/ReportsFilterBar";
 import { bundlesToCsvKeys, bundlesToPdfKeys } from "@/lib/reportExportBundles";
 import type { ReportExportBundleId } from "@/lib/reportExportBundles";
 import { downloadOperationsReportPdf } from "@/lib/generateOperationsReportPdf";
@@ -108,6 +110,9 @@ export function ReportsPage() {
   const [hubTab, setHubTab] = useState<HubTab>("passenger");
   const lastNonExportHubTabRef = useRef<Exclude<HubTab, "export">>("passenger");
   const [reportsMainTab, setReportsMainTab] = useState<"dashboard" | "archive" | "dailyOps">("dashboard");
+  const [filters, setFilters] = useState<ReportsAnalyticsFilters>({});
+  const [filterOptions, setFilterOptions] = useState<{ buses: string[]; routes: string[] }>({ buses: [], routes: [] });
+  const filterOptionsCapturedRef = useRef(false);
 
   function handleHubTab(t: HubTab) {
     if (t !== "export") {
@@ -134,8 +139,15 @@ export function ReportsPage() {
   const refresh = useCallback(async () => {
     setLoadError(null);
     try {
-      const r = await fetchReportsAnalytics();
+      const r = await fetchReportsAnalytics(filters);
       setData(r);
+      if (!filterOptionsCapturedRef.current) {
+        filterOptionsCapturedRef.current = true;
+        setFilterOptions({
+          buses: (r.topBusesAll ?? []).map((b) => b.busLabel).filter(Boolean),
+          routes: (r.allRoutes ?? []).map((x) => x.route).filter(Boolean),
+        });
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load analytics";
       if (isSilentTicketingFailure(msg)) {
@@ -147,7 +159,7 @@ export function ReportsPage() {
       setData(null);
       showError(msg);
     }
-  }, [showError]);
+  }, [showError, filters]);
 
   useEffect(() => {
     void refresh();
@@ -329,6 +341,13 @@ export function ReportsPage() {
         </div>
       ) : (
         <>
+          <ReportsFilterBar
+            value={filters}
+            onChange={setFilters}
+            buses={filterOptions.buses}
+            routes={filterOptions.routes}
+          />
+
           <ReportsExecutiveMetrics analytics={hubData} isLive={!!data} goalAnomalyPulse={goalAnomalyPulse} />
 
           <ReportsIntelligenceHub
