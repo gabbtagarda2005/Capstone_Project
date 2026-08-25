@@ -75,7 +75,7 @@ From the project root, double-click **`shared/scripts/start-all.bat`** or run:
 
 `powershell -ExecutionPolicy Bypass -File shared/scripts/start-all.ps1`
 
-That installs npm dependencies (if needed) and opens **three** windows: **admin-api** (4001), **Admin_Frontend** (5173), **Passenger_Frontend** (5174). Requires **Node.js** on your PATH.
+That installs npm dependencies (if needed) and opens a window for each service: **admin-api** (4001), **passenger-api** (4000), **bus-attendant-api** (4011), **Admin_Frontend** (5173), **Passenger_Frontend** (5174) — plus the **BusAttendant_Frontend** Flutter web app (port 50015) if `flutter` is on your PATH. Requires **Node.js** on your PATH.
 
 ## Optional
 

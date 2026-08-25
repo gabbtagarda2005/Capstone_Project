@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { downloadDailyOpsSnapshotFile, fetchDailyOpsSnapshotList } from "@/lib/api";
 import type { DailyOpsSnapshotFileDto } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
@@ -17,6 +17,8 @@ export function ReportsSnapshotsArchive() {
   const [banner, setBanner] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [dateQuery, setDateQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,6 +39,22 @@ export function ReportsSnapshotsArchive() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const filteredItems = useMemo(() => {
+    const q = appliedQuery.trim();
+    if (!q) return items;
+    return items.filter((row) => row.name.includes(q));
+  }, [items, appliedQuery]);
+
+  function handleSearch(e: FormEvent) {
+    e.preventDefault();
+    setAppliedQuery(dateQuery);
+  }
+
+  function handleClearSearch() {
+    setDateQuery("");
+    setAppliedQuery("");
+  }
 
   async function onDownload(name: string) {
     setDownloading(name);
@@ -69,8 +87,33 @@ export function ReportsSnapshotsArchive() {
 
       {banner ? <p className="reports-page__banner">{banner}</p> : null}
 
+      {configured && items.length > 0 ? (
+        <form className="reports-archive__search" onSubmit={handleSearch}>
+          <label htmlFor="reports-archive-date-search" className="reports-archive__search-label">
+            Search by date
+          </label>
+          <input
+            id="reports-archive-date-search"
+            className="reports-archive__search-input"
+            type="date"
+            value={dateQuery}
+            onChange={(e) => setDateQuery(e.target.value)}
+          />
+          <button type="submit" className="reports-archive__btn reports-archive__btn--search">
+            Search
+          </button>
+          {appliedQuery ? (
+            <button type="button" className="reports-archive__btn reports-archive__btn--ghost" onClick={handleClearSearch}>
+              Clear
+            </button>
+          ) : null}
+        </form>
+      ) : null}
+
       {!configured ? null : items.length === 0 ? (
         <p className="reports-archive__empty">No files yet.</p>
+      ) : filteredItems.length === 0 ? (
+        <p className="reports-archive__empty">No archived files match {appliedQuery}.</p>
       ) : (
         <div className="reports-archive__table-wrap">
           <table className="reports-archive__table">
@@ -83,7 +126,7 @@ export function ReportsSnapshotsArchive() {
               </tr>
             </thead>
             <tbody>
-              {items.map((row) => (
+              {filteredItems.map((row) => (
                 <tr key={row.name}>
                   <td className="reports-archive__mono">{row.name}</td>
                   <td>{formatBytes(row.size)}</td>

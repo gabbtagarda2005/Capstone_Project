@@ -1,6 +1,7 @@
 const express = require("express");
 const Bus = require("../models/Bus");
 const GpsLog = require("../models/GpsLog");
+const { createDevice, listDevices, revokeDevice } = require("../services/deviceRegistry");
 
 function classifyVoltage(v) {
   if (!Number.isFinite(v)) return { level: "unknown", label: "Unknown" };
@@ -132,6 +133,41 @@ function createFleetHardwareRouter() {
       res.json({ items, generatedAt: new Date().toISOString() });
     } catch (e) {
       res.status(500).json({ error: e.message || "Failed to read hardware telemetry" });
+    }
+  });
+
+  /**
+   * Per-device LILYGO credentials (see services/deviceRegistry.js + SECURITY.md). Mounted under
+   * /api/fleet, already gated by requireAdminJwt at the app level.
+   */
+  router.get("/devices", async (_req, res) => {
+    try {
+      const items = await listDevices();
+      res.json({ items });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to list devices" });
+    }
+  });
+
+  /** Returns the plaintext secret ONCE — the caller must copy it into the device's config now. */
+  router.post("/devices", async (req, res) => {
+    try {
+      const { deviceId, busId, label } = req.body || {};
+      const result = await createDevice({ deviceId, busId, label });
+      res.status(201).json(result);
+    } catch (e) {
+      const code = e.statusCode || 500;
+      res.status(code >= 400 && code < 600 ? code : 500).json({ error: e.message || "Failed to create device" });
+    }
+  });
+
+  router.post("/devices/:deviceId/revoke", async (req, res) => {
+    try {
+      const found = await revokeDevice(req.params.deviceId);
+      if (!found) return res.status(404).json({ error: "Device not found" });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Failed to revoke device" });
     }
   });
 

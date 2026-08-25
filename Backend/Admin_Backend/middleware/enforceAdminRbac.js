@@ -22,7 +22,7 @@ async function enforceAdminRbac(req, res, next) {
 
   let payload;
   try {
-    payload = jwt.verify(h.slice(7), secret);
+    payload = jwt.verify(h.slice(7), secret, { algorithms: ["HS256"] });
   } catch {
     return next();
   }

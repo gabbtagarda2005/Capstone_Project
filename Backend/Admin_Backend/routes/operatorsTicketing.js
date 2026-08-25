@@ -156,7 +156,7 @@ function createOperatorsTicketingRouter() {
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ error: "firstName, lastName, email, password required" });
     }
-    const hash = await bcrypt.hash(String(password), 10);
+    const hash = await bcrypt.hash(String(password), 12);
     const roleStr = String(role || "Operator").trim();
     const puRole = roleStr === "BusAttendant" || roleStr === "Bus Attendant" ? "BusAttendant" : "Operator";
 
@@ -201,7 +201,7 @@ function createOperatorsTicketingRouter() {
       $set.role = roleStr === "BusAttendant" || roleStr === "Bus Attendant" ? "BusAttendant" : "Operator";
     }
     if (password !== undefined && String(password).length > 0) {
-      $set.password = await bcrypt.hash(String(password), 10);
+      $set.password = await bcrypt.hash(String(password), 12);
     }
 
     if (!Object.keys($set).length) {

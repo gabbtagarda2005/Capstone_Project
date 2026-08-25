@@ -63,6 +63,22 @@ input[type="radio"] {
   border-radius: 8px;
 }
 
+/* Leaflet sets role="button" on every marker icon by default (for keyboard nav; see
+   Marker.prototype._initIcon in leaflet-src.js) — these are not real <button> elements, but
+   the rule above was matching them anyway. Leaflet positions each marker by transforming its
+   icon element's top-left corner to the exact map pixel for its lat/lng, sized for the icon's
+   actual iconSize (e.g. 11x11 for a bus-stop dot); forcing a 44px min-width/height plus padding
+   inflated that box growing only right/down from that corner, visibly displacing every custom
+   marker (bus stops, terminals, live buses, user location, route pins) ~16px right / ~12px down
+   from its true geographic position — the "pin isn't on the highway" bug. Map markers get their
+   own keyboard/tap handling from Leaflet itself, so they don't need the touch-target padding. */
+.leaflet-marker-icon[role="button"] {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
 /* Form labels - readable */
 label {
   font-size: 0.95rem;

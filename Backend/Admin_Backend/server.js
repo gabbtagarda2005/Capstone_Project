@@ -5,6 +5,7 @@ applyPublicDnsForMongo();
 const http = require("http");
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const mongoose = require("mongoose");
 const RouteCoverage = require("./models/RouteCoverage");
 const CorridorRoute = require("./models/CorridorRoute");
@@ -53,7 +54,7 @@ const {
 const { requireAdminJwt } = require("./middleware/requireAdminJwt");
 const { createNominatimProxyRouter } = require("./routes/nominatimProxy");
 const { ingestDeviceGps } = require("./services/attendantGpsIngest");
-const { assertDeviceIngestAllowed, normalizeHardwareLatLngBody } = require("./services/deviceIngestAuth");
+const { authenticateDeviceIngest, normalizeHardwareLatLngBody } = require("./services/deviceIngestAuth");
 const { apiMetricsMiddleware } = require("./middleware/apiMetrics");
 const { logSystemEvent } = require("./services/systemHealthLog");
 const { getProcessMetrics } = require("./services/processMetrics");
@@ -104,6 +105,15 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+/** Pure JSON/Socket.io API — no HTML to protect, so CSP is off; frontends on other origins/ports
+ *  fetch this API directly, so keep resources cross-origin-loadable. */
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+app.use("/api", require("./middleware/rateLimiters").generalApiLimiter);
 /** Branding `sidebarLogoUrl` may be a large data:image/… URL; default 100kb is too small → 413. */
 const jsonBodyLimit = (process.env.JSON_BODY_LIMIT || "12mb").trim() || "12mb";
 app.use(express.json({ limit: jsonBodyLimit }));
@@ -160,13 +170,7 @@ app.get("/api/public/command-feed", handleGetPassengerCommandFeed);
 app.use("/api", createStaffProfileRouter());
 
 /** LILYGO primary endpoint alias (same ingest path as /api/buses/hardware-telemetry). */
-app.post("/api/hardware-telemetry", async (req, res) => {
-  try {
-    assertDeviceIngestAllowed(req);
-  } catch (authErr) {
-    const code = authErr.statusCode || 401;
-    return res.status(code).json({ error: authErr.message });
-  }
+app.post("/api/hardware-telemetry", require("./middleware/rateLimiters").deviceIngestLimiter, async (req, res) => {
   const body = normalizeHardwareLatLngBody(req.body || {});
   let busId = body.bus_id != null ? String(body.bus_id).trim() : body.busId != null ? String(body.busId).trim() : "";
   const imei = body.imei != null ? String(body.imei).replace(/\D/g, "") : "";
@@ -185,6 +189,13 @@ app.post("/api/hardware-telemetry", async (req, res) => {
   }
   if (!busId) {
     return res.status(404).json({ error: "Unknown IMEI (register this device in Fleet first)" });
+  }
+  try {
+    const deviceVerifiedBusId = await authenticateDeviceIngest(req, busId);
+    if (deviceVerifiedBusId) busId = deviceVerifiedBusId;
+  } catch (authErr) {
+    const code = authErr.statusCode || 401;
+    return res.status(code).json({ error: authErr.message });
   }
   try {
     await ingestDeviceGps(io, broadcastLocationUpdate, busId, {

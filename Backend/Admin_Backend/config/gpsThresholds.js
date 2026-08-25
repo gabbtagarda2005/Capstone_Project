@@ -37,6 +37,25 @@ function gpsStatusFromAgeMs(ageMs) {
   return "offline";
 }
 
+/**
+ * Single source of truth for GPS freshness — LIVE / RECENT / STALE / OFFLINE, keyed off "ms since
+ * last published fix". Previously each frontend page (LocationsPage, BusDetailPage) re-derived its
+ * own ad hoc staleness cutoff independently of this file and of each other; this is now the one
+ * place that decides it, exposed to clients via GET /api/admin/gps-thresholds so the frontend never
+ * has to hardcode a value that could drift out of sync with the backend.
+ */
+const GPS_LIVE_MAX_MS = envMs("GPS_LIVE_MAX_MS", 10_000);
+const GPS_RECENT_MAX_MS = envMs("GPS_RECENT_MAX_MS", 30_000);
+const GPS_STALE_MAX_MS = envMs("GPS_STALE_MAX_MS", 60_000);
+
+function gpsFreshnessFromAgeMs(ageMs) {
+  if (ageMs == null || !Number.isFinite(ageMs) || ageMs < 0) return "offline";
+  if (ageMs <= GPS_LIVE_MAX_MS) return "live";
+  if (ageMs <= GPS_RECENT_MAX_MS) return "recent";
+  if (ageMs <= GPS_STALE_MAX_MS) return "stale";
+  return "offline";
+}
+
 module.exports = {
   PHONE_GPS_TIMEOUT_MS,
   PHONE_FAILBACK_STABLE_COUNT,
@@ -44,4 +63,8 @@ module.exports = {
   GPS_STALE_THRESHOLD_MS,
   GPS_OFFLINE_THRESHOLD_MS,
   gpsStatusFromAgeMs,
+  GPS_LIVE_MAX_MS,
+  GPS_RECENT_MAX_MS,
+  GPS_STALE_MAX_MS,
+  gpsFreshnessFromAgeMs,
 };

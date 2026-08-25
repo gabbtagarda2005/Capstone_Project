@@ -110,10 +110,116 @@ async function getCorridorPolyline(corridorDoc) {
   return coordinates.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 }
 
+const coveragePolylineCache = new Map();
+const COVERAGE_POLYLINE_CACHE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Road-following polyline for the corridor a RouteCoverage point (terminal/stop location group)
+ * belongs to, cached per corridor so repeated stops on the same corridor don't re-stitch OSRM legs.
+ * Returns null if the point isn't part of any (non-suspended) corridor.
+ */
+async function getCorridorPolylineForCoverage(coverageId) {
+  if (!coverageId) return null;
+  const key = String(coverageId);
+  const cached = coveragePolylineCache.get(key);
+  if (cached && Date.now() - cached.ts < COVERAGE_POLYLINE_CACHE_TTL_MS) {
+    return cached.polyline;
+  }
+  const corridorDoc = await findCorridorForCoverageId(coverageId).catch(() => null);
+  const polyline = corridorDoc ? await getCorridorPolyline(corridorDoc).catch(() => null) : null;
+  coveragePolylineCache.set(key, { ts: Date.now(), polyline });
+  return polyline;
+}
+
+/**
+ * Closest point on a {latitude,longitude} polyline to (lat, lon), via flat-plane projection onto
+ * each segment (fine at road-corridor scale — a few km at most, no antimeridian concerns here).
+ * Returns { latitude, longitude, distanceMeters } for the closest segment, or null for a
+ * degenerate (<2 point) polyline.
+ */
+function nearestPointOnPolyline(lat, lon, polyline) {
+  if (!Array.isArray(polyline) || polyline.length < 2) return null;
+  const toRad = (d) => (d * Math.PI) / 180;
+  // Local flat-plane scale factors (meters per degree) centered near the query point.
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(toRad(lat));
+  const px = lon * mPerDegLon;
+  const py = lat * mPerDegLat;
+
+  let best = null;
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = polyline[i];
+    const b = polyline[i + 1];
+    const ax = a.longitude * mPerDegLon;
+    const ay = a.latitude * mPerDegLat;
+    const bx = b.longitude * mPerDegLon;
+    const by = b.latitude * mPerDegLat;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq > 0 ? ((px - ax) * dx + (py - ay) * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx;
+    const cy = ay + t * dy;
+    const dMeters = Math.hypot(px - cx, py - cy);
+    if (!best || dMeters < best.distanceMeters) {
+      best = {
+        latitude: cy / mPerDegLat,
+        longitude: cx / mPerDegLon,
+        distanceMeters: dMeters,
+      };
+    }
+  }
+  return best;
+}
+
+const freeFlowProfileCache = new Map();
+const FREE_FLOW_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * "Free-flow" reference speed for a corridor — OSRM's routed duration/distance for the full
+ * corridor, which reflects normal (uncongested) driving conditions since OSRM's default profile
+ * has no live-traffic input. This is the honest baseline the congestion engine compares a bus's
+ * actual live speed against (congestionRatio = 1 - liveSpeed/freeFlowSpeed) — never a guessed or
+ * hardcoded number. Returns null if the corridor has no usable terminal geometry or OSRM/haversine
+ * legs produced zero distance.
+ */
+async function getCorridorFreeFlowProfile(corridorDoc) {
+  const origin = corridorDoc?.originCoverageId?.terminal;
+  const destination = corridorDoc?.destinationCoverageId?.terminal;
+  if (
+    !origin || !Number.isFinite(origin.latitude) || !Number.isFinite(origin.longitude) ||
+    !destination || !Number.isFinite(destination.latitude) || !Number.isFinite(destination.longitude)
+  ) {
+    return null;
+  }
+  const cacheKey = String(corridorDoc._id);
+  const cached = freeFlowProfileCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < FREE_FLOW_PROFILE_CACHE_TTL_MS) {
+    return cached.profile;
+  }
+  const waypoints = buildOrderedRouteWaypoints(origin, corridorDoc.authorizedStops, destination);
+  if (waypoints.length < 2) return null;
+  const { distanceMeters, durationSeconds } = await stitchRouteGeometry(waypoints);
+  let profile = null;
+  if (distanceMeters > 0 && durationSeconds > 0) {
+    profile = {
+      freeFlowKph: (distanceMeters / durationSeconds) * 3.6,
+      distanceMeters,
+      durationSeconds,
+    };
+  }
+  freeFlowProfileCache.set(cacheKey, { ts: Date.now(), profile });
+  return profile;
+}
+
 module.exports = {
   haversineMeters,
   buildOrderedRouteWaypoints,
   stitchRouteGeometry,
   findCorridorForCoverageId,
   getCorridorPolyline,
+  getCorridorPolylineForCoverage,
+  getCorridorFreeFlowProfile,
+  nearestPointOnPolyline,
 };

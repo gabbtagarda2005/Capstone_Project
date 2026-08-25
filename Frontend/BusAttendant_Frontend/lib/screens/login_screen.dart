@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:ui';
 
 import '../config/app_branding.dart';
@@ -29,12 +30,33 @@ class _LoginScreenState extends State<LoginScreen> {
   final _session = SessionStore();
   bool _busy = false;
   String? _error;
+  String _companyName = kAppCompanyName;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadCompanyName());
+  }
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  /// Same source of truth as the admin/passenger apps: whatever the admin set under
+  /// Settings → Company Profile. Falls back to the bundled default if unreachable — this
+  /// screen must still render (and let attendants attempt to sign in) with no backend up yet.
+  Future<void> _loadCompanyName() async {
+    try {
+      final info = await _api.fetchPublicCompanyInfo();
+      final name = info.name.trim();
+      if (!mounted || name.isEmpty) return;
+      setState(() => _companyName = name);
+    } catch (_) {
+      // Keep the bundled default — no network/backend yet is a normal pre-login state.
+    }
   }
 
   Future<void> _submit() async {
@@ -324,7 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 14),
                               Text(
-                                kAppCompanyName,
+                                _companyName,
                                 textAlign: TextAlign.center,
                                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                       color: AppColors.white,

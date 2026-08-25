@@ -89,7 +89,7 @@ function createDriversSignupRouter() {
       }
 
       const otp = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
-      const otpHash = await bcrypt.hash(otp, 10);
+      const otpHash = await bcrypt.hash(otp, 12);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
       const otpDoc = await DriverSignupOtp.create({
@@ -224,7 +224,7 @@ function createDriversSignupRouter() {
 
     try {
       const driverId = await allocateUniqueSixDigit();
-      const ticketEditPinHash = await bcrypt.hash(driverId, 10);
+      const ticketEditPinHash = await bcrypt.hash(driverId, 12);
       const doc = await Driver.create({
         driverId,
         firstName,

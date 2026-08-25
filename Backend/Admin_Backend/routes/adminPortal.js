@@ -22,6 +22,8 @@ const { getPortalSettingsLean, updatePortalSettings } = require("../services/adm
 const { getRbacRoleForEmail } = require("../services/adminRbac");
 const { getSystemEvents } = require("../services/systemHealthLog");
 const { getApiMetrics } = require("../middleware/apiMetrics");
+const { getCongestionEngineDiagnostics } = require("../services/congestionEngine");
+const { GPS_LIVE_MAX_MS, GPS_RECENT_MAX_MS, GPS_STALE_MAX_MS } = require("../config/gpsThresholds");
 const { sendItAccountOtpEmail } = require("../services/mailer");
 const {
   listDailyOpsSnapshots,
@@ -329,7 +331,7 @@ function createAdminPortalRouter() {
       }
 
       const otp = String(Math.floor(100000 + Math.random() * 900000));
-      const otpHash = await bcrypt.hash(otp, 10);
+      const otpHash = await bcrypt.hash(otp, 12);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
       const otpDoc = await AdminItAccountOtp.create({ email, otpHash, expiresAt, consumed: false, attempts: 0 });
@@ -430,7 +432,7 @@ function createAdminPortalRouter() {
         });
       }
 
-      const hash = await bcrypt.hash(password, 10);
+      const hash = await bcrypt.hash(password, 12);
       const doc = await PortalUser.findOneAndUpdate(
         { email },
         {
@@ -465,6 +467,26 @@ function createAdminPortalRouter() {
   /** Real measured per-route request counts / avg latency / error counts since process start. */
   router.get("/api-metrics", requireAdminJwt, (_req, res) => {
     res.json({ items: getApiMetrics(40) });
+  });
+
+  /** Command Center — Traffic/Congestion/ETA service diagnostics (real counters, not simulated). */
+  router.get("/traffic-diagnostics", requireAdminJwt, async (_req, res) => {
+    try {
+      const diagnostics = await getCongestionEngineDiagnostics();
+      res.json(diagnostics);
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Could not load traffic diagnostics" });
+    }
+  });
+
+  /** Single source of truth for GPS freshness cutoffs — see config/gpsThresholds.js. Frontend
+   *  fetches this instead of hardcoding its own copy of the numbers. */
+  router.get("/gps-thresholds", requireAdminJwt, (_req, res) => {
+    res.json({
+      liveMaxMs: GPS_LIVE_MAX_MS,
+      recentMaxMs: GPS_RECENT_MAX_MS,
+      staleMaxMs: GPS_STALE_MAX_MS,
+    });
   });
 
   router.get("/audit-log", requireAdminJwt, async (req, res) => {

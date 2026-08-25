@@ -10,10 +10,55 @@ const https = require("https");
 const OSRM_HOST = process.env.OSRM_HOST || "router.project-osrm.org";
 const OSRM_TIMEOUT_MS = parseInt(process.env.OSRM_TIMEOUT_MS || "5000", 10);
 const ENABLE_OSRM = process.env.ENABLE_OSRM !== "false"; // Default enabled
+// router.project-osrm.org's nginx returns 403 for requests with no User-Agent header
+// (Node's https.get sends none by default, unlike curl) — set one so requests aren't blocked.
+const OSRM_USER_AGENT = process.env.OSRM_USER_AGENT || "BukidnonBusCompany/1.0 (+https://bukidnonbuscompany.app)";
 
 // Request cache (in-memory with TTL)
 const routeCache = new Map();
 const ROUTE_CACHE_TTL_MS = 120000; // 2 minutes
+
+/** Real, process-lifetime counters — not simulated — for Command Center "Traffic Provider" diagnostics. */
+const diagnostics = {
+  requests: 0,
+  failures: 0,
+  totalResponseMs: 0,
+  lastSuccessAt: null,
+  lastFailureAt: null,
+  lastFailureReason: null,
+};
+
+function recordOsrmAttempt(startedAtMs, ok, reason) {
+  diagnostics.requests += 1;
+  diagnostics.totalResponseMs += Date.now() - startedAtMs;
+  if (ok) {
+    diagnostics.lastSuccessAt = new Date().toISOString();
+  } else {
+    diagnostics.failures += 1;
+    diagnostics.lastFailureAt = new Date().toISOString();
+    diagnostics.lastFailureReason = reason ? String(reason).slice(0, 200) : "unknown";
+  }
+}
+
+/** Command Center diagnostics — never fabricated, reflects only real requests since process start. */
+function getOsrmDiagnostics() {
+  const avgResponseMs = diagnostics.requests > 0 ? Math.round(diagnostics.totalResponseMs / diagnostics.requests) : null;
+  const online = !ENABLE_OSRM
+    ? false
+    : diagnostics.lastSuccessAt != null &&
+      (diagnostics.lastFailureAt == null || diagnostics.lastSuccessAt > diagnostics.lastFailureAt);
+  return {
+    enabled: ENABLE_OSRM,
+    host: OSRM_HOST,
+    online: diagnostics.requests === 0 ? null : online, // null = no requests attempted yet
+    requests: diagnostics.requests,
+    failures: diagnostics.failures,
+    avgResponseMs,
+    lastSuccessAt: diagnostics.lastSuccessAt,
+    lastFailureAt: diagnostics.lastFailureAt,
+    lastFailureReason: diagnostics.lastFailureReason,
+  };
+}
 
 /**
  * Generate cache key for route query.
@@ -40,6 +85,7 @@ async function fetchOsrmRoute(lat1, lon1, lat2, lon2) {
     return cached.data;
   }
 
+  const startedAtMs = Date.now();
   try {
     // OSRM format: /route/v1/{profile}/{coordinates}
     // Coordinates must be [lon,lat] (GeoJSON order)
@@ -56,7 +102,7 @@ async function fetchOsrmRoute(lat1, lon1, lat2, lon2) {
 
       const req = https.get(
         `https://${OSRM_HOST}${path}`,
-        { timeout: OSRM_TIMEOUT_MS },
+        { timeout: OSRM_TIMEOUT_MS, headers: { "User-Agent": OSRM_USER_AGENT } },
         (res) => {
           clearTimeout(timeout);
           let data = "";
@@ -66,6 +112,10 @@ async function fetchOsrmRoute(lat1, lon1, lat2, lon2) {
           });
 
           res.on("end", () => {
+            if (res.statusCode !== 200) {
+              reject(new Error(`OSRM responded ${res.statusCode}`));
+              return;
+            }
             try {
               resolve(JSON.parse(data));
             } catch (e) {
@@ -98,15 +148,18 @@ async function fetchOsrmRoute(lat1, lon1, lat2, lon2) {
       // Cache result
       routeCache.set(cacheKey, { data: result, timestamp: Date.now() });
 
+      recordOsrmAttempt(startedAtMs, true);
       return result;
     } else {
       console.warn(
         `[OSRM] Unexpected response: ${response.code || "unknown"}`
       );
+      recordOsrmAttempt(startedAtMs, false, response.code || "unexpected response");
       return null;
     }
   } catch (err) {
     console.warn(`[OSRM] Route fetch failed: ${err.message}`);
+    recordOsrmAttempt(startedAtMs, false, err.message);
     return null;
   }
 }
@@ -168,7 +221,7 @@ async function snapGpsToRoad(latitude, longitude) {
 
       const req = https.get(
         `https://${OSRM_HOST}${path}`,
-        { timeout: OSRM_TIMEOUT_MS },
+        { timeout: OSRM_TIMEOUT_MS, headers: { "User-Agent": OSRM_USER_AGENT } },
         (res) => {
           clearTimeout(timeout);
           let data = "";
@@ -178,6 +231,10 @@ async function snapGpsToRoad(latitude, longitude) {
           });
 
           res.on("end", () => {
+            if (res.statusCode !== 200) {
+              reject(new Error(`OSRM nearest responded ${res.statusCode}`));
+              return;
+            }
             try {
               resolve(JSON.parse(data));
             } catch (e) {
@@ -266,6 +323,7 @@ module.exports = {
   getOsrmEta,
   getOsrmDistance,
   clearRouteCache,
+  getOsrmDiagnostics,
   OSRM_HOST,
   OSRM_TIMEOUT_MS,
   ENABLE_OSRM,

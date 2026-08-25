@@ -180,22 +180,54 @@ function routeLikeName(name) {
     .replace(/\s+/g, " ");
 }
 
-async function resolveNextTerminalForBus(busId) {
+/** Shared by resolveNextTerminalForBus() and getCorridorPolylineForBus() — same fuzzy match. */
+async function matchCorridorForBus(busId) {
   const bus = await Bus.findOne({ busId: String(busId) }).select("route").lean();
   const routeLabel = String(bus?.route || "").trim();
   if (!routeLabel) return null;
   const low = routeLikeName(routeLabel);
-  const routes = await CorridorRoute.find()
+  const routes = await CorridorRoute.find({ suspended: { $ne: true } })
     .populate("originCoverageId", "locationName terminal")
     .populate("destinationCoverageId", "locationName terminal")
     .lean();
-  const match =
+  return (
     routes.find((r) => routeLikeName(r.displayName || "").includes(low) || low.includes(routeLikeName(r.displayName || ""))) ||
     routes.find((r) => {
       const o = String(r.originCoverageId?.locationName || r.originCoverageId?.terminal?.name || "").toLowerCase();
       const d = String(r.destinationCoverageId?.locationName || r.destinationCoverageId?.terminal?.name || "").toLowerCase();
       return low.includes(o) && low.includes(d);
-    });
+    }) ||
+    null
+  );
+}
+
+const corridorPolylineCache = new Map();
+const CORRIDOR_POLYLINE_CACHE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Dense, road-following {latitude,longitude} polyline for the corridor assigned to this bus's
+ * route label — the same line the passenger map draws for "select a bus, see its route". Used to
+ * project a raw GPS fix onto the actual highway the bus is assigned to (rather than whatever OSM
+ * way happens to be nearest), so the live marker doesn't drift onto an unrelated side road.
+ * Cached per corridor since it's built from several stitched OSRM legs. Returns null if the bus
+ * has no resolvable corridor or the corridor has no usable terminal geometry.
+ */
+async function getCorridorPolylineForBus(busId) {
+  const match = await matchCorridorForBus(busId).catch(() => null);
+  if (!match) return null;
+  const cacheKey = String(match._id);
+  const cached = corridorPolylineCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CORRIDOR_POLYLINE_CACHE_TTL_MS) {
+    return cached.polyline;
+  }
+  const { getCorridorPolyline } = require("./corridorGeometry");
+  const polyline = await getCorridorPolyline(match).catch(() => null);
+  corridorPolylineCache.set(cacheKey, { ts: Date.now(), polyline });
+  return polyline;
+}
+
+async function resolveNextTerminalForBus(busId) {
+  const match = await matchCorridorForBus(busId);
   const terminal = match?.destinationCoverageId?.terminal;
   if (terminal && Number.isFinite(terminal.latitude) && Number.isFinite(terminal.longitude)) {
     return {
@@ -227,5 +259,7 @@ module.exports = {
   getTerminalDwellBuffer,
   resolveNextTerminalForBus,
   isNearAnyTerminal,
+  getCorridorPolylineForBus,
+  matchCorridorForBus,
 };
 

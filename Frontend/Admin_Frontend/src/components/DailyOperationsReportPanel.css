@@ -2,13 +2,21 @@
 
 .daily-ops {
   margin-top: 2rem;
-  padding: 1.25rem 1.35rem 1.5rem;
-  border-radius: 16px;
-  background: linear-gradient(165deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.99) 45%, rgba(15, 23, 42, 0.96) 100%);
+  padding: 1.75rem 2rem 2rem;
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse 70% 50% at 8% -12%, rgba(34, 211, 238, 0.07), transparent 55%),
+    linear-gradient(165deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.99) 45%, rgba(15, 23, 42, 0.96) 100%);
   border: 1px solid rgba(51, 65, 85, 0.85);
   box-shadow:
     0 24px 56px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(148, 163, 184, 0.06);
+}
+
+@media (max-width: 640px) {
+  .daily-ops {
+    padding: 1.25rem 1.35rem 1.5rem;
+  }
 }
 
 .daily-ops__schedule {
@@ -53,9 +61,40 @@
   font-weight: 700;
 }
 
+.daily-ops__schedule-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 1.5rem 2rem;
+  align-items: start;
+}
+
+@media (max-width: 780px) {
+  .daily-ops__schedule-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.daily-ops__schedule-col {
+  min-width: 0;
+}
+
+.daily-ops__schedule-col--recipients {
+  padding-left: 1.5rem;
+  border-left: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+@media (max-width: 780px) {
+  .daily-ops__schedule-col--recipients {
+    padding-left: 0;
+    border-left: none;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+  }
+}
+
 .daily-ops__admin-toggles {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 0.85rem;
 }
@@ -64,7 +103,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: 100%;
+  flex: 1 1 15rem;
   text-align: left;
   padding: 0.5rem 0.6rem;
   border-radius: 10px;
@@ -197,6 +236,30 @@
   letter-spacing: 0.04em;
   color: #f1f5f9;
   text-transform: uppercase;
+}
+
+.daily-ops__eyebrow {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #22d3ee;
+}
+
+.daily-ops__hero-title {
+  margin: 0.4rem 0 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #f8fafc;
+  text-shadow: 0 0 24px rgba(34, 211, 238, 0.18);
+}
+
+@media (max-width: 640px) {
+  .daily-ops__hero-title {
+    font-size: 1.3rem;
+  }
 }
 
 .daily-ops__controls {
@@ -442,6 +505,8 @@
 
 .daily-ops__table-wrap {
   overflow-x: auto;
+  max-height: 32rem;
+  overflow-y: auto;
   border-radius: 10px;
   border: 1px solid rgba(30, 41, 59, 0.95);
   background: rgba(2, 6, 23, 0.45);
@@ -454,6 +519,9 @@
 }
 
 .daily-ops__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   text-align: left;
   padding: 0.5rem 0.6rem;
   font-weight: 800;
@@ -461,7 +529,7 @@
   text-transform: uppercase;
   font-size: 0.58rem;
   color: rgba(100, 116, 139, 0.95);
-  background: rgba(15, 23, 42, 0.9);
+  background: #0b1220;
   border-bottom: 1px solid rgba(51, 65, 85, 0.85);
   white-space: nowrap;
 }
@@ -473,8 +541,12 @@
   vertical-align: top;
 }
 
+.daily-ops__table tbody tr:nth-child(even) td {
+  background: rgba(148, 163, 184, 0.035);
+}
+
 .daily-ops__table tbody tr:hover td {
-  background: rgba(30, 41, 59, 0.35);
+  background: rgba(34, 211, 238, 0.08);
 }
 
 .daily-ops__mono {
@@ -515,4 +587,114 @@
   font-size: 0.76rem;
   line-height: 1.45;
   color: rgba(148, 163, 184, 0.95);
+}
+
+/* Report-summary KPI row — top accent stripe per metric, matching the hub-card left-border
+ * language used elsewhere in this file, adapted for a wide horizontal card. */
+.daily-ops__kpi {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.daily-ops__kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--daily-ops-kpi-accent, rgba(148, 163, 184, 0.5));
+}
+
+.daily-ops__kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.3);
+}
+
+.daily-ops__kpi--date {
+  --daily-ops-kpi-accent: #22d3ee;
+}
+
+.daily-ops__kpi--fleet {
+  --daily-ops-kpi-accent: #34d399;
+}
+
+.daily-ops__kpi--registry {
+  --daily-ops-kpi-accent: #a78bfa;
+}
+
+.daily-ops__kpi--green {
+  --daily-ops-kpi-accent: #22c55e;
+}
+
+.daily-ops__kpi--amber {
+  --daily-ops-kpi-accent: #f59e0b;
+}
+
+.daily-ops__kpi--red {
+  --daily-ops-kpi-accent: #ef4444;
+}
+
+.daily-ops__kpi--neutral {
+  --daily-ops-kpi-accent: #64748b;
+}
+
+/* Empty-state cards sit in a single-column grid — without a cap they'd stretch edge-to-edge on a
+ * wide page and look unintentionally sparse. */
+.daily-ops__hub-empty-exec {
+  display: flex;
+  justify-content: center;
+}
+
+.daily-ops__hub-empty-article {
+  max-width: 32rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.75rem 1.5rem;
+}
+
+.daily-ops__hub-empty-article .reports-page__stat-label-row {
+  justify-content: center;
+}
+
+.daily-ops__hub-empty-article strong {
+  margin-top: 0.6rem;
+}
+
+/* Terminal hub health cards — tier accent stripe (same visual language as the KPI row above). */
+.daily-ops__hub-stat {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.daily-ops__hub-stat::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--daily-ops-hub-accent, #64748b);
+}
+
+.daily-ops__hub-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.3);
+}
+
+.daily-ops__hub-stat--green {
+  --daily-ops-hub-accent: #22c55e;
+}
+
+.daily-ops__hub-stat--amber {
+  --daily-ops-hub-accent: #f59e0b;
+}
+
+.daily-ops__hub-stat--red {
+  --daily-ops-hub-accent: #ef4444;
+}
+
+.daily-ops__hub-stat--neutral {
+  --daily-ops-hub-accent: #64748b;
 }

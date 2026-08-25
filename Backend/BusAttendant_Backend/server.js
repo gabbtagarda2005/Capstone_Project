@@ -1,9 +1,14 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const jwt = require("jsonwebtoken");
+const { authLimiter, generalApiLimiter } = require("./middleware/rateLimiters");
 
 const PORT = Number(process.env.BUS_ATTENDANT_PORT || 4011);
-const JWT_SECRET = String(process.env.BUS_ATTENDANT_JWT_SECRET || "change-this-secret");
+// No hardcoded fallback: a shared/guessable default here would let anyone forge attendant tokens.
+// Must match Admin_Backend's JWT_SECRET (see .env.example) — that's what operator-login mints against.
+const JWT_SECRET = process.env.BUS_ATTENDANT_JWT_SECRET ? String(process.env.BUS_ATTENDANT_JWT_SECRET) : "";
 const ADMIN_BACKEND_URL = String(process.env.ADMIN_BACKEND_URL || "http://127.0.0.1:4001").replace(/\/+$/, "");
 
 const app = express();
@@ -24,7 +29,15 @@ app.use(
     optionsSuccessStatus: 204,
   })
 );
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(express.json());
+app.use("/api", generalApiLimiter);
+app.use("/api/auth", (req, res, next) => (req.method === "POST" ? authLimiter(req, res, next) : next()));
 
 const passengers = [
   { id: "PAX-1001", name: "Ana Lopez", category: "regular", lastTrip: "Malaybalay → Valencia" },
@@ -48,11 +61,12 @@ const issuedTickets = [
 ];
 
 function auth(req, res, next) {
+  if (!JWT_SECRET) return res.status(503).json({ error: "BUS_ATTENDANT_JWT_SECRET not configured" });
   const hdr = String(req.headers.authorization || "");
   const token = hdr.startsWith("Bearer ") ? hdr.slice(7) : "";
   if (!token) return res.status(401).json({ error: "Missing bearer token" });
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
     req.user = decoded;
     return next();
   } catch {
@@ -79,9 +93,10 @@ app.get("/api/public/maintenance-status", (_req, res) => {
       res.setHeader("Content-Type", "application/json");
       res.send(text);
     } catch (e) {
+      console.error("[proxy]", "maintenance-status proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "maintenance-status proxy failed",
+        error: "Admin backend unavailable",
+        detail: "maintenance-status proxy failed",
       });
     }
   })();
@@ -102,9 +117,10 @@ app.get("/api/public/broadcast/attendant", (_req, res) => {
       res.setHeader("Content-Type", "application/json");
       res.send(text);
     } catch (e) {
+      console.error("[proxy]", "broadcast proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "broadcast proxy failed",
+        error: "Admin backend unavailable",
+        detail: "broadcast proxy failed",
       });
     }
   })();
@@ -125,9 +141,10 @@ app.get("/api/public/weather-advisories", (_req, res) => {
       res.setHeader("Content-Type", "application/json");
       res.send(text);
     } catch (e) {
+      console.error("[proxy]", "weather-advisories proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "weather-advisories proxy failed",
+        error: "Admin backend unavailable",
+        detail: "weather-advisories proxy failed",
       });
     }
   })();
@@ -147,9 +164,10 @@ app.get("/api/public/company-profile", (_req, res) => {
       res.setHeader("Content-Type", "application/json");
       res.send(text);
     } catch (e) {
+      console.error("[proxy]", "company-profile proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "company-profile proxy failed",
+        error: "Admin backend unavailable",
+        detail: "company-profile proxy failed",
       });
     }
   })();
@@ -169,9 +187,10 @@ app.get("/api/public/attendant-session-policy", (_req, res) => {
       res.setHeader("Content-Type", "application/json");
       res.send(text);
     } catch (e) {
+      console.error("[proxy]", "attendant-session-policy proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "attendant-session-policy proxy failed",
+        error: "Admin backend unavailable",
+        detail: "attendant-session-policy proxy failed",
       });
     }
   })();
@@ -180,6 +199,7 @@ app.get("/api/public/attendant-session-policy", (_req, res) => {
 app.post("/api/auth/operator-login", (req, res) => {
   (async () => {
     try {
+      if (!JWT_SECRET) return res.status(503).json({ error: "BUS_ATTENDANT_JWT_SECRET not configured" });
       const email = String(req.body?.email || "").trim().toLowerCase();
       const password = String(req.body?.password || "");
       if (!email || !password) {
@@ -281,9 +301,10 @@ function proxyJsonToAdmin(reqPath, req, res) {
         }
       }
     } catch (e) {
+      console.error("[proxy]", "proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "proxy failed",
+        error: "Admin backend unavailable",
+        detail: "proxy failed",
       });
     }
   })();
@@ -612,9 +633,10 @@ function proxyTicketingToAdmin(req, res, { method, adminPath, jsonBody }) {
         return res.send(text);
       }
     } catch (e) {
+      console.error("[proxy]", "ticketing proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "ticketing proxy failed",
+        error: "Admin backend unavailable",
+        detail: "ticketing proxy failed",
       });
     }
   })();
@@ -715,9 +737,10 @@ app.get("/api/staff-profile", auth, (req, res) => {
         return res.json({ error: text || "Upstream error", status: upstream.status });
       }
     } catch (e) {
+      console.error("[proxy]", "proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "proxy failed",
+        error: "Admin backend unavailable",
+        detail: "proxy failed",
       });
     }
   })();
@@ -753,9 +776,10 @@ app.get("/api/staff-shift-summary", auth, (req, res) => {
         return res.json({ error: text || "Upstream error", status: upstream.status });
       }
     } catch (e) {
+      console.error("[proxy]", "proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "proxy failed",
+        error: "Admin backend unavailable",
+        detail: "proxy failed",
       });
     }
   })();
@@ -791,9 +815,10 @@ app.get("/api/staff-eta", auth, (req, res) => {
         return res.json({ error: text || "Upstream error", status: upstream.status });
       }
     } catch (e) {
+      console.error("[proxy]", "proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "proxy failed",
+        error: "Admin backend unavailable",
+        detail: "proxy failed",
       });
     }
   })();
@@ -830,9 +855,10 @@ app.get("/api/bus-assignment", auth, (req, res) => {
         return res.json({ error: text || "Upstream error", status: upstream.status });
       }
     } catch (e) {
+      console.error("[proxy]", "proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "proxy failed",
+        error: "Admin backend unavailable",
+        detail: "proxy failed",
       });
     }
   })();
@@ -883,12 +909,13 @@ app.get("/api/staff/profile", auth, (req, res) => {
         bus_id,
       });
     } catch (e) {
+      console.error("[proxy]", "assignment fetch failed", e.message || e);
       res.status(502).json({
         staff,
         assignment: { assigned: false, bus: null },
         bus_id: null,
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "assignment fetch failed",
+        error: "Admin backend unavailable",
+        detail: "assignment fetch failed",
       });
     }
   })();
@@ -931,9 +958,10 @@ function proxyAttendantGpsToAdmin(adminPath, req, res) {
         return res.json({ error: text || "Upstream error", status: upstream.status });
       }
     } catch (e) {
+      console.error("[proxy]", "proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "proxy failed",
+        error: "Admin backend unavailable",
+        detail: "proxy failed",
       });
     }
   })();
@@ -999,9 +1027,10 @@ function proxyPostToAdminAttendant(path, req, res) {
         return res.json({ error: text || "Upstream error", status: upstream.status });
       }
     } catch (e) {
+      console.error("[proxy]", "proxy failed", e.message || e);
       res.status(502).json({
-        error: `Could not reach admin backend (${ADMIN_BACKEND_URL})`,
-        detail: e.message || "proxy failed",
+        error: "Admin backend unavailable",
+        detail: "proxy failed",
       });
     }
   })();

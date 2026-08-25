@@ -13,7 +13,7 @@ function requireAttendantSignupJwt(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(h.slice(7), secret);
+    const payload = jwt.verify(h.slice(7), secret, { algorithms: ["HS256"] });
     if (payload.purpose !== "attendant_signup") {
       return res.status(403).json({ error: "Invalid signup token" });
     }

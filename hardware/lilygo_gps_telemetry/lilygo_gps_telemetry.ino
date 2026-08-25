@@ -36,13 +36,17 @@
 #ifndef DEVICE_API_KEY
 #define DEVICE_API_KEY ""
 #endif
-#if __has_include(<TinyGsmClient.h>)
+/**
+ * Deliberately NOT an #if __has_include(...) guard: Arduino's builder decides which installed
+ * libraries to add to the compiler's include path by scanning for #include lines *before* any
+ * library paths exist yet. __has_include evaluated at that stage always reads "not found" (the
+ * library's path genuinely isn't on the search path yet) and takes the #else/#error branch,
+ * so the real #include inside the untaken #if branch is never seen — the library then never gets
+ * added, even though it's correctly installed. A plain, unconditional #include is what the
+ * builder's library scan actually needs to see.
+ */
 #include <TinyGsmClient.h>
-#elif __has_include(<TinyGSM.h>)
-#include <TinyGSM.h>
-#else
-#error "TinyGSM library not found. Install 'TinyGSM by Volodymyr Shymanskyy' via Library Manager."
-#endif
+
 
 #ifndef GNSS_COORDS_DDMM_FORMAT
 #define GNSS_COORDS_DDMM_FORMAT 0
@@ -283,8 +287,17 @@ static bool fetchGpsFix(double &lat, double &lon) {
   int satUsed = -1;
   float hdop = -1.0f;
   bool ok = parseCgnsinfCsv(line, lat, lon, &satUsed, &hdop);
-  if (ok && !fixMeetsQuality(satUsed, hdop)) {
-    ok = false;
+  if (ok) {
+    Serial.print(F("[gps] fix sats="));
+    Serial.print(satUsed);
+    Serial.print(F(" hdop="));
+    Serial.print(hdop, 2);
+    if (!fixMeetsQuality(satUsed, hdop)) {
+      ok = false;
+      Serial.println(F(" — rejected by quality gate (GPS_MIN_SATELLITES_USED/GPS_MAX_HDOP)"));
+    } else {
+      Serial.println();
+    }
   }
   modem.waitResponse();
   return ok;
@@ -336,7 +349,17 @@ static bool ensureWifiConnected() {
   return true;
 }
 
-/** HTTPS POST via ESP32 (ngrok / TLS reverse proxy). Modem used for GNSS only. */
+/**
+ * 1 (default) = HTTPS/TLS over WiFi (ngrok https://... or any TLS reverse proxy).
+ * 0 = plain HTTP over WiFi — for local dev, when SERVER_HOST is a LAN IP (e.g. your PC's
+ *     192.168.x.x) running Admin_Backend directly with no TLS in front of it. Using the TLS
+ *     client against a plain-HTTP server hangs on the TLS handshake and never posts.
+ */
+#ifndef WIFI_UPLOAD_USE_TLS
+#define WIFI_UPLOAD_USE_TLS 1
+#endif
+
+/** HTTPS (or plain HTTP, see WIFI_UPLOAD_USE_TLS) POST via ESP32 WiFi. Modem used for GNSS only. */
 static bool postTelemetryWifiSecure(double lat, double lng) {
   if (imeiCached.length() != 15) {
     dbg("[post] IMEI invalid");
@@ -365,11 +388,15 @@ static bool postTelemetryWifiSecure(double lat, double lng) {
     return false;
   }
 
+#if WIFI_UPLOAD_USE_TLS
   WiFiClientSecure client;
   client.setInsecure();
+#else
+  WiFiClient client;
+#endif
 
   if (!client.connect(SERVER_HOST, SERVER_PORT)) {
-    dbg("[https] connect failed");
+    dbg("[http] connect failed");
     return false;
   }
 
@@ -378,7 +405,9 @@ static bool postTelemetryWifiSecure(double lat, double lng) {
   client.print(F(" HTTP/1.1\r\nHost: "));
   client.print(SERVER_HOST);
   client.print(F("\r\nContent-Type: application/json\r\nConnection: close\r\n"));
+#if WIFI_UPLOAD_USE_TLS
   client.print(F("ngrok-skip-browser-warning: true\r\n"));
+#endif
   printDeviceIngestHeaders(client);
   client.print(F("Content-Length: "));
   client.print((unsigned)n);
@@ -409,10 +438,10 @@ static bool postTelemetryWifiSecure(double lat, double lng) {
   client.stop();
 
   if (head.indexOf("204") >= 0 || head.indexOf("200") >= 0) {
-    dbg("[https] server accepted");
+    dbg("[http] server accepted");
     return true;
   }
-  dbg("[https] unexpected response");
+  dbg("[http] unexpected response");
   Serial.println(head.substring(0, min((int)head.length(), 280)));
   return false;
 }

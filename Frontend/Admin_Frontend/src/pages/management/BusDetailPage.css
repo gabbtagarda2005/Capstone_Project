@@ -282,6 +282,12 @@
   color: #f8fafc;
 }
 
+.bus-hub__congestion-bar {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(248, 250, 252, 0.1);
+}
+
 .bus-hub__gauge-wrap {
   display: flex;
   flex-direction: column;

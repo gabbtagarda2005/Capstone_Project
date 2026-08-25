@@ -280,3 +280,16 @@
   color: rgba(148, 163, 184, 0.9);
   font-size: 0.88rem;
 }
+
+.live-ops-table__row--clickable {
+  cursor: pointer;
+}
+
+.live-ops-table__row--clickable:hover {
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.live-ops-table__row--clickable:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.6);
+  outline-offset: -2px;
+}

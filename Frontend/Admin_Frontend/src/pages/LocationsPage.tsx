@@ -37,7 +37,16 @@ import {
   postAdminTestGps,
   type BusRouteGeometry,
 } from "@/lib/api";
-import type { CorridorBuilderTerminal, CorridorRouteRow, TicketRow, BusLiveLogRow, BusRow, LiveDispatchBlock } from "@/lib/types";
+import type {
+  CorridorBuilderTerminal,
+  CorridorRouteRow,
+  TicketRow,
+  BusLiveLogRow,
+  BusRow,
+  LiveDispatchBlock,
+  BusCongestion,
+  BusDelay,
+} from "@/lib/types";
 import { haversineMeters, minDistanceToPolylineMetersWithClosestSegment } from "@/lib/haversineMeters";
 import { type GpsSignalTier } from "@/lib/locationsMapUtils";
 import { LiveFleetBusCard } from "@/components/LiveFleetBusCard";
@@ -100,6 +109,8 @@ type SocketLocationPayload = {
   etaTargetIso?: string | null;
   nextTerminal?: string | null;
   trafficDelay?: boolean;
+  congestion?: BusCongestion | null;
+  delay?: BusDelay | null;
 };
 
 function parseSocketSignal(raw: unknown): GpsSignalTier | null {
@@ -118,6 +129,25 @@ function parseSocketNet(raw: unknown): "wifi" | "4g" | "unknown" | null {
   const s = raw != null ? String(raw).trim().toLowerCase() : "";
   if (s === "wifi" || s === "4g" || s === "unknown") return s;
   return null;
+}
+
+/** Real road-congestion tiers (services/congestionEngine.js) → trail/ring color. Free flow keeps
+ *  the existing default cyan; each tier above it steps toward red as congestion increases. */
+function congestionColor(level: BusCongestion["level"] | null | undefined): string | null {
+  switch (level) {
+    case "FREE_FLOW":
+      return "#22d3ee";
+    case "MODERATE":
+      return "#facc15";
+    case "SLOW":
+      return "#fb923c";
+    case "HEAVY":
+      return "#f97316";
+    case "SEVERE":
+      return "#ef4444";
+    default:
+      return null;
+  }
 }
 
 function formatCorridorDisplay(routeLabel: string): string {
@@ -160,6 +190,8 @@ function mergeLiveLogRow(prev: BusLiveLogRow[], p: SocketLocationPayload): BusLi
     ...(p.etaTargetIso !== undefined ? { etaTargetIso: p.etaTargetIso } : {}),
     ...(p.nextTerminal !== undefined ? { nextTerminal: p.nextTerminal } : {}),
     ...(p.trafficDelay !== undefined ? { trafficDelay: p.trafficDelay } : {}),
+    ...(p.congestion !== undefined ? { congestion: p.congestion } : {}),
+    ...(p.delay !== undefined ? { delay: p.delay } : {}),
   };
   const idx = prev.findIndex((x) => x.busId === busId);
   if (idx >= 0) {
@@ -182,6 +214,8 @@ function mergeLiveLogRow(prev: BusLiveLogRow[], p: SocketLocationPayload): BusLi
       etaTargetIso: p.etaTargetIso !== undefined ? p.etaTargetIso : existing.etaTargetIso,
       nextTerminal: p.nextTerminal !== undefined ? p.nextTerminal : existing.nextTerminal,
       trafficDelay: p.trafficDelay !== undefined ? p.trafficDelay : existing.trafficDelay,
+      congestion: p.congestion !== undefined ? p.congestion : existing.congestion,
+      delay: p.delay !== undefined ? p.delay : existing.delay,
     };
     return next;
   }
@@ -1110,6 +1144,9 @@ export function LocationsPage() {
         etaTargetIso: log.etaTargetIso ?? null,
         nextTerminal: log.nextTerminal ?? null,
         trafficDelay: log.trafficDelay === true,
+        congestion: log.congestion ?? null,
+        delay: log.delay ?? null,
+        gpsFreshness: log.gpsFreshness ?? null,
       };
     });
   }, [
@@ -1168,6 +1205,29 @@ export function LocationsPage() {
   const trafficDelayHintByBus = useMemo(() => {
     const out = new Map<string, string>();
     for (const b of busState) {
+      // Prefer the real congestion/delay engine (services/delayClassifier.js) — only claims
+      // "Heavy traffic" when the corridor's actual congestion reading supports it, and never
+      // judges a bus that has no fresh GPS as if it were simply running late.
+      if (b.delay) {
+        if (b.delay.tier === "GPS_STALE") {
+          out.set(b.busId, "GPS stale — delay unknown");
+          continue;
+        }
+        if (b.delay.tier === "ON_TIME") {
+          out.set(b.busId, "On time");
+          continue;
+        }
+        if (b.delay.tier === "UNKNOWN") {
+          out.set(b.busId, b.delay.reason || "Delay reason unavailable");
+          continue;
+        }
+        const label =
+          b.delay.tier === "MINOR_DELAY" ? "Minor delay" : b.delay.tier === "MODERATE_DELAY" ? "Moderate delay" : "Major delay";
+        const reasonText = b.delay.reason ? ` — ${b.delay.reason}` : "";
+        out.set(b.busId, b.delay.delayMinutes != null ? `${label}: +${b.delay.delayMinutes} min${reasonText}` : `${label}${reasonText}`);
+        continue;
+      }
+      // Fallback for a bus the new engine hasn't classified yet (e.g. very first snapshot).
       const etaMin = b.etaMinutes != null ? Number(b.etaMinutes) : NaN;
       const delayMin = delayMinutesByBus.get(b.busId) ?? 0;
       const speed = b.speedKph != null ? Number(b.speedKph) : NaN;
@@ -1376,12 +1436,27 @@ export function LocationsPage() {
                         .filter((s) => !!s.a && !!s.b);
                       const now = Date.now();
                       const hasSosRing = (sosRingUntil[b.busId] ?? 0) > now;
-                      const isTrafficRisk = layers.traffic && (b.trafficDelay || (b.speedKph != null && b.speedKph < 15));
-                      const isDelayRisk = layers.delays && isDelayed;
+                      const congestionLevel = b.congestion?.status === "ok" ? b.congestion.level : null;
+                      const isTrafficRisk =
+                        layers.traffic &&
+                        (congestionLevel === "HEAVY" ||
+                          congestionLevel === "SEVERE" ||
+                          (congestionLevel == null && (b.trafficDelay || (b.speedKph != null && b.speedKph < 15))));
+                      const delayTier = b.delay?.tier;
+                      const isDelayRisk =
+                        layers.delays &&
+                        (delayTier === "MODERATE_DELAY" || delayTier === "MAJOR_DELAY" || (delayTier == null && isDelayed));
                       const routeAvg = averageSpeedByRoute.get(String(b.assignedRoute || "Assigned route —").trim()) ?? null;
                       const speedDropRisk =
                         b.speedKph != null && routeAvg != null && routeAvg > 0 && Number(b.speedKph) <= routeAvg * 0.7;
-                      const trailColor = isDelayRisk || speedDropRisk ? "#fb923c" : isTrafficRisk ? "#f59e0b" : "#00FFFF";
+                      const trailColor =
+                        layers.traffic && congestionColor(congestionLevel)
+                          ? (congestionColor(congestionLevel) as string)
+                          : isDelayRisk || speedDropRisk
+                            ? "#fb923c"
+                            : isTrafficRisk
+                              ? "#f59e0b"
+                              : "#00FFFF";
                       const pinFill = b.speedCritical ? "#ef4444" : b.terminalArrival || b.stationary ? "#3b82f6" : "#00FFFF";
                       const pinRadius = b.speedCritical ? 13 : b.terminalArrival || b.stationary ? 9 : 11;
                       return (
@@ -1652,12 +1727,27 @@ export function LocationsPage() {
                         .filter((s) => !!s.a && !!s.b);
                       const now = Date.now();
                       const hasSosRing = (sosRingUntil[b.busId] ?? 0) > now;
-                      const isTrafficRisk = layers.traffic && (b.trafficDelay || (b.speedKph != null && b.speedKph < 15));
-                      const isDelayRisk = layers.delays && isDelayed;
+                      const congestionLevel = b.congestion?.status === "ok" ? b.congestion.level : null;
+                      const isTrafficRisk =
+                        layers.traffic &&
+                        (congestionLevel === "HEAVY" ||
+                          congestionLevel === "SEVERE" ||
+                          (congestionLevel == null && (b.trafficDelay || (b.speedKph != null && b.speedKph < 15))));
+                      const delayTier = b.delay?.tier;
+                      const isDelayRisk =
+                        layers.delays &&
+                        (delayTier === "MODERATE_DELAY" || delayTier === "MAJOR_DELAY" || (delayTier == null && isDelayed));
                       const routeAvg = averageSpeedByRoute.get(String(b.assignedRoute || "Assigned route —").trim()) ?? null;
                       const speedDropRisk =
                         b.speedKph != null && routeAvg != null && routeAvg > 0 && Number(b.speedKph) <= routeAvg * 0.7;
-                      const trailColor = isDelayRisk || speedDropRisk ? "#fb923c" : isTrafficRisk ? "#f59e0b" : "#00FFFF";
+                      const trailColor =
+                        layers.traffic && congestionColor(congestionLevel)
+                          ? (congestionColor(congestionLevel) as string)
+                          : isDelayRisk || speedDropRisk
+                            ? "#fb923c"
+                            : isTrafficRisk
+                              ? "#f59e0b"
+                              : "#00FFFF";
                       const pinFill = b.speedCritical ? "#ef4444" : b.terminalArrival ? "#3b82f6" : "#00FFFF";
                       const pinScale = b.terminalArrival ? 7.5 : b.speedCritical ? 9 : 8;
                       return (

@@ -2,13 +2,29 @@ require("dotenv").config();
 const http = require("http");
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const mongoose = require("mongoose");
 const { Server } = require("socket.io");
+const { generalApiLimiter, writeLimiter } = require("./middleware/rateLimiters");
 
 const app = express();
 const server = http.createServer(app);
 
-const corsOrigin = process.env.CORS_ORIGIN || "*";
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+/** Unset CORS_ORIGIN must NOT silently fall open — default to the known local dev frontends.
+ *  "*" is only honored when explicitly set (an intentional, logged choice for a controlled demo). */
+const DEFAULT_DEV_ORIGINS = "http://localhost:5174,http://localhost:5173,http://127.0.0.1:5174,http://127.0.0.1:5173";
+const corsOriginRaw = process.env.CORS_ORIGIN;
+const corsOrigin = corsOriginRaw && corsOriginRaw.trim() ? corsOriginRaw.trim() : DEFAULT_DEV_ORIGINS;
+if (corsOrigin === "*") {
+  console.warn("[cors] CORS_ORIGIN=* — all origins allowed. Set an explicit allowlist before production.");
+}
 const corsList =
   corsOrigin === "*" ? true : corsOrigin.split(",").map((s) => s.trim());
 
@@ -18,6 +34,7 @@ app.use(
   })
 );
 app.use(express.json({ limit: (process.env.JSON_BODY_LIMIT || "12mb").trim() || "12mb" }));
+app.use("/api", generalApiLimiter);
 
 const PassengerTerminalAffinity = require("./models/PassengerTerminalAffinity");
 
@@ -57,7 +74,7 @@ app.get("/api/passenger/map-config", (_req, res) => {
 /**
  * Log nearest terminal coverage id when a passenger enables location (no coordinates persisted).
  */
-app.post("/api/passenger/terminal-affinity", async (req, res) => {
+app.post("/api/passenger/terminal-affinity", writeLimiter, async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.status(204).send();
@@ -73,7 +90,8 @@ app.post("/api/passenger/terminal-affinity", async (req, res) => {
     );
     return res.status(204).send();
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error("[terminal-affinity]", e.message || e);
+    return res.status(500).json({ error: "Could not record terminal affinity" });
   }
 });
 
@@ -103,7 +121,8 @@ async function proxyAdminPublic(req, res) {
     if (ct) res.setHeader("Content-Type", ct);
     res.send(text);
   } catch (e) {
-    res.status(502).json({ error: e.message || "Admin backend unavailable" });
+    console.error("[proxyAdminPublic]", e.message || e);
+    res.status(502).json({ error: "Admin backend unavailable" });
   }
 }
 

@@ -50,6 +50,54 @@
 #define GNSS_ENABLE_MULTI_CONSTELLATION 0
 #endif
 
+/**
+ * T-A7670 boards gate the modem's entire power rail behind BOARD_POWERON_PIN — without driving it
+ * HIGH first, the modem is physically unpowered and no amount of PWRKEY-button holding or AT-retry
+ * waiting gets a response (confirmed on hardware: 20s of retries + holding the board's PWR button
+ * still produced zero AT replies). Pin numbers and sequence verified against LilyGO's own official
+ * example for this exact board (Xinyuan-LilyGO/LilyGO-T-A76XX, examples/Network/Network.ino).
+ */
+#ifndef BOARD_POWERON_PIN
+#define BOARD_POWERON_PIN 12
+#endif
+#ifndef BOARD_PWRKEY_PIN
+#define BOARD_PWRKEY_PIN 4
+#endif
+#ifndef MODEM_RESET_PIN
+#define MODEM_RESET_PIN 5
+#endif
+#ifndef MODEM_RESET_LEVEL
+#define MODEM_RESET_LEVEL HIGH
+#endif
+#ifndef MODEM_DTR_PIN
+#define MODEM_DTR_PIN 25
+#endif
+#ifndef MODEM_POWERON_PULSE_WIDTH_MS
+#define MODEM_POWERON_PULSE_WIDTH_MS 100
+#endif
+
+static void powerOnModem() {
+  pinMode(BOARD_POWERON_PIN, OUTPUT);
+  digitalWrite(BOARD_POWERON_PIN, HIGH);
+
+  pinMode(MODEM_RESET_PIN, OUTPUT);
+  digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL);
+  delay(100);
+  digitalWrite(MODEM_RESET_PIN, MODEM_RESET_LEVEL);
+  delay(2600);
+  digitalWrite(MODEM_RESET_PIN, !MODEM_RESET_LEVEL);
+
+  pinMode(MODEM_DTR_PIN, OUTPUT);
+  digitalWrite(MODEM_DTR_PIN, LOW);
+
+  pinMode(BOARD_PWRKEY_PIN, OUTPUT);
+  digitalWrite(BOARD_PWRKEY_PIN, LOW);
+  delay(100);
+  digitalWrite(BOARD_PWRKEY_PIN, HIGH);
+  delay(MODEM_POWERON_PULSE_WIDTH_MS);
+  digitalWrite(BOARD_PWRKEY_PIN, LOW);
+}
+
 HardwareSerial ModemSerial(1);
 
 static double gSmoothLat[GPS_SMOOTH_MAX];
@@ -186,8 +234,14 @@ static double dmToDecimalDegrees(double dm) {
 }
 
 /**
- * Typical SIM7670 / A7670: +CGNSSINFO: <mode>,<sats>,<lat>,<NS>,<lon>,<EW>,<alt>,<speed>,...
- * If your modem prints a different layout, adjust indices in config or parsing below.
+ * Verified directly against this exact chip/firmware via a live raw-NMEA-vs-CGNSSINFO diagnostic
+ * (AT+CGNSSTST=1 streaming confirmed a real GPS fix — 8.1581793,125.1255264, matching the deployed
+ * location exactly — while AT+CGNSSINFO on the *same* fix returned:
+ *   +CGNSSINFO: 3,13,,02,02,8.1581793,N,125.1255264,E,250826,172625.00,726.3,0.000,264.80,3.25,1.60,2.xx
+ * i.e. <mode>,<GPS-sats>,<GLONASS-sats>,<BeiDou-sats>,<extra>,<lat>,<N/S>,<lon>,<E/W>,<date>,<time>,
+ * <alt>,<speed>,<course>,<PDOP>,<HDOP>,<VDOP> — NOT the <mode>,<sats>,<lat>,<NS>,<lon>,<EW>,... layout
+ * this parser previously assumed. That mismatch (reading part[3]="02" as the N/S letter, which never
+ * equals "N"/"S") is why every fix got silently rejected here even while GNSS was genuinely locked.
  */
 static bool parseCgnssinfo(const String &resp, double &lat, double &lon, float &speedKph, int &sats) {
   int p = resp.indexOf("+CGNSSINFO:");
@@ -207,7 +261,7 @@ static bool parseCgnssinfo(const String &resp, double &lat, double &lon, float &
 
   String parts[20];
   int n = splitCsv(payload, parts, 20);
-  if (n < 8) {
+  if (n < 9) {
     return false;
   }
 
@@ -216,14 +270,14 @@ static bool parseCgnssinfo(const String &resp, double &lat, double &lon, float &
     return false;
   }
 
-  double latv = parts[2].toDouble();
-  double lonv = parts[4].toDouble();
+  double latv = parts[5].toDouble();
+  double lonv = parts[7].toDouble();
 #if GNSS_COORDS_DDMM_FORMAT
   latv = dmToDecimalDegrees(latv);
   lonv = dmToDecimalDegrees(lonv);
 #endif
-  String ns = parts[3];
-  String ew = parts[5];
+  String ns = parts[6];
+  String ew = parts[8];
   ns.toUpperCase();
   ew.toUpperCase();
 
@@ -379,10 +433,36 @@ void setup() {
   dbg("");
   dbg("=== LilyGO T-A7670E Wi-Fi telemetry ===");
 
+  dbg("[modem] power-on sequence (BOARD_POWERON_PIN/RESET/PWRKEY)…");
+  powerOnModem();
+
   ModemSerial.begin(MODEM_BAUD, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
   delay(800);
-  modemExchange("AT", 800);
-  modemExchange("ATE0", 800);
+
+  /** Modem power-on (PWR button / power rail) doesn't line up neatly with sketch startup timing —
+   *  retry the basic AT handshake for a while instead of giving up after one 800ms attempt, so a
+   *  modem that's still booting when the ESP32 reaches this point still gets picked up. */
+  dbg("[modem] waiting for AT response…");
+  bool modemReady = false;
+  const uint32_t MODEM_AT_RETRY_WINDOW_MS = 20000;
+  uint32_t atWaitStart = millis();
+  while (millis() - atWaitStart < MODEM_AT_RETRY_WINDOW_MS) {
+    String r = modemExchange("AT", 800);
+    if (r.indexOf("OK") >= 0) {
+      modemReady = true;
+      break;
+    }
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println();
+  if (modemReady) {
+    dbg("[modem] AT OK");
+    modemExchange("ATE0", 800);
+  } else {
+    dbg("[modem] no AT response after 20s — check UART pins (MODEM_RX_PIN/MODEM_TX_PIN in "
+        "config.h), modem power/PWR button, and baud rate.");
+  }
 
   if (!extractImei15(imeiCached)) {
     dbg("[fatal] Could not read 15-digit IMEI (AT+CGSN). Check UART pins.");
@@ -400,12 +480,37 @@ void setup() {
 #endif
   delay(GNSS_WARMUP_MS);
 
+#if DEBUG_AT_PASSTHROUGH
+  /**
+   * Raw bidirectional bridge between USB Serial and the modem UART — modem is already powered on
+   * and GNSS-enabled at this point (same state as normal operation), but instead of running the
+   * telemetry loop, every byte typed into Serial Monitor goes straight to the modem and every byte
+   * the modem sends comes straight back. Exists so arbitrary AT commands (e.g.
+   * AT+CGNSSPORTSWITCH=0,1, AT+CGNSSTST=1, or raw AT+CGNSSINFO polling) can be tried live —
+   * including from an external tool driving COM3 directly — without needing a reflash per attempt.
+   * This exact command's parameters aren't in this codebase as fact; this mode exists specifically
+   * to let them be tried and observed directly instead of guessed into firmware.
+   */
+  dbg("[debug] AT PASSTHROUGH MODE — type/send raw AT commands directly to the modem now.");
+  dbg("[debug] e.g. AT+CGNSSPORTSWITCH=0,1  then  AT+CGNSSTST=1  then watch for NMEA (GSV = satellites in view).");
+  while (true) {
+    while (Serial.available()) {
+      ModemSerial.write((uint8_t)Serial.read());
+    }
+    while (ModemSerial.available()) {
+      Serial.write((uint8_t)ModemSerial.read());
+    }
+  }
+#endif
+
   dbg("[loop] POST interval (ms): ");
   Serial.println(POST_INTERVAL_MS);
 }
 
 void loop() {
   if (imeiCached.length() != 15) {
+    dbg("[modem] still no IMEI (never got a usable AT response in setup) — reset the board (RST) "
+        "to retry modem init; this loop iteration otherwise does nothing.");
     delay(POST_INTERVAL_MS);
     return;
   }

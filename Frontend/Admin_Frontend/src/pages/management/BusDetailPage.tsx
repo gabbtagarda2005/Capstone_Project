@@ -5,7 +5,8 @@ import { MgmtBackLink } from "@/components/MgmtBackLink";
 import { MapContainer, Marker, Polyline, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Swal from "sweetalert2";
-import { ADMIN_API_ORIGIN, api, fetchBusRevenue, fetchCorridorRoutes, getToken } from "@/lib/api";
+import { ADMIN_API_ORIGIN, api, fetchBusRevenue, fetchBusCongestionHistory, fetchCorridorRoutes, getToken } from "@/lib/api";
+import { CorridorTrafficLoadBar, type TrafficSegmentLevel } from "@/components/CorridorTrafficLoadBar";
 import { isFastPulse, makeBusDivIcon } from "@/lib/locationsMapUtils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import type { AttendantVerifiedSummary, BusLiveLogRow, BusRow, CorridorRouteRow, TicketRow } from "@/lib/types";
@@ -197,6 +198,7 @@ export function BusDetailPage() {
   const [ticketCount, setTicketCount] = useState(0);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueError, setRevenueError] = useState<string | null>(null);
+  const [congestionSegments, setCongestionSegments] = useState<TrafficSegmentLevel[]>([]);
 
   function openDatePicker() {
     setDraftFrom(customFrom);
@@ -224,6 +226,21 @@ export function BusDetailPage() {
     document.addEventListener("mousedown", onDocPointerDown);
     return () => document.removeEventListener("mousedown", onDocPointerDown);
   }, [pickerOpen]);
+
+  useEffect(() => {
+    if (!bus?.busId) return;
+    let cancelled = false;
+    fetchBusCongestionHistory(bus.busId)
+      .then((r) => {
+        if (!cancelled) setCongestionSegments(r.segments);
+      })
+      .catch(() => {
+        if (!cancelled) setCongestionSegments([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bus?.busId]);
 
   useEffect(() => {
     if (!bus?.id) return;
@@ -724,6 +741,11 @@ export function BusDetailPage() {
               <strong>{gpsSourceLabel}</strong>
             </span>
           </div>
+          {congestionSegments.length > 0 ? (
+            <div className="bus-hub__congestion-bar">
+              <CorridorTrafficLoadBar label="Recent road conditions" segments={congestionSegments} />
+            </div>
+          ) : null}
         </div>
 
         <div className="bus-hub__tile" style={{ gridColumn: "1 / -1" }}>

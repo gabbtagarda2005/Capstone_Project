@@ -18,6 +18,8 @@ type Props = {
   /** Passenger management: edit/delete Mongo ticket rows (admin portal). */
   onEditTicket?: (t: TicketRow) => void;
   onDeleteTicket?: (t: TicketRow) => void;
+  /** Opens a read-only detail view for the ticket (e.g. attendant dossier's ticket list). */
+  onRowClick?: (t: TicketRow) => void;
 };
 
 function IconPencilTiny() {
@@ -50,6 +52,7 @@ export function LiveTicketOperationsTable({
   busNumberFallback,
   onEditTicket,
   onDeleteTicket,
+  onRowClick,
 }: Props) {
   const rowActions = Boolean(onEditTicket || onDeleteTicket);
   const sorted = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -126,7 +129,23 @@ export function LiveTicketOperationsTable({
               const busRaw = t.busNumber != null && String(t.busNumber).trim() ? String(t.busNumber).trim() : "";
               const bus = busRaw || (busNumberFallback?.trim() ? busNumberFallback.trim() : "—");
               return (
-                <tr key={String(t.id)}>
+                <tr
+                  key={String(t.id)}
+                  className={onRowClick ? "live-ops-table__row--clickable" : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? "button" : undefined}
+                  onClick={onRowClick ? () => onRowClick(t) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (ev) => {
+                          if (ev.key === "Enter" || ev.key === " ") {
+                            ev.preventDefault();
+                            onRowClick(t);
+                          }
+                        }
+                      : undefined
+                  }
+                >
                   <td className="live-ops-table__num">{i + 1}</td>
                   <td className="live-ops-table__mono" title={t.passengerId}>
                     {t.passengerId}
@@ -164,7 +183,10 @@ export function LiveTicketOperationsTable({
                             title={isMongoTicketId(t.id) ? "Edit ticket" : "Legacy ticket — edit unavailable"}
                             aria-label="Edit ticket"
                             disabled={!isMongoTicketId(t.id)}
-                            onClick={() => isMongoTicketId(t.id) && onEditTicket(t)}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              if (isMongoTicketId(t.id)) onEditTicket(t);
+                            }}
                           >
                             <IconPencilTiny />
                           </button>
@@ -176,7 +198,10 @@ export function LiveTicketOperationsTable({
                             title={isMongoTicketId(t.id) ? "Delete ticket" : "Legacy ticket — delete unavailable"}
                             aria-label="Delete ticket"
                             disabled={!isMongoTicketId(t.id)}
-                            onClick={() => isMongoTicketId(t.id) && onDeleteTicket(t)}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              if (isMongoTicketId(t.id)) onDeleteTicket(t);
+                            }}
                           >
                             <IconTrashTiny />
                           </button>

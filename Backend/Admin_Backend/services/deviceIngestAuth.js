@@ -1,11 +1,13 @@
+const { verifyDeviceCredential } = require("./deviceRegistry");
+
 /**
- * LilyGo / field hardware → Admin ingest.
- * Optional env (set at least one in production):
+ * Legacy fleet-wide shared secret. Kept for devices not yet migrated to a per-device credential.
+ * Optional env (set at least one in production if you rely on this path):
  *   DEVICE_INGEST_SECRET   → header x-device-secret must match
  *   DEVICE_INGEST_API_KEY  → header x-api-key (or x-ingest-api-key) must match
  * If both are set, both headers must match.
  */
-function assertDeviceIngestAllowed(req) {
+function assertSharedSecretAllowed(req) {
   const apiKey = process.env.DEVICE_INGEST_API_KEY != null ? String(process.env.DEVICE_INGEST_API_KEY).trim() : "";
   const secret = process.env.DEVICE_INGEST_SECRET != null ? String(process.env.DEVICE_INGEST_SECRET).trim() : "";
   const gotKey = String(req.headers["x-api-key"] || req.headers["x-ingest-api-key"] || "").trim();
@@ -40,6 +42,33 @@ function assertDeviceIngestAllowed(req) {
   }
 }
 
+/**
+ * Authenticates a LILYGO/field-hardware ingest request. Prefers a per-device credential
+ * (x-device-id + x-device-key headers, issued via services/deviceRegistry.js) when present —
+ * that is the only mode where the reporting busId is server-verified from a registry rather than
+ * trusted from the request body/IMEI lookup. Falls back to the fleet-wide shared secret for
+ * devices not yet migrated to a per-device credential (see SECURITY.md for the migration note).
+ * @returns {Promise<string|null>} the server-verified busId when a per-device credential was used
+ *   (the caller should treat this as authoritative, overriding whatever busId/imei the body
+ *   claimed); null when falling back to the legacy shared-secret path, meaning the caller keeps
+ *   resolving busId from the request body/IMEI as before.
+ */
+async function authenticateDeviceIngest(req, claimedBusId) {
+  const deviceId = String(req.headers["x-device-id"] || "").trim();
+  const deviceKey = String(req.headers["x-device-key"] || "").trim();
+  if (deviceId && deviceKey) {
+    const result = await verifyDeviceCredential({ deviceId, secret: deviceKey, claimedBusId });
+    if (!result.ok) {
+      const e = new Error(`Device authentication failed: ${result.reason}`);
+      e.statusCode = 401;
+      throw e;
+    }
+    return result.busId;
+  }
+  assertSharedSecretAllowed(req);
+  return null;
+}
+
 /** Accept JSON { lat, lng } as aliases for ingestDeviceGps { latitude, longitude }. */
 function normalizeHardwareLatLngBody(body) {
   const b = { ...(body || {}) };
@@ -48,4 +77,4 @@ function normalizeHardwareLatLngBody(body) {
   return b;
 }
 
-module.exports = { assertDeviceIngestAllowed, normalizeHardwareLatLngBody };
+module.exports = { authenticateDeviceIngest, normalizeHardwareLatLngBody };

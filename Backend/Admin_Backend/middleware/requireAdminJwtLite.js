@@ -18,7 +18,7 @@ function requireAdminJwtLite(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(h.slice(7), secret);
+    const payload = jwt.verify(h.slice(7), secret, { algorithms: ["HS256"] });
     if (payload.role !== "Admin") {
       return res.status(403).json({ error: "Admin access only" });
     }

@@ -93,7 +93,7 @@ async function findBusAttendantRecoveryPreview(email) {
 }
 
 async function applyOperatorPasswordUpdate(email, newPassword, _mysqlOperatorIdLegacy, portalUserId) {
-  const hash = await bcrypt.hash(newPassword, 10);
+  const hash = await bcrypt.hash(newPassword, 12);
   const em = normalizeEmail(email);
   if (portalUserId) {
     const upd = await PortalUser.updateOne(
@@ -183,6 +183,12 @@ function signToken(userPayload, secret) {
 function createAuthTicketingRouter() {
   const router = express.Router();
 
+  // Every POST here is credential/OTP-guessing surface (login, google-login, forgot/reset,
+  // OTP verify) — throttle those; leave GET /me and GET /validate-reset-token (session checks
+  // on an already-issued JWT/token, not a guessing target) unthrottled.
+  const { authLimiter } = require("../middleware/rateLimiters");
+  router.use((req, res, next) => (req.method === "POST" ? authLimiter(req, res, next) : next()));
+
   router.post("/login", async (req, res) => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -268,7 +274,7 @@ function createAuthTicketingRouter() {
             lastName: names.lastName,
           },
           $setOnInsert: {
-            password: await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 10),
+            password: await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 12),
           },
         },
         { upsert: true, new: true }
@@ -393,7 +399,7 @@ function createAuthTicketingRouter() {
       }
 
       const otp = String(Math.floor(100000 + Math.random() * 900000));
-      const otpHash = await bcrypt.hash(otp, 10);
+      const otpHash = await bcrypt.hash(otp, 12);
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
       await OperatorPasswordResetOtp.create({
@@ -517,7 +523,7 @@ function createAuthTicketingRouter() {
       }
 
       const otp = String(Math.floor(100000 + Math.random() * 900000));
-      const otpHash = await bcrypt.hash(otp, 10);
+      const otpHash = await bcrypt.hash(otp, 12);
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
       await OperatorPasswordResetOtp.create({
@@ -667,7 +673,7 @@ function createAuthTicketingRouter() {
     }
 
     try {
-      const payload = jwt.verify(h.slice(7), secret);
+      const payload = jwt.verify(h.slice(7), secret, { algorithms: ["HS256"] });
       const oid = String(payload.sub || "");
       if (!mongoose.Types.ObjectId.isValid(oid)) {
         return res.status(401).json({ error: "Invalid token" });
@@ -748,7 +754,7 @@ function createAuthTicketingRouter() {
       if (!user) return res.status(404).json({ error: "No admin account found for this email" });
 
       const otp = String(Math.floor(100000 + Math.random() * 900000));
-      const otpHash = await bcrypt.hash(otp, 10);
+      const otpHash = await bcrypt.hash(otp, 12);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
       const otpDoc = await AdminOtpCode.create({
@@ -879,7 +885,7 @@ function createAuthTicketingRouter() {
         return res.status(403).json({ error: "Access Denied: Unauthorized Admin Account" });
       }
 
-      const hash = await bcrypt.hash(newPassword, 10);
+      const hash = await bcrypt.hash(newPassword, 12);
       const upd = await PortalUser.updateOne(
         { email, role: "Admin" },
         { $set: { password: hash } }

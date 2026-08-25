@@ -16,7 +16,7 @@ function requireTicketIssuerJwt(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(h.slice(7), secret);
+    const payload = jwt.verify(h.slice(7), secret, { algorithms: ["HS256"] });
     const role = payload.role;
     if (role === "Admin") {
       const email = normalizeEmail(payload.email);

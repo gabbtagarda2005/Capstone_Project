@@ -116,7 +116,12 @@ static bool postPingWifiSecure(double lat, double lng) {
   }
 
   WiFiClientSecure client;
-  client.setInsecure();  // dev: skip CA verify (ngrok public cert rotates)
+  // DEV/DEMO ONLY: skips certificate verification, so this connection can be MITM'd by anything
+  // on the network path. Acceptable only because this sketch talks to an ephemeral ngrok tunnel
+  // during development. Do NOT reuse this pattern for a real fleet deployment — point production
+  // units at a fixed domain with a real cert and use client.setCACert(...) with that CA instead.
+  client.setInsecure();
+  dbg("[https] WARNING: certificate verification disabled (dev/ngrok mode only)");
 
   if (!client.connect(SERVER_HOST, SERVER_PORT)) {
     dbg("[https] connect failed");

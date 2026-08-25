@@ -32,7 +32,7 @@ async function main() {
       skipped++;
       continue;
     }
-    const hash = await bcrypt.hash(id, 10);
+    const hash = await bcrypt.hash(id, 12);
     await Driver.updateOne({ _id: doc._id }, { $set: { ticketEditPinHash: hash } });
     updated++;
   }

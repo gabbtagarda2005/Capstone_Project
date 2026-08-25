@@ -17,7 +17,7 @@ function verifyOperatorTicketingToken(token) {
   const secret = process.env.JWT_SECRET;
   if (!secret || !token) return null;
   try {
-    const payload = jwt.verify(String(token).trim(), secret);
+    const payload = jwt.verify(String(token).trim(), secret, { algorithms: ["HS256"] });
     const role = payload.role;
     if (role === "Admin") {
       const email = normalizeEmail(payload.email);
@@ -33,6 +33,20 @@ function verifyOperatorTicketingToken(token) {
   } catch {
     return null;
   }
+}
+
+/** Per-socket flood guard for attendant_live_location — a compromised/buggy client emitting in a
+ *  tight loop shouldn't be able to hammer ingestAttendantGps (DB writes + broadcast) unbounded.
+ *  A real phone/device pings every few seconds; this allows a generous burst above that. */
+const LOCATION_EVENT_WINDOW_MS = 10_000;
+const LOCATION_EVENT_MAX_PER_WINDOW = 20;
+
+function isLocationEventRateLimited(socket) {
+  const now = Date.now();
+  const hits = (socket.data.locationEventHits || []).filter((t) => now - t < LOCATION_EVENT_WINDOW_MS);
+  hits.push(now);
+  socket.data.locationEventHits = hits;
+  return hits.length > LOCATION_EVENT_MAX_PER_WINDOW;
 }
 
 /**
@@ -75,6 +89,10 @@ function attachAttendantLiveGpsSocket(io) {
       const tu = socket.data.ticketingUser;
       if (!tu) {
         if (typeof ack === "function") ack({ ok: false, error: "Not authenticated; emit live_fleet_authenticate first" });
+        return;
+      }
+      if (isLocationEventRateLimited(socket)) {
+        if (typeof ack === "function") ack({ ok: false, error: "Too many location updates; slowing down", code: 429 });
         return;
       }
       const body = msg && typeof msg === "object" ? msg : {};

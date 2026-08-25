@@ -67,7 +67,7 @@ function signMongoTicketEditToken({ ticketMongoId, driverMongoId, busNumber, iss
 function readMongoTicketEditToken(token) {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("JWT_SECRET not configured");
-  const p = jwt.verify(String(token || ""), secret);
+  const p = jwt.verify(String(token || ""), secret, { algorithms: ["HS256"] });
   if (p.typ !== "ticket_edit_mongo") {
     const err = new Error("Invalid edit token");
     err.statusCode = 403;

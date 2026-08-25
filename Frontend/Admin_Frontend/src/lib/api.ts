@@ -1,3 +1,4 @@
+import type { TrafficSegmentLevel } from "@/components/CorridorTrafficLoadBar";
 import type {
   CorridorBuilderStop,
   CorridorBuilderTerminal,
@@ -781,6 +782,30 @@ export async function fetchBusRevenue(
   if (!params.from && !params.to && params.period) qs.set("period", params.period);
   const q = qs.toString();
   return api<BusRevenueDto>(`/api/buses/${encodeURIComponent(id)}/revenue${q ? `?${q}` : ""}`);
+}
+
+/** Real recent congestion readings for this bus's corridor — see services/congestionEngine.js. */
+export async function fetchBusCongestionHistory(id: string): Promise<{ segments: TrafficSegmentLevel[] }> {
+  return api(`/api/buses/${encodeURIComponent(id)}/congestion-history`);
+}
+
+/** Command Center — Traffic/Congestion service diagnostics (see services/congestionEngine.js). */
+export type TrafficDiagnosticsDto = {
+  trafficProvider: {
+    enabled: boolean;
+    host: string;
+    online: boolean | null;
+    requests: number;
+    failures: number;
+    avgResponseMs: number | null;
+    lastSuccessAt: string | null;
+    lastFailureAt: string | null;
+    lastFailureReason: string | null;
+  };
+  activeBuses: number | null;
+};
+export async function fetchTrafficDiagnostics(): Promise<TrafficDiagnosticsDto> {
+  return api("/api/admin/traffic-diagnostics");
 }
 
 export async function createItAccount(

@@ -27,6 +27,47 @@
   color: rgba(56, 189, 248, 0.95);
 }
 
+.reports-archive__search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.reports-archive__search-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.reports-archive__search-input {
+  font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+  font-size: 0.78rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.95);
+  background: rgba(2, 6, 23, 0.9);
+  color: #e2e8f0;
+}
+
+.reports-archive__btn--search {
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.55), rgba(8, 145, 178, 0.45));
+}
+
+.reports-archive__btn--ghost {
+  background: transparent;
+  border-color: rgba(71, 85, 105, 0.85);
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.reports-archive__btn--ghost:hover:not(:disabled) {
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #e2e8f0;
+}
+
 .reports-archive__table-wrap {
   overflow-x: auto;
   border-radius: 10px;

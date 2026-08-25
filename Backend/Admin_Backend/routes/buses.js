@@ -14,12 +14,22 @@ const {
   ingestAttendantGps,
   ingestDeviceGps,
 } = require("../services/attendantGpsIngest");
-const { getFreeEtaMinutes, getAdvancedEtaMinutes, resolveNextTerminalForBus } = require("../services/freeEtaEngine");
+const {
+  getFreeEtaMinutes,
+  getAdvancedEtaMinutes,
+  resolveNextTerminalForBus,
+  getCorridorPolylineForBus,
+} = require("../services/freeEtaEngine");
+const { snapGpsToRoad } = require("../services/osrmTrafficService");
+const { nearestPointOnPolyline } = require("../services/corridorGeometry");
 const { getPortalSettingsLean } = require("../services/adminPortalSettingsService");
-const { gpsStatusFromAgeMs } = require("../config/gpsThresholds");
+const { gpsStatusFromAgeMs, gpsFreshnessFromAgeMs } = require("../config/gpsThresholds");
+const { computeBusCongestion } = require("../services/congestionEngine");
+const { classifyDelay } = require("../services/delayClassifier");
 const { recordAssignmentChange, closeOpenAssignmentsForBus } = require("../services/attendantAssignmentHistory");
 const { notifyAdminsOfSos } = require("../services/sosAdminNotify");
-const { assertDeviceIngestAllowed, normalizeHardwareLatLngBody } = require("../services/deviceIngestAuth");
+const { authenticateDeviceIngest, normalizeHardwareLatLngBody } = require("../services/deviceIngestAuth");
+const { deviceIngestLimiter } = require("../middleware/rateLimiters");
 const { YMD_RE, manilaDayStartUtc, manilaDayEndUtc, manilaTodayYmd, addDaysYmd } = require("../services/manilaTime");
 
 function normalizePlateForApi(raw) {
@@ -423,12 +433,48 @@ function createBusesRouter(io) {
           const recordedAtMs = doc.recordedAt ? new Date(doc.recordedAt).getTime() : NaN;
           const ageMs = Number.isFinite(recordedAtMs) ? Date.now() - recordedAtMs : null;
           const status = gpsStatusFromAgeMs(ageMs);
+          const gpsFreshness = gpsFreshnessFromAgeMs(ageMs);
           const gpsSource = status === "offline" ? "none" : String(doc.source) === "hardware" ? "lilygo" : "phone";
+
+          // Same congestion/delay engine the Socket.IO ingest path uses (services/congestionEngine.js,
+          // services/delayClassifier.js) — one shared computation instead of two divergent heuristics.
+          const congestion =
+            gpsFreshness === "stale" || gpsFreshness === "offline"
+              ? { status: "unavailable", reason: "GPS stale" }
+              : await computeBusCongestion({
+                  busId: String(doc.busId),
+                  latitude: Number(doc.latitude),
+                  longitude: Number(doc.longitude),
+                  speedKph: doc.speedKph,
+                }).catch(() => ({ status: "unavailable", reason: "Congestion engine error" }));
+          const delay = classifyDelay({ gpsFreshness, etaMinutes, congestion });
+
+          // Raw device GPS drifts off the road centerline (satellite geometry, foliage,
+          // mountainous terrain). Prefer snapping onto the bus's own assigned corridor
+          // polyline — the same highway line the map already draws for that bus's route —
+          // over a generic "nearest any road" match, which can land on an unrelated nearby
+          // track. Cap how far we'll drag a fix so a bad reading doesn't jump onto the wrong road.
+          let displayLat = Number(doc.latitude);
+          let displayLon = Number(doc.longitude);
+          if (Number.isFinite(displayLat) && Number.isFinite(displayLon)) {
+            const polyline = await getCorridorPolylineForBus(String(doc.busId)).catch(() => null);
+            const onCorridor = polyline ? nearestPointOnPolyline(displayLat, displayLon, polyline) : null;
+            if (onCorridor && onCorridor.distanceMeters <= 400) {
+              displayLat = onCorridor.latitude;
+              displayLon = onCorridor.longitude;
+            } else {
+              const snapped = await snapGpsToRoad(displayLat, displayLon).catch(() => null);
+              if (snapped && Number.isFinite(snapped.snappedDistance) && snapped.snappedDistance <= 200) {
+                displayLat = snapped.latitude;
+                displayLon = snapped.longitude;
+              }
+            }
+          }
 
           return {
           busId: String(doc.busId),
-          latitude: Number(doc.latitude),
-          longitude: Number(doc.longitude),
+          latitude: displayLat,
+          longitude: displayLon,
           speedKph: doc.speedKph != null ? Number(doc.speedKph) : null,
           heading: doc.heading != null ? Number(doc.heading) : null,
           signal:
@@ -440,6 +486,8 @@ function createBusesRouter(io) {
           /** Live status classification (online/unstable/offline) and phone/lilygo/none label —
            * see config/gpsThresholds.js for the configurable cutoffs. */
           status,
+          /** Real LIVE/RECENT/STALE/OFFLINE tiers — see config/gpsThresholds.js. */
+          gpsFreshness,
           gpsSource,
           net: doc.network != null ? String(doc.network) : null,
           signalStrength:
@@ -451,8 +499,10 @@ function createBusesRouter(io) {
           etaTargetIso:
             etaMinutes != null ? new Date(Date.now() + Number(etaMinutes) * 60_000).toISOString() : null,
           nextTerminal: terminal?.name || null,
-          trafficDelay: etaMinutes != null && etaMinutes > delayThreshold,
+          trafficDelay: delay.tier === "MODERATE_DELAY" || delay.tier === "MAJOR_DELAY",
           delayThresholdMinutes: delayThreshold,
+          congestion,
+          delay,
           recordedAt: doc.recordedAt ? new Date(doc.recordedAt).toISOString() : new Date().toISOString(),
           };
         })
@@ -549,6 +599,47 @@ function createBusesRouter(io) {
       res.json({ ...out, latestGps: latestGpsDto });
     } catch (e) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  /**
+   * Recent real congestion readings for this bus's corridor, one per recent GPS sample (not
+   * fabricated segments) — feeds CorridorTrafficLoadBar on the bus detail page. Maps the
+   * congestion engine's 5 tiers onto that component's 4-tier vocabulary:
+   * FREE_FLOW→clear, MODERATE→light, SLOW/HEAVY→heavy, SEVERE→critical.
+   */
+  router.get("/:id/congestion-history", requireAdminJwt, async (req, res) => {
+    try {
+      const busId = decodeURIComponent(String(req.params.id || "").trim());
+      if (!busId) return res.status(400).json({ error: "Invalid id" });
+      const samples = await GpsHistory.find({ busId })
+        .sort({ recordedAt: -1 })
+        .limit(12)
+        .select("latitude longitude speedKph recordedAt")
+        .lean();
+      const ordered = samples.reverse(); // oldest -> newest, left-to-right on the bar
+      const segments = [];
+      for (const s of ordered) {
+        const result = await computeBusCongestion({
+          busId,
+          latitude: Number(s.latitude),
+          longitude: Number(s.longitude),
+          speedKph: s.speedKph,
+        }).catch(() => ({ status: "unavailable" }));
+        if (result.status !== "ok") continue;
+        const level =
+          result.level === "FREE_FLOW"
+            ? "clear"
+            : result.level === "MODERATE"
+              ? "light"
+              : result.level === "SEVERE"
+                ? "critical"
+                : "heavy";
+        segments.push(level);
+      }
+      res.json({ segments });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "Could not load congestion history" });
     }
   });
 
@@ -845,14 +936,7 @@ function createBusesRouter(io) {
    * If imei is sent without busId, resolves bus by IMEI.
    * Optional header: x-device-secret matching DEVICE_INGEST_SECRET
    */
-  router.post("/ping", async (req, res) => {
-    try {
-      assertDeviceIngestAllowed(req);
-    } catch (authErr) {
-      const code = authErr.statusCode || 401;
-      return res.status(code).json({ error: authErr.message });
-    }
-
+  router.post("/ping", deviceIngestLimiter, async (req, res) => {
     const body = normalizeHardwareLatLngBody(req.body || {});
     let { busId, imei, latitude, longitude, speedKph, heading } = body;
     if (latitude === undefined || longitude === undefined) {
@@ -872,6 +956,16 @@ function createBusesRouter(io) {
     }
 
     try {
+      // Per-device credential (if presented) is authoritative and overrides whatever busId/imei
+      // the body claimed — see services/deviceIngestAuth.js.
+      const deviceVerifiedBusId = await authenticateDeviceIngest(req, resolvedBusId);
+      if (deviceVerifiedBusId) resolvedBusId = deviceVerifiedBusId;
+    } catch (authErr) {
+      const code = authErr.statusCode || 401;
+      return res.status(code).json({ error: authErr.message });
+    }
+
+    try {
       await ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body);
       res.status(204).send();
     } catch (e) {
@@ -884,13 +978,7 @@ function createBusesRouter(io) {
    * Hardware telemetry alias for LILYGO trackers.
    * Body: { bus_id, lat, lng, source:'hardware', net:'wifi'|'4g', signal_strength? }
    */
-  router.post("/hardware-telemetry", async (req, res) => {
-    try {
-      assertDeviceIngestAllowed(req);
-    } catch (authErr) {
-      const code = authErr.statusCode || 401;
-      return res.status(code).json({ error: authErr.message });
-    }
+  router.post("/hardware-telemetry", deviceIngestLimiter, async (req, res) => {
     const body = normalizeHardwareLatLngBody(req.body || {});
     let busId = body.bus_id != null ? String(body.bus_id).trim() : body.busId != null ? String(body.busId).trim() : "";
     const imei = body.imei != null ? String(body.imei).replace(/\D/g, "") : "";
@@ -909,6 +997,13 @@ function createBusesRouter(io) {
     }
     if (!busId) {
       return res.status(404).json({ error: "Unknown IMEI (register this device in Fleet first)" });
+    }
+    try {
+      const deviceVerifiedBusId = await authenticateDeviceIngest(req, busId);
+      if (deviceVerifiedBusId) busId = deviceVerifiedBusId;
+    } catch (authErr) {
+      const code = authErr.statusCode || 401;
+      return res.status(code).json({ error: authErr.message });
     }
     try {
       await ingestDeviceGps(io, broadcastLocationUpdate, busId, {

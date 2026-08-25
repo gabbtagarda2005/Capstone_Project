@@ -154,6 +154,7 @@ function createAttendantsSignupRouter() {
 
       const dateRaw = typeof req.query.date === "string" ? req.query.date.trim() : "";
       let activeOnDate = null;
+      let ticketsOnDate = null;
       if (dateRaw) {
         if (!isValidYmd(dateRaw)) {
           return res.status(400).json({ error: "date must be YYYY-MM-DD" });
@@ -170,6 +171,17 @@ function createAttendantsSignupRouter() {
         activeOnDate = row
           ? { busId: row.busId, busNumber: row.busNumber, assignedAt: row.assignedAt, unassignedAt: row.unassignedAt }
           : null;
+
+        // Same issuer identity ticket-stats/ticket-list routes use (routes/operatorsTicketing.js),
+        // scoped to this one Manila calendar day.
+        const issuerMatch =
+          spec.kind === "portal" ? { issuerSub: String(spec.portalUserId) } : { issuerMysqlId: spec.mysqlOperatorId };
+        const agg = await IssuedTicketRecord.aggregate([
+          { $match: { ...issuerMatch, createdAt: { $gte: dayStart, $lte: dayEnd } } },
+          { $group: { _id: null, cnt: { $sum: 1 }, revenue: { $sum: "$fare" } } },
+        ]);
+        const ticketRow = agg[0];
+        ticketsOnDate = { ticketCount: ticketRow ? ticketRow.cnt : 0, totalRevenue: ticketRow ? Number(ticketRow.revenue) : 0 };
       }
 
       const rows = await AttendantAssignmentHistory.find({ attendantKey: key })
@@ -186,6 +198,7 @@ function createAttendantsSignupRouter() {
         })),
         date: dateRaw || null,
         activeOnDate,
+        ticketsOnDate,
       });
     } catch (e) {
       res.status(500).json({ error: e.message || "Could not load assignment history" });
@@ -321,7 +334,7 @@ function createAttendantsSignupRouter() {
       }
 
       const otp = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
-      const otpHash = await bcrypt.hash(otp, 10);
+      const otpHash = await bcrypt.hash(otp, 12);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
       const otpDoc = await AttendantSignupOtp.create({
@@ -440,7 +453,7 @@ function createAttendantsSignupRouter() {
 
     try {
       const employeeId = await allocateUniqueSixDigit();
-      const hash = await bcrypt.hash(password, 10);
+      const hash = await bcrypt.hash(password, 12);
       const doc = await PortalUser.create({
         email,
         password: hash,

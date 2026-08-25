@@ -2,6 +2,7 @@ import { MgmtBackLink } from "@/components/MgmtBackLink";
 import { NetworkPulseCard } from "@/components/NetworkPulseCard";
 import { SystemEventsPanel } from "@/components/SystemEventsPanel";
 import { ApiHealthTable } from "@/components/ApiHealthTable";
+import { TrafficProviderCard } from "@/components/TrafficProviderCard";
 import { COMMAND_CENTER_HUB } from "@/pages/commandCenterPaths";
 import "./CommandCenterFleetSensorsPage.css";
 
@@ -18,6 +19,7 @@ export function CommandCenterFleetSensorsPage() {
         <NetworkPulseCard />
         <SystemEventsPanel />
         <ApiHealthTable />
+        <TrafficProviderCard />
       </div>
     </div>
   );

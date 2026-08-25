@@ -17,6 +17,7 @@ import type {
 import { MgmtBackLink } from "@/components/MgmtBackLink";
 import { ManagementDetailShell } from "@/pages/management/ManagementDetailShell";
 import { LiveTicketOperationsTable } from "@/components/LiveTicketOperationsTable";
+import { TicketDetailModal } from "@/components/TicketDetailModal";
 import "./AttendantTacticalDossier.css";
 
 function isNumericOperatorId(s: string) {
@@ -157,6 +158,7 @@ function AttendantAssignmentHistoryPanel({ attendantId }: { attendantId: string 
   const [error, setError] = useState<string | null>(null);
   const [searchDate, setSearchDate] = useState("");
   const [activeOnDate, setActiveOnDate] = useState<AttendantAssignmentPeriod | null | undefined>(undefined);
+  const [ticketsOnDate, setTicketsOnDate] = useState<{ ticketCount: number; totalRevenue: number } | null>(null);
   const [dateSearched, setDateSearched] = useState("");
   const [dateLoading, setDateLoading] = useState(false);
 
@@ -189,9 +191,11 @@ function AttendantAssignmentHistoryPanel({ attendantId }: { attendantId: string 
     try {
       const r = await fetchAttendantAssignmentHistory(attendantId, searchDate);
       setActiveOnDate(r.activeOnDate);
+      setTicketsOnDate(r.ticketsOnDate);
       setDateSearched(searchDate);
     } catch {
       setActiveOnDate(null);
+      setTicketsOnDate(null);
       setDateSearched(searchDate);
     } finally {
       setDateLoading(false);
@@ -216,15 +220,29 @@ function AttendantAssignmentHistoryPanel({ attendantId }: { attendantId: string 
         </button>
       </form>
       {activeOnDate !== undefined ? (
-        <p className="att-dossier__assign-result">
-          {activeOnDate ? (
-            <>
-              On {formatYmdLabel(dateSearched)}, assigned to <strong>{activeOnDate.busNumber || activeOnDate.busId}</strong>.
-            </>
-          ) : (
-            <>No bus assignment recorded for {formatYmdLabel(dateSearched)}.</>
-          )}
-        </p>
+        <>
+          <p className="att-dossier__assign-result">
+            {activeOnDate ? (
+              <>
+                On {formatYmdLabel(dateSearched)}, assigned to <strong>{activeOnDate.busNumber || activeOnDate.busId}</strong>.
+              </>
+            ) : (
+              <>No bus assignment recorded for {formatYmdLabel(dateSearched)}.</>
+            )}
+          </p>
+          {ticketsOnDate ? (
+            <p className="att-dossier__assign-result att-dossier__assign-result--tickets">
+              {ticketsOnDate.ticketCount > 0 ? (
+                <>
+                  <strong>{ticketsOnDate.ticketCount}</strong> ticket{ticketsOnDate.ticketCount === 1 ? "" : "s"} issued ·{" "}
+                  <strong>₱{ticketsOnDate.totalRevenue.toFixed(2)}</strong> collected on {formatYmdLabel(dateSearched)}.
+                </>
+              ) : (
+                <>No tickets issued on {formatYmdLabel(dateSearched)}.</>
+              )}
+            </p>
+          ) : null}
+        </>
       ) : null}
 
       {loading ? <p className="att-dossier__assign-empty">Loading…</p> : null}
@@ -268,6 +286,7 @@ function AttendantInsightsBlock({
   assignedBusNumber: string | null;
 }) {
   const [passengerHubChip, setPassengerHubChip] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
   const passengerTableTickets = useMemo(() => {
     if (!passengerHubChip) return recentTickets;
     const needle = passengerHubChip.toLowerCase();
@@ -341,10 +360,12 @@ function AttendantInsightsBlock({
               onHubChipChange={setPassengerHubChip}
               attendantNameOverride={attendantName}
               busNumberFallback={assignedBusNumber}
+              onRowClick={setSelectedTicket}
             />
           </div>
         )}
       </section>
+      <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
     </div>
   );
 }

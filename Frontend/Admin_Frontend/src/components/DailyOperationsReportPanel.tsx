@@ -46,6 +46,13 @@ function hubTierClass(tier: string): string {
   return "daily-ops__hub-stat--neutral";
 }
 
+function precisionKpiClass(pct: number, totalTrips: number): string {
+  if (totalTrips <= 0) return "daily-ops__kpi--neutral";
+  if (pct >= 90) return "daily-ops__kpi--green";
+  if (pct >= 70) return "daily-ops__kpi--amber";
+  return "daily-ops__kpi--red";
+}
+
 function normalizeTimeForInput(t: string | undefined): string {
   const m = String(t || "06:30")
     .trim()
@@ -64,6 +71,10 @@ const DAILY_OPS_TABS: { id: DailyOpsReportTab; label: string }[] = [
   { id: "incidents", label: "Incident board" },
   { id: "speed", label: "Fleet speed violations" },
 ];
+
+/** Kept off the daily-ops recipient picker specifically — the account itself still exists and
+ *  can still sign in, this only excludes it from being selectable as a report recipient here. */
+const DAILY_OPS_RECIPIENT_EXCLUDED_EMAILS = new Set(["milesgabb93@gmail.com"]);
 
 function incidentGlyph(incident: string): string {
   const u = incident.toUpperCase();
@@ -131,7 +142,9 @@ export function DailyOperationsReportPanel() {
     setScheduleLoading(true);
     try {
       const [{ settings }, rbac] = await Promise.all([fetchAdminPortalSettings(), fetchAdminRbac()]);
-      const emails = [...new Set(rbac.items.map((i) => String(i.email || "").trim().toLowerCase()).filter(Boolean))].sort();
+      const emails = [...new Set(rbac.items.map((i) => String(i.email || "").trim().toLowerCase()).filter(Boolean))]
+        .filter((em) => !DAILY_OPS_RECIPIENT_EXCLUDED_EMAILS.has(em))
+        .sort();
       setAdminEmails(emails);
       setScheduleEnabled(Boolean(settings.dailyOpsReportEmailEnabled));
       setScheduleTime(normalizeTimeForInput(settings.dailyOpsReportEmailTime));
@@ -279,62 +292,66 @@ export function DailyOperationsReportPanel() {
               {scheduleLoading ? (
                 <p className="reports-hub__placeholder daily-ops__in-card-placeholder">Loading schedule settings…</p>
               ) : (
-          <>
-            <label className="daily-ops__schedule-row daily-ops__schedule-row--check">
-              <input
-                type="checkbox"
-                checked={scheduleEnabled}
-                onChange={(e) => setScheduleEnabled(e.target.checked)}
-              />
-              <span>Enable daily email from this portal</span>
-            </label>
-            <div className="daily-ops__schedule-row">
-              <label htmlFor="daily-ops-send-time">Send time</label>
-              <input
-                id="daily-ops-send-time"
-                className="daily-ops__time-input"
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value.slice(0, 5))}
-              />
-            </div>
-            <p className="daily-ops__schedule-kicker">Admins who get the report</p>
-            {adminEmails.length === 0 ? (
-              <p className="daily-ops__empty">No admin emails loaded.</p>
-            ) : (
-              <div className="daily-ops__admin-toggles" role="group" aria-label="Recipients">
-                {adminEmails.map((em) => {
-                  const on = Boolean(recipientPick[em]);
-                  return (
-                    <button
-                      key={em}
-                      type="button"
-                      role="switch"
-                      aria-checked={on}
-                      className={`daily-ops__admin-toggle${on ? " daily-ops__admin-toggle--on" : ""}`}
-                      onClick={() => toggleRecipient(em)}
-                    >
-                      <span className="daily-ops__admin-toggle-track" aria-hidden>
-                        <span className="daily-ops__admin-toggle-knob" />
-                      </span>
-                      <span className="daily-ops__admin-toggle-email daily-ops__mono">{em}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <div className="daily-ops__schedule-actions">
-              <button
-                type="button"
-                className="reports-hub__export-action-btn"
-                disabled={scheduleSaving}
-                onClick={() => void saveSchedule()}
-              >
-                {scheduleSaving ? "Saving…" : "Save schedule"}
-              </button>
-            </div>
-          </>
-        )}
+                <div className="daily-ops__schedule-split">
+                  <div className="daily-ops__schedule-col daily-ops__schedule-col--config">
+                    <label className="daily-ops__schedule-row daily-ops__schedule-row--check">
+                      <input
+                        type="checkbox"
+                        checked={scheduleEnabled}
+                        onChange={(e) => setScheduleEnabled(e.target.checked)}
+                      />
+                      <span>Enable daily email from this portal</span>
+                    </label>
+                    <div className="daily-ops__schedule-row">
+                      <label htmlFor="daily-ops-send-time">Send time</label>
+                      <input
+                        id="daily-ops-send-time"
+                        className="daily-ops__time-input"
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value.slice(0, 5))}
+                      />
+                    </div>
+                    <div className="daily-ops__schedule-actions">
+                      <button
+                        type="button"
+                        className="reports-hub__export-action-btn"
+                        disabled={scheduleSaving}
+                        onClick={() => void saveSchedule()}
+                      >
+                        {scheduleSaving ? "Saving…" : "Save schedule"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="daily-ops__schedule-col daily-ops__schedule-col--recipients">
+                    <p className="daily-ops__schedule-kicker">Admins who get the report</p>
+                    {adminEmails.length === 0 ? (
+                      <p className="daily-ops__empty">No admin emails loaded.</p>
+                    ) : (
+                      <div className="daily-ops__admin-toggles" role="group" aria-label="Recipients">
+                        {adminEmails.map((em) => {
+                          const on = Boolean(recipientPick[em]);
+                          return (
+                            <button
+                              key={em}
+                              type="button"
+                              role="switch"
+                              aria-checked={on}
+                              className={`daily-ops__admin-toggle${on ? " daily-ops__admin-toggle--on" : ""}`}
+                              onClick={() => toggleRecipient(em)}
+                            >
+                              <span className="daily-ops__admin-toggle-track" aria-hidden>
+                                <span className="daily-ops__admin-toggle-knob" />
+                              </span>
+                              <span className="daily-ops__admin-toggle-email daily-ops__mono">{em}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </article>
           </div>
 
@@ -349,7 +366,7 @@ export function DailyOperationsReportPanel() {
           {data ? (
             <>
               <section className="reports-page__exec reports-page__exec--intel daily-ops__kpi-grid" aria-label="Report summary">
-                <article className="reports-page__stat reports-page__stat--hero">
+                <article className="reports-page__stat reports-page__stat--hero daily-ops__kpi daily-ops__kpi--date">
                   <div className="reports-page__stat-label-row">
                     <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
                     Report day
@@ -358,7 +375,7 @@ export function DailyOperationsReportPanel() {
                   <span className="reports-page__stat-note">{formatHeaderDate(data.reportDate)}</span>
                 </article>
 
-                <article className="reports-page__stat reports-page__stat--hero">
+                <article className="reports-page__stat reports-page__stat--hero daily-ops__kpi daily-ops__kpi--fleet">
                   <div className="reports-page__stat-label-row daily-ops__stat-label-row--split">
                     <span className="daily-ops__stat-label-cluster">
                       <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
@@ -385,7 +402,7 @@ export function DailyOperationsReportPanel() {
                   <span className="reports-page__stat-note">Live snapshot from fleet GPS</span>
                 </article>
 
-                <article className="reports-page__stat reports-page__stat--hero">
+                <article className="reports-page__stat reports-page__stat--hero daily-ops__kpi daily-ops__kpi--registry">
                   <div className="reports-page__stat-label-row">
                     <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
                     Bus registry · report built at
@@ -398,7 +415,12 @@ export function DailyOperationsReportPanel() {
                   </span>
                 </article>
 
-                <article className="reports-page__stat reports-page__stat--hero">
+                <article
+                  className={`reports-page__stat reports-page__stat--hero daily-ops__kpi ${precisionKpiClass(
+                    data.arrivalSummary?.precisionPct ?? 0,
+                    data.arrivalSummary?.totalTrips ?? 0
+                  )}`}
+                >
                   <div className="reports-page__stat-label-row">
                     <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
                     Arrival precision (24h)

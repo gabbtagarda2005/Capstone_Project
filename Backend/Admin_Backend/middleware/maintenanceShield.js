@@ -32,7 +32,7 @@ async function isSuperAdminRequest(req) {
   const h = req.headers.authorization;
   if (!h || !h.startsWith("Bearer ")) return false;
   try {
-    const payload = jwt.verify(h.slice(7), secret);
+    const payload = jwt.verify(h.slice(7), secret, { algorithms: ["HS256"] });
     if (payload.role !== "Admin") return false;
     const email = normalizeEmail(payload.email);
     if (!email) return false;

@@ -89,7 +89,7 @@ function createDriversRouter() {
       };
       // Same rule as OTP driver signup: 6-digit roster ID doubles as default ticket-correction PIN (hashed).
       if (/^\d{6}$/.test(idKey)) {
-        payload.ticketEditPinHash = await bcrypt.hash(idKey, 10);
+        payload.ticketEditPinHash = await bcrypt.hash(idKey, 12);
       }
       const doc = await Driver.create(payload);
       res.status(201).json(mapDriver(doc.toObject()));
@@ -212,7 +212,7 @@ function createDriversRouter() {
       } else if (!/^\d{6}$/.test(raw)) {
         return res.status(400).json({ error: "ticketEditPin must be exactly 6 digits" });
       } else {
-        $set.ticketEditPinHash = await bcrypt.hash(raw, 10);
+        $set.ticketEditPinHash = await bcrypt.hash(raw, 12);
       }
     }
 

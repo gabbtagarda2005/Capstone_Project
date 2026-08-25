@@ -39,6 +39,29 @@ export type BusLiveLogRow = {
   status?: "online" | "unstable" | "offline" | null;
   /** Active GPS source in plain terms — "none" once both phone and LILYGO have gone quiet. */
   gpsSource?: "phone" | "lilygo" | "none" | null;
+  /** LIVE/RECENT/STALE/OFFLINE — single source of truth, see config/gpsThresholds.js (backend). */
+  gpsFreshness?: "live" | "recent" | "stale" | "offline" | null;
+  /** Real road-congestion reading for this bus's corridor — see services/congestionEngine.js. */
+  congestion?: BusCongestion | null;
+  /** Delay classification derived from congestion + ETA — see services/delayClassifier.js. */
+  delay?: BusDelay | null;
+};
+
+export type BusCongestion = {
+  status: "ok" | "not_applicable" | "unavailable";
+  level?: "FREE_FLOW" | "MODERATE" | "SLOW" | "HEAVY" | "SEVERE";
+  congestionRatio?: number;
+  currentKph?: number;
+  freeFlowKph?: number;
+  corridorName?: string | null;
+  reason?: string;
+};
+
+export type BusDelay = {
+  tier: "ON_TIME" | "MINOR_DELAY" | "MODERATE_DELAY" | "MAJOR_DELAY" | "GPS_STALE" | "UNKNOWN";
+  delayMinutes: number | null;
+  reason: string | null;
+  congestionLevel: string | null;
 };
 
 export type FleetHardwareStatusRow = {
@@ -179,6 +202,8 @@ export type AttendantAssignmentHistoryDto = {
   date: string | null;
   /** Only set when a `date` was requested — the one assignment (if any) active that day. */
   activeOnDate: AttendantAssignmentPeriod | null;
+  /** Only set when a `date` was requested — tickets issued and revenue collected that day. */
+  ticketsOnDate: { ticketCount: number; totalRevenue: number } | null;
 };
 
 export type LoginLogRow = {

@@ -638,7 +638,7 @@ export function DashboardMap({
               {routeSplit.remaining.length > 1 ? (
                 <Polyline
                   positions={routeSplit.remaining}
-                  pathOptions={{ color: "#f97316", weight: 5, opacity: 0.9 }}
+                  pathOptions={{ color: "#2563eb", weight: 5, opacity: 0.9 }}
                 />
               ) : null}
               {routeState.data.origin ? (
