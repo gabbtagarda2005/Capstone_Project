@@ -18,7 +18,12 @@ import { fetchPassengerNotificationFeed, type PassengerNotificationItem } from "
 import "./PassengerLandingPage.css";
 import "./PassengerDashboardPage.css";
 
-const API_BASE = (import.meta.env.VITE_PASSENGER_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+/** Falls back to Admin directly when VITE_PASSENGER_API_URL isn't set (Passenger_Backend merged into Admin_Backend). */
+const API_BASE = (
+  import.meta.env.VITE_PASSENGER_API_URL ||
+  import.meta.env.VITE_ADMIN_API_URL ||
+  "http://localhost:4000"
+).replace(/\/+$/, "");
 
 export function PassengerDashboardPage() {
   const location = useLocation();

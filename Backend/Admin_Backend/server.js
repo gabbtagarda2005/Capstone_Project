@@ -53,6 +53,8 @@ const {
 } = require("./routes/liveDispatch");
 const { requireAdminJwt } = require("./middleware/requireAdminJwt");
 const { createNominatimProxyRouter } = require("./routes/nominatimProxy");
+const { createPassengerExtrasRouter } = require("./routes/passengerExtras");
+const { createAttendantExtrasRouter } = require("./routes/attendantExtras");
 const { ingestDeviceGps } = require("./services/attendantGpsIngest");
 const { authenticateDeviceIngest, normalizeHardwareLatLngBody } = require("./services/deviceIngestAuth");
 const { apiMetricsMiddleware } = require("./middleware/apiMetrics");
@@ -395,6 +397,9 @@ app.use("/api/fares", createFaresRouter());
 app.use("/api/security/logs", createSecurityLogsRouter());
 app.use("/api/geocode", createNominatimProxyRouter());
 app.use("/api/fleet", requireAdminJwt, createFleetHardwareRouter());
+/* Passenger_Backend and BusAttendant_Backend merged in — their only non-proxy routes, ported. */
+app.use("/api", createPassengerExtrasRouter());
+app.use("/api", createAttendantExtrasRouter());
 
 /**
  * Public read-only: coverage hubs (terminal + stop rows) + child stops + optional corridor waypoint.

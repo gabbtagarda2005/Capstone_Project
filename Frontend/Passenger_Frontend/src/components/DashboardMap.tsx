@@ -350,7 +350,12 @@ export function DashboardMap({
   }, [nearbyBusesOnly, operationsDeckLive, userSession, liveBuses]);
 
   useEffect(() => {
-    const base = (apiBase || import.meta.env.VITE_PASSENGER_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+    const base = (
+      apiBase ||
+      import.meta.env.VITE_PASSENGER_API_URL ||
+      import.meta.env.VITE_ADMIN_API_URL ||
+      "http://localhost:4000"
+    ).replace(/\/+$/, "");
     const ac = new AbortController();
     fetch(`${base}/api/passenger/map-config`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))

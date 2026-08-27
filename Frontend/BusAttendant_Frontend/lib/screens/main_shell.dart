@@ -473,7 +473,7 @@ class _MainShellState extends State<MainShell> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
-                'Missing ticketing session — the admin map will not update. Sign out, sign in again, and ensure Bus Attendant Backend (4011) can reach Admin Backend (4001) with the same JWT_SECRET as Admin.',
+                'Missing ticketing session — the admin map will not update. Sign out and sign in again.',
               ),
               duration: const Duration(seconds: 10),
               backgroundColor: TacticalColors.alertRed,

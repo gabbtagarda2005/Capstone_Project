@@ -1,4 +1,9 @@
-const PASSENGER_BASE = (import.meta.env.VITE_PASSENGER_API_URL || "http://localhost:4000").replace(/\/+$/, "");
+/** Falls back to Admin directly when VITE_PASSENGER_API_URL isn't set (Passenger_Backend merged into Admin_Backend). */
+const PASSENGER_BASE = (
+  import.meta.env.VITE_PASSENGER_API_URL ||
+  import.meta.env.VITE_ADMIN_API_URL ||
+  "http://localhost:4000"
+).replace(/\/+$/, "");
 
 /**
  * Increments anonymous “nearest terminal” popularity in Mongo (coverage id only; no coordinates stored).

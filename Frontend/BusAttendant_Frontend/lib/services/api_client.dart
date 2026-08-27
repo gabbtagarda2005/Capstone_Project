@@ -19,24 +19,24 @@ String _parseApiErrorBody(http.Response res, String fallbackPrefix) {
   if (trimmed.isNotEmpty && trimmed.length < 500 && !trimmed.startsWith('<')) {
     return '$fallbackPrefix (${res.statusCode}): $trimmed';
   }
-  return '$fallbackPrefix (HTTP ${res.statusCode}). Run BusAttendant_Backend (4011) and Admin_Backend (4001) from the latest project code, restart both, then retry.';
+  return '$fallbackPrefix (HTTP ${res.statusCode}). Run Admin_Backend (4001) from the latest project code, restart it, then retry.';
 }
 
 class ApiClient {
+  /// BusAttendant_Backend was merged into Admin_Backend — this app now talks to Admin directly.
   ApiClient({String? baseUrl})
       : baseUrl = (baseUrl ??
                 const String.fromEnvironment(
                   'API_BASE_URL',
-                  defaultValue: 'http://localhost:4011',
+                  defaultValue: 'http://localhost:4001',
                 ))
             .replaceAll(RegExp(r'/+$'), '');
 
   final String baseUrl;
 
-  String _adminFallbackBaseUrl() {
-    final swapped = baseUrl.replaceFirst(RegExp(r':4011(?=/|$)'), ':4001');
-    return swapped;
-  }
+  /// Kept as identity now that baseUrl already points at Admin directly — some callers below still
+  /// reference it for the (now-redundant, harmless) operator-forgot-email retry.
+  String _adminFallbackBaseUrl() => baseUrl;
 
   /// Human-readable cause when the HTTP client fails before a response (offline, wrong URL, CORS, etc.).
   String mapRequestFailure(String whatFailed, Object error) {
@@ -45,16 +45,16 @@ class ApiClient {
     }
     final s = error.toString().toLowerCase();
     if (s.contains('socketexception') || s.contains('connection reset')) {
-      return 'No connection to $baseUrl — start BusAttendant_Backend (port 4011).';
+      return 'No connection to $baseUrl — start Admin_Backend (port 4001).';
     }
     if (s.contains('connection refused') ||
         s.contains('failed host lookup') ||
         s.contains('failed to fetch') ||
         s.contains('networkerror') ||
         s.contains('xmlhttprequest')) {
-      return 'Cannot reach $baseUrl (Bus Attendant API). Start BusAttendant_Backend on port 4011, or set '
-          '--dart-define=API_BASE_URL= to your deployed attendant API. Admin_Backend (4001) must run too '
-          'and use MONGODB_URI for Atlas — the app does not talk to Mongo directly.';
+      return 'Cannot reach $baseUrl (Admin API). Start Admin_Backend on port 4001, or set '
+          '--dart-define=API_BASE_URL= to your deployed Admin API. It must use MONGODB_URI for Atlas — '
+          'the app does not talk to Mongo directly.';
     }
     return '$whatFailed: $error';
   }
@@ -89,7 +89,7 @@ class ApiClient {
       if (ticketingToken == null || ticketingToken.isEmpty) {
         return ApiAuthResult.failure(
           'No operator token (ticketingToken) from server — live map cannot sync. '
-          'Restart Bus Attendant Backend (4011) and Admin_Backend (4001); sign in again.',
+          'Restart Admin_Backend (4001); sign in again.',
         );
       }
       return ApiAuthResult.ok(
@@ -395,7 +395,7 @@ class ApiClient {
 
   /// Route coverage from Admin (Location Management): one row per town/area with terminal + bus stops.
   Future<List<ApiRouteCoverage>> fetchRouteCoverages({required String token}) async {
-    final uri = Uri.parse('$baseUrl/api/meta/deployed-points');
+    final uri = Uri.parse('$baseUrl/api/public/deployed-points');
     http.Response res;
     try {
       res = await http.get(uri, headers: {
@@ -422,7 +422,7 @@ class ApiClient {
     if (ticketingToken == null || ticketingToken.isEmpty) {
       return [];
     }
-    final uri = Uri.parse('$baseUrl/api/tickets/recent');
+    final uri = Uri.parse('$baseUrl/api/tickets/recent/me');
     http.Response res;
     try {
       res = await http.get(uri, headers: {
@@ -682,7 +682,7 @@ class ApiClient {
     if (ticketingToken.isEmpty) {
       return const ApiBusAssignment(assigned: false, bus: null);
     }
-    final uri = Uri.parse('$baseUrl/api/bus-assignment');
+    final uri = Uri.parse('$baseUrl/api/buses/assignment/me');
     http.Response res;
     try {
       res = await http.get(
@@ -719,7 +719,7 @@ class ApiClient {
         'Missing operator (ticketing) token — sign out and sign in again so live GPS can reach Admin.',
       );
     }
-    final uri = Uri.parse('$baseUrl/api/live-location');
+    final uri = Uri.parse('$baseUrl/api/buses/live-location');
     final body = <String, dynamic>{
       'latitude': latitude,
       'longitude': longitude,
@@ -823,7 +823,7 @@ class ApiClient {
     if (ticketingToken.isEmpty) {
       throw Exception('Missing operator (ticketing) token — cannot upload queued GPS.');
     }
-    final uri = Uri.parse('$baseUrl/api/live-location/batch');
+    final uri = Uri.parse('$baseUrl/api/buses/live-location/batch');
     try {
       final res = await http
           .post(
@@ -854,7 +854,7 @@ class ApiClient {
     double? heading,
   }) async {
     if (ticketingToken.isEmpty) return;
-    final uri = Uri.parse('$baseUrl/api/bus-attendant-ping');
+    final uri = Uri.parse('$baseUrl/api/buses/attendant-ping');
     final body = <String, dynamic>{
       'latitude': latitude,
       'longitude': longitude,
@@ -893,7 +893,7 @@ class ApiClient {
     if (ticketingToken.isEmpty) {
       return ApiAttendantSosResult.failure('Sign in again to refresh your security session.');
     }
-    final uri = Uri.parse('$baseUrl/api/bus-attendant-sos');
+    final uri = Uri.parse('$baseUrl/api/buses/attendant-sos');
     final n = note?.trim() ?? '';
     try {
       final res = await http
@@ -929,7 +929,7 @@ class ApiClient {
     if (ticketingToken.isEmpty) {
       return ApiSimpleActionResult.failure('Sign in again to refresh your security session.');
     }
-    final uri = Uri.parse('$baseUrl/api/bus-attendant-incident');
+    final uri = Uri.parse('$baseUrl/api/buses/attendant-incident');
     final body = <String, dynamic>{
       'category': category,
       'latitude': latitude,
@@ -1695,7 +1695,7 @@ class ApiSimpleActionResult {
   final String? message;
 }
 
-/// POST /api/bus-attendant-sos — includes optional `notified.email` / `notified.sms` status from server
+/// POST /api/buses/attendant-sos — includes optional `notified.email` / `notified.sms` status from server
 /// (`sms` is `sent` when IPROG SMS queued successfully).
 class ApiAttendantSosResult {
   const ApiAttendantSosResult({
