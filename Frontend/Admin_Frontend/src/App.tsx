@@ -8,6 +8,7 @@ import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { PassengerDashboardRoute } from "@/passenger/components/PassengerDashboardRoute";
+import { PassengerLandingPage } from "@/passenger/pages/PassengerLandingPage";
 import { ManagementPage } from "@/pages/ManagementPage";
 import { ManagementModulePage } from "@/pages/ManagementModulePage";
 import { CommandCenterPage } from "@/pages/CommandCenterPage";
@@ -37,9 +38,12 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-      {/* Passenger tracking experience — public, no auth. Merged in from the former
-          Passenger_Frontend deployment; /passenger/enable-location is a compatibility
-          redirect matching that app's old /enable-location -> dashboard behavior. */}
+      {/* Passenger experience — public, no auth. Merged in from the former
+          Passenger_Frontend deployment. Track Bus on the admin landing goes here first
+          (marketing/highlights page), then "Get Started" continues to the live map.
+          /passenger/enable-location is a compatibility redirect matching that app's old
+          /enable-location -> dashboard behavior. */}
+      <Route path="/passenger" element={<PassengerLandingPage />} />
       <Route path="/passenger/track" element={<PassengerDashboardRoute />} />
       <Route path="/passenger/enable-location" element={<Navigate to="/passenger/track" replace />} />
 

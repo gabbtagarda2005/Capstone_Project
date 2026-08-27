@@ -2247,10 +2247,13 @@ a.pd-card:hover {
   max-width: min(920px, calc(100vw - 1rem));
   padding: 0.42rem 0.55rem;
   border-radius: 999px;
-  background: rgba(7, 16, 45, 0.48);
+  /* Solid enough that map tile labels underneath (place names are baked into the tile
+     images, not separate elements — no z-index fix can hide them) never bleed through
+     and read as overlapping the tab icons/text. */
+  background: rgba(6, 13, 36, 0.94);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
   pointer-events: auto;
   overflow-x: auto;
   scrollbar-width: none;

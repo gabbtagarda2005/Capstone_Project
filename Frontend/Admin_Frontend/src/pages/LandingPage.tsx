@@ -155,7 +155,7 @@ export function LandingPage() {
                 <Link to="/login" className="landing-hero__go landing-hero__go--primary">
                   Get Started ↗
                 </Link>
-                <Link to="/passenger/track" className="landing-hero__go landing-hero__go--secondary">
+                <Link to="/passenger" className="landing-hero__go landing-hero__go--secondary">
                   Track Bus ↗
                 </Link>
               </div>
