@@ -1,11 +1,12 @@
 /**
  * Onboarding card for Android Bus Attendant app distribution.
- * Download URL can be overridden with VITE_ATTENDANT_PLAY_STORE_URL.
+ * Serves the built APK from this same origin (Backend/Admin_Backend routes/appDownload.js) —
+ * override with VITE_ATTENDANT_PLAY_STORE_URL once a real Play Store listing exists.
  */
 export function AppDownloadCard() {
   const playUrl =
     (import.meta.env.VITE_ATTENDANT_PLAY_STORE_URL as string | undefined)?.trim() ||
-    "https://showing-clarify-difficult.ngrok-free.dev/api/download/attendant-app";
+    `${window.location.origin}/api/download/attendant-app`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=${encodeURIComponent(playUrl)}`;
 
   return (

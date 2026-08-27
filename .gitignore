@@ -11,6 +11,7 @@ node_modules/
 Backend/Admin_Backend/secrets/
 # Automated daily ops report JSON snapshots (set DAILY_OPS_REPORT_SNAPSHOT_DIR)
 Backend/Admin_Backend/data/daily-ops-snapshots/
+Backend/Admin_Backend/data/app-downloads/
 
 # Logs & OS
 logs/
