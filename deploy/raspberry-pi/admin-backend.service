@@ -1,0 +1,17 @@
+[Unit]
+Description=Admin_Backend (Bukidnon Bus fleet API + Socket.io)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# EDIT these two paths to match where you cloned the repo and which user should run it.
+User=pi
+WorkingDirectory=/home/pi/Capstone-Project/Backend/Admin_Backend
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

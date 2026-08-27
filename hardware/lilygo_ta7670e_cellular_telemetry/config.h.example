@@ -1,0 +1,96 @@
+#ifndef TA7670E_CELLULAR_CONFIG_H
+#define TA7670E_CELLULAR_CONFIG_H
+
+// -----------------------------------------------------------------------------
+// Backend — must be reachable from the public internet (the bus has no WiFi in the field).
+// See deploy/raspberry-pi/README.md for the Tailscale Funnel setup that gives the Pi a stable
+// HTTPS address without needing a router/port-forward or an owned domain (yet).
+// -----------------------------------------------------------------------------
+/** e.g. "your-pi-name.your-tailnet.ts.net" (no https://, no trailing slash) — from `tailscale funnel status`. */
+#define SERVER_HOST "your-pi-name.your-tailnet.ts.net"
+#define SERVER_PORT 443
+#define SERVER_PATH "/api/buses/hardware-telemetry"
+
+/** Retry / cadence (ms) — same delay after GNSS wait, cellular failure, or non-2xx HTTP */
+#define POST_INTERVAL_MS 8000
+
+/** Must match Backend/Admin_Backend .env DEVICE_INGEST_SECRET (leave "" if unset on server). */
+#define DEVICE_INGEST_SECRET ""
+
+/** 1 = modem validates the server's TLS certificate (needs a CA cert uploaded to the modem's
+ *  filesystem first — not implemented in this sketch). 0 = encrypted but no identity check
+ *  (same trade-off as the WiFiClientSecure().setInsecure() dev path in lilygo_ngrok_bus_ping);
+ *  the real per-request auth is DEVICE_INGEST_SECRET above, checked server-side either way. */
+#define SSL_VERIFY_SERVER_CERT 0
+
+// -----------------------------------------------------------------------------
+// Cellular — DITO's standard APN is "internet" with no username/password.
+// Other PH carriers: Globe/TM = "internet.globe.com.ph", Smart/TNT = "internet".
+// -----------------------------------------------------------------------------
+#define CELL_APN "internet"
+
+// -----------------------------------------------------------------------------
+// A7670E UART + power control — verified against LilyGO's own official example for this exact
+// board (Xinyuan-LilyGO/LilyGO-T-A76XX, examples/ATdebug/utilities.h + examples/Network/Network.ino).
+// Same board as lilygo_ta7670e_wifi_telemetry, so identical pin config.
+// -----------------------------------------------------------------------------
+#define MODEM_RX_PIN 27
+#define MODEM_TX_PIN 26
+#define MODEM_BAUD 115200
+#define BOARD_POWERON_PIN 12
+#define BOARD_PWRKEY_PIN 4
+#define MODEM_RESET_PIN 5
+#define MODEM_RESET_LEVEL HIGH
+#define MODEM_DTR_PIN 25
+
+// -----------------------------------------------------------------------------
+// GNSS — A7670E (SIM7670-class). Same parser/tuning as lilygo_ta7670e_wifi_telemetry.
+// Indoors you may only get 3 sats — lower GPS_MIN_SATS if POST never happens.
+// -----------------------------------------------------------------------------
+/** More satellites → better geometry (when sky allows). Use 5–6 for stricter fixes. */
+#define GPS_MIN_SATS 4
+#define GNSS_WARMUP_MS 20000
+
+/**
+ * Running average of this many consecutive fixes before uploading (reduces map jitter).
+ * 1 = no smoothing. 3–5 is typical. Uses more RAM; caps at 8 in firmware.
+ */
+#define GPS_SMOOTH_SAMPLES 4
+
+/** After CGNSSPWR=1, try multi-constellation (SIM7670-class). Set 0 if modem returns ERROR. */
+#define GNSS_ENABLE_MULTI_CONSTELLATION 1
+
+/** Set to 1 to test cellular + HTTPS + IMEI only (no GNSS). Uses TEST_LAT / TEST_LON. */
+#ifndef DEBUG_CELLULAR_ONLY_POST
+#define DEBUG_CELLULAR_ONLY_POST 0
+#endif
+#define TEST_LAT 8.1477
+#define TEST_LON 125.1324
+
+/** Print full modem reply after AT+CGNSSINFO when parsing fails (helps fix CSV layout). */
+#ifndef GNSS_RAW_DEBUG
+#define GNSS_RAW_DEBUG 1
+#endif
+
+/**
+ * TEMPORARY diagnostic — raw AT passthrough instead of the normal telemetry loop, to test the
+ * cellular HTTPS AT sequence (AT+CSSLCFG / AT+HTTPPARA / AT+HTTPACTION) live against your real
+ * modem firmware instead of trusting it unverified. Turn back to 0 for normal operation.
+ */
+#ifndef DEBUG_AT_PASSTHROUGH
+#define DEBUG_AT_PASSTHROUGH 0
+#endif
+
+/** Verified on this exact chip/firmware (see parseCgnssinfo() comment in the .ino): speed is
+ *  field index 12, in m/s. */
+#define GNSS_SPEED_FIELD_IS_MPS true
+#define GNSS_SPEED_FIELD_INDEX 12
+
+/**
+ * 0 = lat/lon fields are already decimal degrees (e.g. 8.1477).
+ * 1 = fields are NMEA-style DDMM.MMMM / DDDMM.MMMM (e.g. 0812.3456 = 8°12.3456'N).
+ * ~1–5+ km error usually means wrong format — toggle 0 ↔ 1, test outdoors, compare to Maps.
+ */
+#define GNSS_COORDS_DDMM_FORMAT 0
+
+#endif

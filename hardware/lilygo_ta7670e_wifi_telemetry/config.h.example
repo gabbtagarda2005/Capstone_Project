@@ -54,9 +54,10 @@
 #define GNSS_RAW_DEBUG 1
 #endif
 
-/** Set true if the speed field from AT+CGNSSINFO is in m/s (common); false if already km/h */
+/** Set true if the speed field from AT+CGNSSINFO is in m/s (common); false if already km/h.
+ *  Verified on this exact chip/firmware at index 12 — see parseCgnssinfo() comment in the .ino. */
 #define GNSS_SPEED_FIELD_IS_MPS true
-#define GNSS_SPEED_FIELD_INDEX 7
+#define GNSS_SPEED_FIELD_INDEX 12
 
 /**
  * 0 = lat/lon fields are already decimal degrees (e.g. 8.1477).
