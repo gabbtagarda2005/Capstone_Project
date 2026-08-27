@@ -346,7 +346,15 @@ function createAuthTicketingRouter() {
         { sub: doc._id.toString(), role: doc.role, email: doc.email, authStore: "mongo" },
         secret
       );
-      return res.json({ token, user: withNonAdminUser(mapMongoUser(doc)) });
+      /**
+       * `ticketingToken` mirrors `token` — same JWT, same secret. Kept as a separate response
+       * field only because the BusAttendant Flutter app's login() still requires this exact key
+       * (a holdover from the now-retired BusAttendant_Backend proxy, which used to inject this
+       * field before forwarding Admin's response). requireTicketIssuerJwt already accepts `token`
+       * directly via a plain Authorization header, so there is no second, different credential
+       * here — this just keeps the app's existing login() working without a Flutter release.
+       */
+      return res.json({ token, ticketingToken: token, user: withNonAdminUser(mapMongoUser(doc)) });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }

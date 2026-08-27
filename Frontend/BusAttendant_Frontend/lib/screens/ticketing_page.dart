@@ -8,6 +8,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/ticket_edit_session.dart';
 import '../services/api_client.dart';
+import '../services/fare_quote_cache.dart';
+import '../services/ticket_outbox_store.dart';
 import '../theme/app_colors.dart';
 
 /// Which trip leg is being filled when the attendant picks a location → stop.
@@ -55,6 +57,8 @@ class _TicketingPageState extends State<TicketingPage> {
   static final Color _kToastBg = const Color(0xFF111827).withValues(alpha: 0.8);
 
   final _api = ApiClient();
+  final _fareCache = FareQuoteCache();
+  final _ticketOutbox = TicketOutboxStore();
   final _from = TextEditingController();
   final _to = TextEditingController();
   final _fare = TextEditingController(text: '');
@@ -79,6 +83,14 @@ class _TicketingPageState extends State<TicketingPage> {
   String? _fareQuoteError;
   /// From `/api/fares/quote`: human-readable how the fare was computed.
   String? _fareQuoteExplanation;
+  /// True when the fare shown/entered is NOT a live server quote (cached from a prior online
+  /// quote, or typed in manually) — the ticket gets queued on issue instead of posted
+  /// immediately. The server always recomputes the real fare on sync.
+  bool _fareIsOffline = false;
+  /// True only when offline AND nothing was cached for this route — the fare field becomes
+  /// editable so the attendant can type an amount. A cache hit stays read-only (shows the
+  /// cached value as-is; no reason to invite a casual overwrite of a known-good number).
+  bool _fareNeedsManualEntry = false;
 
   String _normalizeCategory(String raw) {
     final x = raw.toLowerCase().trim();
@@ -437,6 +449,46 @@ class _TicketingPageState extends State<TicketingPage> {
         _tripLeg = _TripLeg.none;
         _fareQuoteError = null;
         _fareQuoteExplanation = null;
+        _fareIsOffline = false;
+        _fareNeedsManualEntry = false;
+      });
+    } else if (r.isConnectivityFailure) {
+      // No connection right now — queue it instead of losing the ticket. The outbox is drained
+      // automatically the moment connectivity returns (see MainShell._startConnectivityWatch).
+      await _ticketOutbox.enqueue(
+        passengerId: generatedPassengerId,
+        passengerName: generatedPassengerName,
+        from: _from.text,
+        to: _to.text,
+        category: _category,
+        fare: fare,
+        fareIsEstimate: _fareIsOffline,
+        busNumber: widget.busNumber.trim().isNotEmpty ? widget.busNumber.trim() : null,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _fareIsOffline
+                ? 'Ticket queued (offline) — fare will be confirmed and sent once you\'re back online.'
+                : 'Ticket queued — no connection right now, it will send automatically once you\'re back online.',
+          ),
+          backgroundColor: const Color(0xFF1E293B),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      setState(() {
+        _from.clear();
+        _to.clear();
+        _fare.clear();
+        _fromCoverage = null;
+        _toCoverage = null;
+        _routeAreaSummary = null;
+        _tripLeg = _TripLeg.none;
+        _fareQuoteError = null;
+        _fareQuoteExplanation = null;
+        _fareIsOffline = false;
+        _fareNeedsManualEntry = false;
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message ?? 'Issue failed')));
@@ -793,6 +845,8 @@ class _TicketingPageState extends State<TicketingPage> {
           _fareQuoteLoading = false;
           _fareQuoteError = null;
           _fareQuoteExplanation = null;
+          _fareIsOffline = false;
+          _fareNeedsManualEntry = false;
           if (!_editMode) {
             _fare.text = '';
           }
@@ -823,9 +877,19 @@ class _TicketingPageState extends State<TicketingPage> {
     if (r.ok && r.matched && r.fare != null) {
       final bd = r.fareBreakdownDisplay?.trim();
       final ps = r.pricingSummary?.trim();
+      unawaited(_fareCache.put(
+        from: fromLabel,
+        to: toLabel,
+        category: _category,
+        fare: r.fare!,
+        fareBreakdownDisplay: bd,
+        pricingSummary: ps,
+      ));
       setState(() {
         _fareQuoteLoading = false;
         _fareQuoteError = null;
+        _fareIsOffline = false;
+        _fareNeedsManualEntry = false;
         _fare.text = r.fare!.toStringAsFixed(2);
         _fareQuoteExplanation =
             (bd != null && bd.isNotEmpty) ? bd : (ps != null && ps.isNotEmpty ? ps : null);
@@ -833,15 +897,45 @@ class _TicketingPageState extends State<TicketingPage> {
       return;
     }
 
+    // `!r.ok` means the request never reached the server (offline/timeout) — a real fare
+    // rejection (r.ok but not matched, e.g. no matrix row for this route) is a config gap, not
+    // a connectivity problem, and should stay a hard error rather than falling back.
+    if (!r.ok) {
+      final cached = await _fareCache.get(fromLabel, toLabel, _category);
+      if (!mounted || gen != _fareQuoteGen) return;
+      if (cached != null) {
+        setState(() {
+          _fareQuoteLoading = false;
+          _fareQuoteError = null;
+          _fareIsOffline = true;
+          _fareNeedsManualEntry = false;
+          _fare.text = cached.fare.toStringAsFixed(2);
+          _fareQuoteExplanation = 'Offline — using last known fare for this route (from '
+              '${cached.cachedAt != null ? "a previous online quote" : "cache"}). Will confirm on sync.';
+        });
+        return;
+      }
+      setState(() {
+        _fareQuoteLoading = false;
+        _fareIsOffline = true;
+        _fareNeedsManualEntry = true;
+        _fareQuoteExplanation = null;
+        if (!_editMode) _fare.text = '';
+        _fareQuoteError = 'Offline and no cached fare for this route — enter the fare manually. '
+            'It will be verified against the fare matrix once back online.';
+      });
+      return;
+    }
+
     setState(() {
       _fareQuoteLoading = false;
       _fareQuoteExplanation = null;
+      _fareIsOffline = false;
+      _fareNeedsManualEntry = false;
       if (!_editMode) {
         _fare.text = '';
       }
-      _fareQuoteError = !r.ok
-          ? (r.message ?? 'Could not reach fare service')
-          : (r.message ?? 'No matrix fare for these hubs — add hub-to-hub fare in Admin');
+      _fareQuoteError = r.message ?? 'No matrix fare for these hubs — add hub-to-hub fare in Admin';
     });
   }
 
@@ -1117,8 +1211,13 @@ class _TicketingPageState extends State<TicketingPage> {
                   _fare,
                   'Fare',
                   Icons.payments_rounded,
-                  readOnly: !_editMode,
-                  hintText: _editMode ? 'Adjust if needed' : 'Hub fare + distance (from Admin matrix & per km)',
+                  readOnly: !_editMode && !_fareNeedsManualEntry,
+                  hintText: _editMode
+                      ? 'Adjust if needed'
+                      : (_fareNeedsManualEntry
+                          ? 'Offline — type the fare from your printed fare chart'
+                          : 'Hub fare + distance (from Admin matrix & per km)'),
+                  onChanged: _fareNeedsManualEntry ? (_) => setState(() {}) : null,
                   keyboard: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),

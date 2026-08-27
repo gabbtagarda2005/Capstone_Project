@@ -466,6 +466,9 @@ class ApiClient {
     required String category,
     required double fare,
     String? busNumber,
+    /// Idempotency key — same value on every retry of the same logical ticket (e.g. draining
+    /// the offline outbox) so a retried sync after an ambiguous failure can't double-issue.
+    String? clientRequestId,
   }) async {
     if (ticketingToken.isEmpty) {
       return ApiIssueTicketResult.failure('Missing ticketing session. Sign out and sign in again.');
@@ -479,6 +482,7 @@ class ApiClient {
       'category': category.trim().toLowerCase(),
       'fare': fare,
       if (busNumber != null && busNumber.trim().isNotEmpty) 'busNumber': busNumber.trim(),
+      if (clientRequestId != null && clientRequestId.isNotEmpty) 'clientRequestId': clientRequestId,
     };
     http.Response res;
     try {
@@ -494,9 +498,10 @@ class ApiClient {
           )
           .timeout(const Duration(seconds: 25));
     } catch (_) {
-      return ApiIssueTicketResult.failure('Network timeout. Please try again.');
+      return ApiIssueTicketResult.failure('No connection — this ticket can be queued and sent later.',
+          isConnectivityFailure: true);
     }
-    if (res.statusCode == 201) {
+    if (res.statusCode == 201 || res.statusCode == 200) {
       final map = jsonDecode(res.body) as Map<String, dynamic>;
       return ApiIssueTicketResult.ok(
         ApiIssuedTicket(
@@ -914,7 +919,7 @@ class ApiClient {
           .timeout(const Duration(seconds: 22));
       return ApiAttendantSosResult.fromResponse(res.statusCode, res.body);
     } catch (e) {
-      return ApiAttendantSosResult.failure(mapRequestFailure('SOS', e));
+      return ApiAttendantSosResult.failure(mapRequestFailure('SOS', e), isConnectivityFailure: true);
     }
   }
 
@@ -1189,17 +1194,21 @@ class ApiDashboardSummary {
 }
 
 class ApiIssueTicketResult {
-  ApiIssueTicketResult._({this.ok = false, this.ticket, this.message});
+  ApiIssueTicketResult._({this.ok = false, this.ticket, this.message, this.isConnectivityFailure = false});
 
   factory ApiIssueTicketResult.ok(ApiIssuedTicket ticket) =>
       ApiIssueTicketResult._(ok: true, ticket: ticket);
 
-  factory ApiIssueTicketResult.failure(String message) =>
-      ApiIssueTicketResult._(ok: false, message: message);
+  factory ApiIssueTicketResult.failure(String message, {bool isConnectivityFailure = false}) =>
+      ApiIssueTicketResult._(ok: false, message: message, isConnectivityFailure: isConnectivityFailure);
 
   final bool ok;
   final ApiIssuedTicket? ticket;
   final String? message;
+  /// True when the request never reached the server (timeout/offline) — the caller can safely
+  /// queue-and-retry this exact request later. False means the server responded with a real
+  /// rejection (bad data, auth, etc.) that retrying unchanged won't fix.
+  final bool isConnectivityFailure;
 }
 
 class ApiFareQuoteResult {
@@ -1705,10 +1714,11 @@ class ApiAttendantSosResult {
     this.smsNotify,
     this.smsDetail,
     this.hint,
+    this.isConnectivityFailure = false,
   });
 
-  factory ApiAttendantSosResult.failure(String message) =>
-      ApiAttendantSosResult(ok: false, message: message);
+  factory ApiAttendantSosResult.failure(String message, {bool isConnectivityFailure = false}) =>
+      ApiAttendantSosResult(ok: false, message: message, isConnectivityFailure: isConnectivityFailure);
 
   factory ApiAttendantSosResult.fromResponse(int status, String body) {
     if (status == 201) {
@@ -1757,6 +1767,8 @@ class ApiAttendantSosResult {
   final String? smsDetail;
   /// When neither email nor SMS was delivered, server may explain what to configure.
   final String? hint;
+  /// True when the request never reached the server — caller can safely queue this SOS.
+  final bool isConnectivityFailure;
 }
 
 class ApiBusAssignment {

@@ -22,6 +22,13 @@ const issuedTicketRecordSchema = new mongoose.Schema(
     issuedByName: { type: String, default: "", trim: true },
     busNumber: { type: String, default: null, trim: true },
     /**
+     * Idempotency key from the BusAttendant app's offline ticket outbox (see
+     * lib/services/ticket_outbox_store.dart). Sparse + unique so a retried sync after an
+     * ambiguous network failure can't create a duplicate ticket; normal online tickets (no
+     * client ID) are unaffected.
+     */
+    clientRequestId: { type: String, default: null, unique: true, sparse: true },
+    /**
      * Passenger seat intel: `boarded` counts toward live occupancy until `completed` (alighted) or `cancelled`.
      * Legacy docs without this field are treated as boarded.
      */

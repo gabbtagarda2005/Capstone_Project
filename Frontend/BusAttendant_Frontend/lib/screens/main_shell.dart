@@ -16,6 +16,8 @@ import '../services/gps_outbox_store.dart';
 import '../services/live_fleet_socket.dart';
 import '../services/network_signal_tier.dart';
 import '../services/session_store.dart';
+import '../services/sos_outbox_store.dart';
+import '../services/ticket_outbox_store.dart';
 import '../config/app_branding.dart';
 import '../theme/app_colors.dart';
 import '../widgets/attendant_inactivity_watcher.dart';
@@ -83,6 +85,8 @@ class _MainShellState extends State<MainShell> {
   String? _mapSyncError;
   LiveFleetSocket? _liveFleet;
   final GpsOutboxStore _gpsOutbox = GpsOutboxStore();
+  final TicketOutboxStore _ticketOutbox = TicketOutboxStore();
+  final SosOutboxStore _sosOutbox = SosOutboxStore();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   StreamSubscription<Position>? _webGpsSub;
   Position? _lastWebFix;
@@ -358,6 +362,8 @@ class _MainShellState extends State<MainShell> {
     _connectivitySub = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> r) {
       if (r.contains(ConnectivityResult.none)) return;
       unawaited(_flushGpsOutbox());
+      unawaited(_flushTicketOutbox());
+      unawaited(_flushSosOutbox());
     });
   }
 
@@ -379,6 +385,68 @@ class _MainShellState extends State<MainShell> {
     } catch (_) {
       for (final p in pending) {
         await _gpsOutbox.enqueue(p);
+      }
+    }
+  }
+
+  /// Drains queued offline tickets (see TicketingPage._issue -> TicketOutboxStore.enqueue).
+  /// Each carries its own idempotency key, so a ticket that already synced on a prior attempt
+  /// (e.g. the POST succeeded but the response never arrived) is returned by the server rather
+  /// than duplicated.
+  Future<void> _flushTicketOutbox() async {
+    final t = _token ?? '';
+    if (t.isEmpty || _ticketing.isEmpty) return;
+    if (!kIsWeb) {
+      final links = await Connectivity().checkConnectivity();
+      if (links.contains(ConnectivityResult.none)) return;
+    }
+    final pending = await _ticketOutbox.drainAll();
+    if (pending.isEmpty) return;
+    for (final ticket in pending) {
+      final r = await _api.issueTicket(
+        attendantToken: t,
+        ticketingToken: _ticketing,
+        passengerId: ticket.passengerId,
+        passengerName: ticket.passengerName,
+        from: ticket.from,
+        to: ticket.to,
+        category: ticket.category,
+        fare: ticket.fare,
+        busNumber: ticket.busNumber,
+        clientRequestId: ticket.clientRequestId,
+      );
+      if (!r.ok) {
+        await _ticketOutbox.requeue(ticket);
+      }
+    }
+  }
+
+  /// Drains queued offline SOS alerts (see _sendSos -> SosOutboxStore.enqueue).
+  Future<void> _flushSosOutbox() async {
+    final t = _token ?? '';
+    if (t.isEmpty || _ticketing.isEmpty) return;
+    if (!kIsWeb) {
+      final links = await Connectivity().checkConnectivity();
+      if (links.contains(ConnectivityResult.none)) return;
+    }
+    final pending = await _sosOutbox.drainAll();
+    if (pending.isEmpty) return;
+    for (final alert in pending) {
+      final r = await _api.postAttendantSos(
+        attendantToken: t,
+        ticketingToken: _ticketing,
+        latitude: (alert['latitude'] as num).toDouble(),
+        longitude: (alert['longitude'] as num).toDouble(),
+        level: (alert['level'] ?? 'emergency').toString(),
+        note: alert['note']?.toString(),
+      );
+      if (!r.ok) {
+        await _sosOutbox.enqueue(
+          level: (alert['level'] ?? 'emergency').toString(),
+          note: (alert['note'] ?? '').toString(),
+          latitude: (alert['latitude'] as num).toDouble(),
+          longitude: (alert['longitude'] as num).toDouble(),
+        );
       }
     }
   }
@@ -1085,6 +1153,21 @@ class _MainShellState extends State<MainShell> {
                 child: const Text('OK'),
               ),
             ],
+          ),
+        );
+      } else if (r.isConnectivityFailure) {
+        // No connection right now — queue it. Drained automatically the moment connectivity
+        // returns (see _startConnectivityWatch -> _flushSosOutbox). Not a substitute for a real
+        // no-signal-at-all emergency, but closes the "spotty data, brief dead zone" gap.
+        await _sosOutbox.enqueue(level: level, note: note, latitude: pos.latitude, longitude: pos.longitude);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'No connection — SOS queued. It will send automatically the moment you\'re back online.',
+            ),
+            backgroundColor: TacticalColors.amberSignal,
+            duration: const Duration(seconds: 6),
           ),
         );
       } else {

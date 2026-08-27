@@ -122,14 +122,44 @@ function createTicketsTicketingRouter() {
       busNumber,
       passengerCategory,
       passengerPhone,
+      clientRequestId,
     } = req.body || {};
     const pid = String(passengerId || "").trim();
     const start = String(startLocation || "").trim();
     const dest = String(destination || "").trim();
     const fareNum = fare != null ? Number(fare) : NaN;
+    const clientReqId = clientRequestId != null ? String(clientRequestId).trim() : "";
 
     if (!pid || !start || !dest) {
       return res.status(400).json({ error: "passengerId, startLocation, and destination are required" });
+    }
+
+    /**
+     * Idempotency: the BusAttendant app's offline ticket outbox retries the same request (same
+     * clientRequestId) if a prior sync attempt failed ambiguously (e.g. the POST succeeded
+     * server-side but the response never made it back). Returning the already-issued ticket
+     * here — instead of creating a second one — is what prevents a duplicate ticket, a
+     * double-incremented bus ticket counter, and a duplicate SMS receipt.
+     */
+    if (clientReqId) {
+      const existing = await IssuedTicketRecord.findOne({ clientRequestId: clientReqId }).lean();
+      if (existing) {
+        return res.status(200).json({
+          id: String(existing._id),
+          ticketCode: `TKT-${String(existing._id).slice(-8).toUpperCase()}`,
+          passengerId: existing.passengerId,
+          passengerName: existing.passengerName,
+          passengerPhone: existing.passengerPhone,
+          startLocation: existing.startLocation,
+          destination: existing.destination,
+          destinationLocation: existing.destinationLocation,
+          fare: existing.fare,
+          category: existing.passengerCategory,
+          createdAt: existing.createdAt ? existing.createdAt.toISOString() : new Date().toISOString(),
+          busNumber: existing.busNumber,
+          alreadyIssued: true,
+        });
+      }
     }
 
     const catRaw = String(passengerCategory || "adult").trim().toLowerCase();
@@ -233,6 +263,7 @@ function createTicketsTicketingRouter() {
         issuedByName: issuedName,
         busNumber: busNorm,
         boardingStatus: "boarded",
+        clientRequestId: clientReqId || null,
       });
       let busCounter = null;
       if (busNorm) {
@@ -284,6 +315,29 @@ function createTicketsTicketingRouter() {
         sms,
       });
     } catch (e) {
+      // Race: two near-simultaneous requests with the same clientRequestId both passed the
+      // pre-check above before either inserted. Mongo's unique index catches it here instead —
+      // return the winner's ticket rather than a 500.
+      if (clientReqId && (e.code === 11000 || /duplicate key/i.test(e.message || ""))) {
+        const existing = await IssuedTicketRecord.findOne({ clientRequestId: clientReqId }).lean();
+        if (existing) {
+          return res.status(200).json({
+            id: String(existing._id),
+            ticketCode: `TKT-${String(existing._id).slice(-8).toUpperCase()}`,
+            passengerId: existing.passengerId,
+            passengerName: existing.passengerName,
+            passengerPhone: existing.passengerPhone,
+            startLocation: existing.startLocation,
+            destination: existing.destination,
+            destinationLocation: existing.destinationLocation,
+            fare: existing.fare,
+            category: existing.passengerCategory,
+            createdAt: existing.createdAt ? existing.createdAt.toISOString() : new Date().toISOString(),
+            busNumber: existing.busNumber,
+            alreadyIssued: true,
+          });
+        }
+      }
       return res.status(500).json({ error: e.message });
     }
   });
