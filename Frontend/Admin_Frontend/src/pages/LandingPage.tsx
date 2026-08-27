@@ -152,11 +152,10 @@ export function LandingPage() {
                 ticketing, and admin oversight — keeping passengers, drivers, and control room in sync.
               </p>
               <div className="landing-hero__actions">
-                <Link to="/login" className="landing-hero__go">
+                <Link to="/login" className="landing-hero__go landing-hero__go--primary">
                   Get Started ↗
                 </Link>
-                <span className="landing-hero__actions-or">or</span>
-                <Link to="/passenger/track" className="landing-hero__go">
+                <Link to="/passenger/track" className="landing-hero__go landing-hero__go--secondary">
                   Track Bus ↗
                 </Link>
               </div>
@@ -191,31 +190,41 @@ export function LandingPage() {
                   passenger
                 </div>
               </div>
-              <ul className="landing-bullets">
-                <li>
-                  <strong>35%: Tracking &amp; maps</strong>
-                  <br />
-                  Ingest, validate, and visualize bus positions for admins and passengers.
+              <ul className="landing-stats">
+                <li className="landing-stats__item">
+                  <span className="landing-stats__pct">35%</span>
+                  <div className="landing-stats__body">
+                    <strong>Tracking &amp; maps</strong>
+                    <p>Ingest, validate, and visualize bus positions for admins and passengers.</p>
+                  </div>
                 </li>
-                <li>
-                  <strong>25%: Terminal ticketing</strong>
-                  <br />
-                  Issue tickets, enforce fixed fares, and keep Bus Attendant attribution on every row.
+                <li className="landing-stats__item">
+                  <span className="landing-stats__pct">25%</span>
+                  <div className="landing-stats__body">
+                    <strong>Terminal ticketing</strong>
+                    <p>Issue tickets, enforce fixed fares, and keep Bus Attendant attribution on every row.</p>
+                  </div>
                 </li>
-                <li>
-                  <strong>15%: Geofences &amp; alerts</strong>
-                  <br />
-                  Stops, proximity, and optional push when a bus nears a passenger.
+                <li className="landing-stats__item">
+                  <span className="landing-stats__pct">15%</span>
+                  <div className="landing-stats__body">
+                    <strong>Geofences &amp; alerts</strong>
+                    <p>Stops, proximity, and optional push when a bus nears a passenger.</p>
+                  </div>
                 </li>
-                <li>
-                  <strong>15%: Hardware &amp; OTA</strong>
-                  <br />
-                  LilyGo firmware paths and safe rollout to field devices.
+                <li className="landing-stats__item">
+                  <span className="landing-stats__pct">15%</span>
+                  <div className="landing-stats__body">
+                    <strong>Hardware &amp; OTA</strong>
+                    <p>LilyGo firmware paths and safe rollout to field devices.</p>
+                  </div>
                 </li>
-                <li>
-                  <strong>10%: Reporting &amp; audits</strong>
-                  <br />
-                  Filters by day, month, and range for cash-drawer alignment.
+                <li className="landing-stats__item">
+                  <span className="landing-stats__pct">10%</span>
+                  <div className="landing-stats__body">
+                    <strong>Reporting &amp; audits</strong>
+                    <p>Filters by day, month, and range for cash-drawer alignment.</p>
+                  </div>
                 </li>
               </ul>
             </div>
