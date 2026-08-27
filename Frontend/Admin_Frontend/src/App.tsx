@@ -7,6 +7,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
+import { PassengerDashboardRoute } from "@/passenger/components/PassengerDashboardRoute";
 import { ManagementPage } from "@/pages/ManagementPage";
 import { ManagementModulePage } from "@/pages/ManagementModulePage";
 import { CommandCenterPage } from "@/pages/CommandCenterPage";
@@ -35,6 +36,12 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Passenger tracking experience — public, no auth. Merged in from the former
+          Passenger_Frontend deployment; /passenger/enable-location is a compatibility
+          redirect matching that app's old /enable-location -> dashboard behavior. */}
+      <Route path="/passenger/track" element={<PassengerDashboardRoute />} />
+      <Route path="/passenger/enable-location" element={<Navigate to="/passenger/track" replace />} />
 
       <Route element={<RequireAuth />}>
         <Route

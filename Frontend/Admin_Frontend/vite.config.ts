@@ -14,4 +14,7 @@ export default defineConfig({
       "/socket.io": { target: "http://127.0.0.1:4001", ws: true },
     },
   },
+  preview: {
+    allowedHosts: ["bustracking.smartscreensystem.online"],
+  },
 });

@@ -58,9 +58,6 @@ const part2Bg: CSSProperties = {
   backgroundRepeat: "no-repeat, no-repeat",
 };
 
-const passengerTrackBase =
-  (import.meta.env.VITE_PASSENGER_APP_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:5174";
-
 const ROADMAP_STEPS = [
   {
     title: "Q1: Foundation",
@@ -159,9 +156,9 @@ export function LandingPage() {
                   Get Started ↗
                 </Link>
                 <span className="landing-hero__actions-or">or</span>
-                <a href={`${passengerTrackBase}/`} className="landing-hero__go">
+                <Link to="/passenger/track" className="landing-hero__go">
                   Track Bus ↗
-                </a>
+                </Link>
               </div>
             </div>
             <div className="landing-hero__visual" aria-hidden>

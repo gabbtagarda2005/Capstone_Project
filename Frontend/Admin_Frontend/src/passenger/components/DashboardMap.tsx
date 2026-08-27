@@ -1,0 +1,684 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "./DashboardMap.css";
+import { PassengerMapBasemapDock } from "@/passenger/components/PassengerMapBasemapDock";
+import {
+  fetchBusRouteGeometry,
+  fetchDeployedPoints,
+  fetchLiveBusPositions,
+  type BusRouteGeometry,
+  type DeployedPointItem,
+  type LiveBusPosition,
+} from "@/passenger/lib/fetchPassengerMapData";
+import { fetchPublicFleetBuses, type PublicFleetBus } from "@/passenger/lib/fetchPublicFleetBuses";
+import { fetchPublicOperationsDeck } from "@/passenger/lib/fetchPublicOperationsDeck";
+import { passengerTileLayer, type PassengerBasemapMode } from "@/passenger/lib/passengerMapTiles";
+import { haversineKm } from "@/passenger/lib/passengerGeo";
+import { getPassengerLocationSession } from "@/passenger/lib/passengerLocationGate";
+
+type MapConfig = {
+  center: { lat: number; lng: number };
+  zoom: number;
+  label: string;
+  tileUrl: string;
+  attribution: string;
+};
+
+const defaultConfig: MapConfig = {
+  center: { lat: 8.158, lng: 125.1236 },
+  zoom: 11,
+  label: "Malaybalay · Bukidnon",
+  tileUrl: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  attribution: '&copy; OpenStreetMap',
+};
+
+const LEAFLET_TERMINAL_ICON = L.divIcon({
+  className: "dashboard-map__marker-terminal",
+  html:
+    '<div class="dashboard-map__terminal-inner" aria-hidden>' +
+    '<svg width="32" height="32" viewBox="-1.1 -1.1 2.2 2.2" focusable="false">' +
+    '<polygon points="0,-1 0.866,-0.5 0.866,0.5 0,1 -0.866,0.5 -0.866,-0.5" fill="#34d399" stroke="#065f46" stroke-width="0.12" />' +
+    "</svg></div>",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+const LEAFLET_STOP_ICON = L.divIcon({
+  className: "dashboard-map__marker-stop",
+  html:
+    '<div style="width:11px;height:11px;border-radius:50%;background:#22d3ee;border:2px solid #0b1220;box-sizing:border-box"></div>',
+  iconSize: [11, 11],
+  iconAnchor: [5, 5],
+});
+
+const LEAFLET_WAYPOINT_ICON = L.divIcon({
+  className: "dashboard-map__marker-waypoint",
+  html:
+    '<div style="position:relative;width:22px;height:22px;display:flex;align-items:center;justify-content:center">' +
+    '<div style="position:absolute;inset:0;border-radius:50%;border:2px dashed rgba(103,232,249,0.95);box-sizing:border-box"></div>' +
+    '<div style="width:11px;height:11px;border-radius:50%;background:#22d3ee;border:2px solid #0b1220;box-sizing:border-box"></div>' +
+    "</div>",
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
+
+function busDivIcon() {
+  return L.divIcon({
+    className: "dashboard-map__bus-marker",
+    html: `<div class="dashboard-map__bus-pin" aria-hidden="true">🚌</div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+}
+
+const USER_LOCATION_ICON = L.divIcon({
+  className: "dashboard-map__marker-user",
+  html:
+    '<div class="dashboard-map__user-dot-wrap" aria-hidden="true">' +
+    '<span class="dashboard-map__user-pulse"></span>' +
+    '<span class="dashboard-map__user-core"></span>' +
+    "</div>",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+const ROUTE_START_ICON = L.divIcon({
+  className: "dashboard-map__marker-route-start",
+  html:
+    '<div class="dashboard-map__route-endpoint dashboard-map__route-endpoint--start" aria-hidden="true"><span>A</span></div>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 26],
+});
+
+const ROUTE_DESTINATION_ICON = L.divIcon({
+  className: "dashboard-map__marker-route-destination",
+  html:
+    '<div class="dashboard-map__route-endpoint dashboard-map__route-endpoint--destination" aria-hidden="true"><span>B</span></div>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 26],
+});
+
+const NEARBY_BUS_RADIUS_KM = 40;
+
+/** Splits a route polyline at the vertex nearest the bus, for a completed/remaining visual split. */
+function splitRouteAtBusPosition(
+  positions: [number, number][],
+  bus: [number, number] | null
+): { done: [number, number][]; remaining: [number, number][] } {
+  if (!bus || positions.length < 2) return { done: [], remaining: positions };
+  let bestIdx = 0;
+  let bestKm = Infinity;
+  for (let i = 0; i < positions.length; i++) {
+    const p = positions[i];
+    if (!p) continue;
+    const km = haversineKm(bus[0], bus[1], p[0], p[1]);
+    if (km < bestKm) {
+      bestKm = km;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx <= 0) return { done: [], remaining: positions };
+  if (bestIdx >= positions.length - 1) return { done: positions, remaining: [] };
+  return { done: positions.slice(0, bestIdx + 1), remaining: positions.slice(bestIdx) };
+}
+
+type RouteLoadState = {
+  status: "idle" | "loading" | "ready" | "unavailable" | "error";
+  data: BusRouteGeometry | null;
+};
+
+function routeUnavailableMessage(reason?: string): string {
+  switch (reason) {
+    case "no_route_assigned":
+    case "route_not_matched":
+    case "missing_terminal_coords":
+      return "Route information unavailable.";
+    default:
+      return "Route information unavailable.";
+  }
+}
+
+/** One-shot bounds fit for the selected route — only re-fits when `fitKey` changes, never on every GPS tick. */
+function FitToSelectedRoute({
+  fitKey,
+  points,
+}: {
+  fitKey: string;
+  points: [number, number][];
+}) {
+  const map = useMap();
+  const lastKey = useRef("");
+  useEffect(() => {
+    if (!fitKey || points.length === 0) return;
+    if (lastKey.current === fitKey) return;
+    lastKey.current = fitKey;
+    try {
+      const b = L.latLngBounds(points);
+      map.fitBounds(b, { padding: [56, 56], maxZoom: 16 });
+    } catch {
+      /* ignore */
+    }
+  }, [map, fitKey, points]);
+  return null;
+}
+
+function formatDistanceToTerminal(km: number): string {
+  if (!Number.isFinite(km) || km < 0) return "—";
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+}
+
+/** First paint after enabling location: lock zoom 15 on passenger position. */
+function EnsureUserMapView({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
+  const map = useMap();
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+    map.setView([lat, lng], zoom, { animate: true });
+  }, [map, lat, lng, zoom]);
+  return null;
+}
+
+function RecenterWhenConfigChanges({
+  center,
+  zoom,
+  block,
+}: {
+  center: [number, number];
+  zoom: number;
+  block: boolean;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (block) return;
+    map.setView(center, zoom, { animate: true });
+  }, [map, center[0], center[1], zoom, block]);
+  return null;
+}
+
+function AutoFitOnce({
+  fitKey,
+  points,
+  disabled,
+}: {
+  fitKey: string;
+  points: [number, number][];
+  disabled?: boolean;
+}) {
+  const map = useMap();
+  const lastKey = useRef("");
+  useEffect(() => {
+    if (disabled) return;
+    if (!fitKey || points.length === 0) return;
+    if (lastKey.current === fitKey) return;
+    lastKey.current = fitKey;
+    try {
+      const b = L.latLngBounds(points);
+      map.fitBounds(b, { padding: [48, 48], maxZoom: 14 });
+    } catch {
+      /* ignore */
+    }
+  }, [map, fitKey, points, disabled]);
+  return null;
+}
+
+type Props = {
+  apiBase?: string;
+  /** When set, replaces “Live network map” in the map chrome (e.g. company name). */
+  chromeTitle?: string;
+  /** When set, replaces the map region line under the title (e.g. active section). */
+  chromeSubtitle?: string;
+  /** Hide title + subtitle when the parent shows branding elsewhere (e.g. passenger top bar). */
+  suppressBrandChrome?: boolean;
+  /** Fired when `/api/passenger/map-config` resolves so the parent can show the region in the top ticker. */
+  onMapRegionLabel?: (label: string) => void;
+  /** Bus selected from Quick ETA — when set, the map draws that bus's planned route (separate from its live GPS marker). */
+  selectedBusId?: string | null;
+  onClearSelection?: () => void;
+};
+
+export function DashboardMap({
+  apiBase,
+  chromeTitle,
+  chromeSubtitle,
+  suppressBrandChrome,
+  onMapRegionLabel,
+  selectedBusId,
+  onClearSelection,
+}: Props) {
+  const [userSession] = useState(() => getPassengerLocationSession());
+  const [nearbyBusesOnly, setNearbyBusesOnly] = useState(false);
+  const [cfg, setCfg] = useState<MapConfig>(defaultConfig);
+  const [basemap, setBasemap] = useState<PassengerBasemapMode>("roadmap");
+  const [deployed, setDeployed] = useState<DeployedPointItem[]>([]);
+  const [liveBuses, setLiveBuses] = useState<LiveBusPosition[]>([]);
+  const [fleetById, setFleetById] = useState<Map<string, PublicFleetBus>>(new Map());
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [operationsDeckLive, setOperationsDeckLive] = useState(true);
+  const [routeState, setRouteState] = useState<RouteLoadState>({ status: "idle", data: null });
+  const [routeRetryNonce, setRouteRetryNonce] = useState(0);
+  const routeCacheRef = useRef<Map<string, BusRouteGeometry>>(new Map());
+
+  const busIcon = useMemo(() => busDivIcon(), []);
+
+  useEffect(() => {
+    if (!selectedBusId) {
+      setRouteState({ status: "idle", data: null });
+      return;
+    }
+    const cached = routeCacheRef.current.get(selectedBusId);
+    if (cached) {
+      setRouteState({ status: cached.available ? "ready" : "unavailable", data: cached });
+      return;
+    }
+    let cancelled = false;
+    setRouteState({ status: "loading", data: null });
+    fetchBusRouteGeometry(selectedBusId)
+      .then((r) => {
+        if (cancelled) return;
+        routeCacheRef.current.set(selectedBusId, r);
+        setRouteState({ status: r.available ? "ready" : "unavailable", data: r });
+      })
+      .catch(() => {
+        if (!cancelled) setRouteState({ status: "error", data: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBusId, routeRetryNonce]);
+
+  const selectedRoutePositions = useMemo<[number, number][]>(() => {
+    const coords = routeState.data?.geometry?.coordinates;
+    if (!coords) return [];
+    return coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+  }, [routeState.data]);
+
+  const selectedBusLive = useMemo(() => {
+    if (!selectedBusId) return null;
+    const b = liveBuses.find((x) => x.busId === selectedBusId);
+    if (!b || !Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) return null;
+    return [b.latitude, b.longitude] as [number, number];
+  }, [selectedBusId, liveBuses]);
+
+  const routeSplit = useMemo(
+    () => splitRouteAtBusPosition(selectedRoutePositions, selectedBusLive),
+    [selectedRoutePositions, selectedBusLive]
+  );
+
+  const routeFitPoints = useMemo<[number, number][]>(() => {
+    if (!routeState.data?.available) return [];
+    const pts: [number, number][] = [...selectedRoutePositions];
+    if (routeState.data.origin) pts.push([routeState.data.origin.latitude, routeState.data.origin.longitude]);
+    if (routeState.data.destination) pts.push([routeState.data.destination.latitude, routeState.data.destination.longitude]);
+    if (selectedBusLive) pts.push(selectedBusLive);
+    return pts;
+  }, [routeState.data, selectedRoutePositions, selectedBusLive]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const { operationsDeckLive: live } = await fetchPublicOperationsDeck();
+        if (cancelled) return;
+        setOperationsDeckLive(live);
+        if (!live) {
+          setLiveBuses([]);
+          setFleetById(new Map());
+        }
+      } catch {
+        if (!cancelled) setOperationsDeckLive(true);
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 12_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const visibleBuses = useMemo(() => {
+    if (!operationsDeckLive) return [];
+    if (!nearbyBusesOnly || !userSession) return liveBuses;
+    return liveBuses.filter((b) => {
+      if (!Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) return false;
+      return haversineKm(userSession.lat, userSession.lng, b.latitude, b.longitude) <= NEARBY_BUS_RADIUS_KM;
+    });
+  }, [nearbyBusesOnly, operationsDeckLive, userSession, liveBuses]);
+
+  useEffect(() => {
+    const base = (
+      apiBase ||
+      import.meta.env.VITE_PASSENGER_API_URL ||
+      import.meta.env.VITE_ADMIN_API_URL ||
+      "http://localhost:4000"
+    ).replace(/\/+$/, "");
+    const ac = new AbortController();
+    fetch(`${base}/api/passenger/map-config`, { signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.center?.lat != null && data?.center?.lng != null) {
+          setCfg({
+            center: { lat: data.center.lat, lng: data.center.lng },
+            zoom: typeof data.zoom === "number" ? data.zoom : defaultConfig.zoom,
+            label: String(data.label || defaultConfig.label),
+            tileUrl: String(data.tileUrl || defaultConfig.tileUrl),
+            attribution: String(data.attribution || defaultConfig.attribution),
+          });
+        }
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, [apiBase]);
+
+  useEffect(() => {
+    if (cfg.label?.trim()) onMapRegionLabel?.(cfg.label.trim());
+  }, [cfg.label, onMapRegionLabel]);
+
+  const loadStaticPoints = useCallback(() => {
+    fetchDeployedPoints()
+      .then(setDeployed)
+      .catch((e) => setDataError(e instanceof Error ? e.message : "Could not load stops"));
+  }, []);
+
+  const loadFleet = useCallback(() => {
+    fetchPublicFleetBuses()
+      .then((rows) => setFleetById(new Map(rows.map((b) => [b.busId, b]))))
+      .catch(() => {});
+  }, []);
+
+  const loadLive = useCallback(() => {
+    fetchLiveBusPositions()
+      .then(setLiveBuses)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadStaticPoints();
+    loadFleet();
+    loadLive();
+    const t1 = window.setInterval(loadStaticPoints, 90_000);
+    const t2 = window.setInterval(loadLive, 18_000);
+    const t3 = window.setInterval(loadFleet, 120_000);
+    return () => {
+      window.clearInterval(t1);
+      window.clearInterval(t2);
+      window.clearInterval(t3);
+    };
+  }, [loadStaticPoints, loadFleet, loadLive]);
+
+  const mapCenter: [number, number] = userSession
+    ? [userSession.lat, userSession.lng]
+    : [cfg.center.lat, cfg.center.lng];
+  const mapZoom = userSession ? 15 : cfg.zoom;
+  const tile = passengerTileLayer(basemap);
+
+  const fitPoints = useMemo(() => {
+    const pts: [number, number][] = [];
+    for (const row of deployed) {
+      if (row.terminal && Number.isFinite(row.terminal.latitude) && Number.isFinite(row.terminal.longitude)) {
+        pts.push([row.terminal.latitude, row.terminal.longitude]);
+      }
+      if (row.locationPoint && Number.isFinite(row.locationPoint.latitude) && Number.isFinite(row.locationPoint.longitude)) {
+        pts.push([row.locationPoint.latitude, row.locationPoint.longitude]);
+      }
+      for (const s of row.stops) {
+        if (Number.isFinite(s.latitude) && Number.isFinite(s.longitude)) {
+          pts.push([s.latitude, s.longitude]);
+        }
+      }
+    }
+    for (const b of liveBuses) {
+      if (Number.isFinite(b.latitude) && Number.isFinite(b.longitude)) {
+        pts.push([b.latitude, b.longitude]);
+      }
+    }
+    return pts;
+  }, [deployed, liveBuses]);
+
+  const fitKey = useMemo(() => {
+    if (fitPoints.length === 0) return "";
+    const dep = deployed
+      .map((d) => d.id)
+      .sort()
+      .join(",");
+    const buses = liveBuses
+      .map((b) => b.busId)
+      .sort()
+      .join(",");
+    return `${dep}|${buses}`;
+  }, [deployed, liveBuses, fitPoints.length]);
+
+  const photoBasemap = basemap === "satellite" || basemap === "terrain";
+
+  const skipAutoFit = Boolean(userSession);
+
+  const lightChrome = basemap !== "dark";
+
+  return (
+    <div
+      className={
+        "dashboard-map" +
+        (lightChrome ? " dashboard-map--light-chrome" : " dashboard-map--dark-chrome")
+      }
+    >
+      <div className="dashboard-map__chrome">
+        <div className="dashboard-map__chrome-main">
+          {!suppressBrandChrome ? (
+            <>
+              <h2 className="dashboard-map__title">{chromeTitle?.trim() || "Live network map"}</h2>
+              <p className="dashboard-map__sub">
+                {chromeSubtitle?.trim() || cfg.label}
+                {dataError ? ` · ${dataError}` : ""}
+              </p>
+            </>
+          ) : dataError ? (
+            <p className="dashboard-map__data-err" role="alert">
+              {dataError}
+            </p>
+          ) : null}
+          {!operationsDeckLive ? (
+            <p className="dashboard-map__deck-offline" role="status">
+              Operations deck is <strong>OFFLINE</strong> — live buses are hidden until operations goes LIVE again.
+            </p>
+          ) : null}
+          {userSession ? (
+            <p className="dashboard-map__near-you" role="status">
+              <span className="dashboard-map__near-you-dot" aria-hidden />
+              You are{" "}
+              <strong>{formatDistanceToTerminal(userSession.distanceKm)}</strong> from{" "}
+              <strong>{userSession.nearestLabel}</strong>
+            </p>
+          ) : null}
+          {selectedBusId && routeState.status === "loading" ? (
+            <p className="dashboard-map__route-banner" role="status">
+              Loading route…
+            </p>
+          ) : null}
+          {selectedBusId && routeState.status === "unavailable" ? (
+            <p className="dashboard-map__route-banner" role="status">
+              {routeUnavailableMessage(routeState.data?.reason)}
+            </p>
+          ) : null}
+          {selectedBusId && routeState.status === "error" ? (
+            <p className="dashboard-map__route-banner dashboard-map__route-banner--err" role="alert">
+              Unable to load route.{" "}
+              <button type="button" className="dashboard-map__route-retry" onClick={() => setRouteRetryNonce((n) => n + 1)}>
+                Retry
+              </button>
+            </p>
+          ) : null}
+        </div>
+        <div className="dashboard-map__chrome-actions">
+          {selectedBusId ? (
+            <button type="button" className="dashboard-map__nearby-btn" onClick={onClearSelection}>
+              ✕ Clear route
+            </button>
+          ) : null}
+          {userSession ? (
+            <button
+              type="button"
+              className={
+                "dashboard-map__nearby-btn" + (nearbyBusesOnly ? " dashboard-map__nearby-btn--active" : "")
+              }
+              onClick={() => setNearbyBusesOnly((v) => !v)}
+            >
+              {nearbyBusesOnly ? "Show all buses" : "Show nearby buses"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="dashboard-map__frame">
+        <MapContainer
+          center={mapCenter}
+          zoom={mapZoom}
+          className={
+            "dashboard-map__leaflet" + (photoBasemap ? " dashboard-map__leaflet--photo" : "")
+          }
+          scrollWheelZoom
+        >
+          {userSession ? <EnsureUserMapView lat={userSession.lat} lng={userSession.lng} zoom={15} /> : null}
+          <RecenterWhenConfigChanges
+            center={mapCenter}
+            zoom={mapZoom}
+            block={Boolean(userSession) || fitPoints.length > 0}
+          />
+          <AutoFitOnce fitKey={fitKey} points={fitPoints} disabled={skipAutoFit} />
+          <TileLayer key={basemap} url={tile.url} attribution={tile.attribution} />
+
+          {userSession ? (
+            <Marker position={[userSession.lat, userSession.lng]} icon={USER_LOCATION_ICON}>
+              <Popup>
+                <strong>Your location</strong>
+                <div className="dashboard-map__popup-muted">Approximate position from your device</div>
+              </Popup>
+            </Marker>
+          ) : null}
+
+          {deployed.flatMap((row) => {
+            const nodes: React.ReactElement[] = [];
+            const t = row.terminal;
+            if (t && Number.isFinite(t.latitude) && Number.isFinite(t.longitude)) {
+              const r = Math.min(20_000, Math.max(200, Number(t.geofenceRadiusM) || 500));
+              nodes.push(
+                <Circle
+                  key={`${row.id}-geo`}
+                  center={[t.latitude, t.longitude]}
+                  radius={r}
+                  pathOptions={{ color: "#10b981", fillColor: "#34d399", fillOpacity: 0.08, weight: 2 }}
+                />
+              );
+              nodes.push(
+                <Marker key={`${row.id}-term`} position={[t.latitude, t.longitude]} icon={LEAFLET_TERMINAL_ICON}>
+                  <Popup>
+                    <strong>Terminal</strong>
+                    <div>{t.name}</div>
+                    <div className="dashboard-map__popup-muted">{row.locationName}</div>
+                  </Popup>
+                </Marker>
+              );
+            }
+            const lp = row.locationPoint;
+            if (lp && Number.isFinite(lp.latitude) && Number.isFinite(lp.longitude)) {
+              nodes.push(
+                <Marker key={`${row.id}-way`} position={[lp.latitude, lp.longitude]} icon={LEAFLET_WAYPOINT_ICON}>
+                  <Popup>
+                    <strong>Location (corridor)</strong>
+                    <div>{lp.name}</div>
+                    <div className="dashboard-map__popup-muted">{row.locationName}</div>
+                  </Popup>
+                </Marker>
+              );
+            }
+            for (const s of row.stops) {
+              if (!Number.isFinite(s.latitude) || !Number.isFinite(s.longitude)) continue;
+              nodes.push(
+                <Marker
+                  key={`${row.id}-stop-${s.sequence}`}
+                  position={[s.latitude, s.longitude]}
+                  icon={LEAFLET_STOP_ICON}
+                >
+                  <Popup>
+                    <strong>Bus stop</strong>
+                    <div>{s.name}</div>
+                    <div className="dashboard-map__popup-muted">{row.locationName}</div>
+                  </Popup>
+                </Marker>
+              );
+            }
+            return nodes;
+          })}
+
+          {visibleBuses.map((b) => {
+            if (!Number.isFinite(b.latitude) || !Number.isFinite(b.longitude)) return null;
+            const reg = fleetById.get(b.busId);
+            const label = reg?.busNumber?.trim() || b.busId;
+            const route = reg?.route?.trim() || "—";
+            return (
+              <Marker key={`bus-${b.busId}`} position={[b.latitude, b.longitude]} icon={busIcon}>
+                <Popup>
+                  <strong>Bus {label}</strong>
+                  <div>Route: {route}</div>
+                  {b.nextTerminal ? <div>Next: {b.nextTerminal}</div> : null}
+                  {b.etaMinutes != null && Number.isFinite(b.etaMinutes) ? (
+                    <div>ETA ~{Math.max(1, Math.round(b.etaMinutes))} min</div>
+                  ) : null}
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {routeState.status === "ready" && routeState.data?.available ? (
+            <>
+              <FitToSelectedRoute fitKey={selectedBusId || ""} points={routeFitPoints} />
+              {routeSplit.done.length > 1 ? (
+                <Polyline
+                  positions={routeSplit.done}
+                  pathOptions={{ color: "#94a3b8", weight: 5, opacity: 0.65, dashArray: "2 10" }}
+                />
+              ) : null}
+              {routeSplit.remaining.length > 1 ? (
+                <Polyline
+                  positions={routeSplit.remaining}
+                  pathOptions={{ color: "#2563eb", weight: 5, opacity: 0.9 }}
+                />
+              ) : null}
+              {routeState.data.origin ? (
+                <Marker
+                  position={[routeState.data.origin.latitude, routeState.data.origin.longitude]}
+                  icon={ROUTE_START_ICON}
+                >
+                  <Popup>
+                    <strong>Route start</strong>
+                    <div>{routeState.data.origin.name}</div>
+                  </Popup>
+                </Marker>
+              ) : null}
+              {routeState.data.destination ? (
+                <Marker
+                  position={[routeState.data.destination.latitude, routeState.data.destination.longitude]}
+                  icon={ROUTE_DESTINATION_ICON}
+                >
+                  <Popup>
+                    <strong>Route destination</strong>
+                    <div>{routeState.data.destination.name}</div>
+                  </Popup>
+                </Marker>
+              ) : null}
+            </>
+          ) : null}
+        </MapContainer>
+
+        <PassengerMapBasemapDock
+          basemap={basemap}
+          onBasemapChange={setBasemap}
+          activeBuses={visibleBuses.length}
+          regionLabel="network"
+        />
+      </div>
+    </div>
+  );
+}

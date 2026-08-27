@@ -1,0 +1,73 @@
+.pax-maint-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.72);
+  box-sizing: border-box;
+}
+
+.pax-maint-overlay__panel {
+  width: min(32rem, 100%);
+  max-height: min(78vh, 100%);
+  overflow: auto;
+  border: 2px solid #f59e0b;
+  border-radius: 0.85rem;
+  background: linear-gradient(165deg, #020617 0%, #0f172a 55%, #020617 100%);
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.35),
+    0 24px 64px rgba(0, 0, 0, 0.55);
+  padding: 1.35rem 1.25rem 1.15rem;
+}
+
+.pax-maint-overlay__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #f59e0b;
+  margin-bottom: 0.85rem;
+}
+
+.pax-maint-overlay__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.65);
+  animation: pax-maint-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pax-maint-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(0.9);
+  }
+}
+
+.pax-maint-overlay__body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pax-maint-overlay__foot {
+  margin: 1rem 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  text-align: center;
+}
