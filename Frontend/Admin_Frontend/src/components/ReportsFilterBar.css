@@ -10,6 +10,12 @@
   background: rgba(2, 6, 23, 0.4);
 }
 
+:root[data-theme="light"] .reports-filter-bar {
+  border: 1px solid #e2e6ec;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
 .reports-filter-bar__field {
   display: flex;
   flex-direction: column;
@@ -24,8 +30,18 @@
   color: #94a3b8;
 }
 
+:root[data-theme="light"] .reports-filter-bar__label {
+  color: #64748b;
+}
+
 .reports-filter-bar__select {
   cursor: pointer;
+}
+
+:root[data-theme="light"] .reports-filter-bar__select {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .reports-filter-bar__reset {
@@ -39,8 +55,17 @@
   cursor: pointer;
 }
 
+:root[data-theme="light"] .reports-filter-bar__reset {
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
 .reports-filter-bar__reset:hover:not(:disabled) {
   background: rgba(51, 65, 85, 0.4);
+}
+
+:root[data-theme="light"] .reports-filter-bar__reset:hover:not(:disabled) {
+  background: #f1f5f9;
 }
 
 .reports-filter-bar__reset:disabled {

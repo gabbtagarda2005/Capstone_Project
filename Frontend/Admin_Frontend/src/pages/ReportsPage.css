@@ -1,7 +1,29 @@
 .reports-page {
+  --dg-bg: #0b1220;
+  --dg-text: #f1f5f9;
+  --dg-muted: rgba(148, 163, 184, 0.92);
+  --dg-border: rgba(0, 242, 255, 0.14);
+  --dg-panel: rgba(2, 8, 23, 0.55);
+  --dg-panel-soft: rgba(2, 8, 23, 0.3);
+  --dg-well: rgba(255, 255, 255, 0.06);
+
   max-width: 1600px;
   padding: 0.4rem 0 2rem;
   position: relative;
+}
+
+/* This page's `--dg-*` tokens were previously never defined here at all (only scoped inside
+   DashboardPage.css, an unrelated component) — every var(--dg-muted)/var(--dg-border) below was
+   silently falling back to "inherit" rather than a real value. Defining them properly here, with
+   this light override, is the actual fix — not a fresh coat of CSS on top of the same gap. */
+:root[data-theme="light"] .reports-page {
+  --dg-bg: #f4f6f9;
+  --dg-text: #101828;
+  --dg-muted: #475569;
+  --dg-border: #e2e6ec;
+  --dg-panel: #ffffff;
+  --dg-panel-soft: #f8fafc;
+  --dg-well: #f1f5f9;
 }
 
 .reports-page.admin-mgmt::before {
@@ -182,9 +204,14 @@
 .reports-page__stat {
   padding: 1rem 1.05rem;
   border-radius: 18px;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  background: rgba(2, 8, 23, 0.12);
+  border: 1px solid var(--dg-border);
+  background: var(--dg-panel);
   box-shadow: 0 12px 28px rgba(2, 6, 23, 0.2);
+  color: var(--dg-text);
+}
+
+:root[data-theme="light"] .reports-page__stat {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 .reports-page__stat div {
@@ -197,7 +224,12 @@
   margin-top: 0.35rem;
   font-size: 1.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  color: var(--dg-text);
   text-shadow: 0 0 12px rgba(0, 242, 255, 0.22);
+}
+
+:root[data-theme="light"] .reports-page__stat strong {
+  text-shadow: none;
 }
 
 .reports-page__stat--goal-warn {
@@ -831,7 +863,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(226, 232, 240, 0.98);
+  color: var(--neo-text, rgba(226, 232, 240, 0.98));
   line-height: 1.25;
   flex: 1;
   min-width: 0;
@@ -885,7 +917,7 @@
 }
 
 .reports-hub__export-cancel:hover {
-  color: #e2e8f0;
+  color: var(--neo-text, #e2e8f0);
   border-color: rgba(148, 163, 184, 0.45);
 }
 
@@ -918,7 +950,7 @@
 .reports-hub__export-sidebar-hint {
   font-size: 0.78rem;
   line-height: 1.5;
-  color: rgba(203, 213, 225, 0.92);
+  color: var(--neo-muted, rgba(203, 213, 225, 0.92));
 }
 
 .reports-hub__export-sidebar-hint p {
@@ -1088,7 +1120,7 @@
 .reports-hub__quad-v {
   font-size: 0.95rem;
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--neo-text, #e2e8f0);
 }
 
 .reports-hub__rev-snapshot {
@@ -1111,7 +1143,7 @@
 
 .reports-hub__rev-snapshot-row strong {
   font-size: 0.9rem;
-  color: #f1f5f9;
+  color: var(--neo-text, #f1f5f9);
 }
 
 .reports-hub__export {
@@ -1377,7 +1409,7 @@
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #f8fafc;
+  color: var(--neo-text, #f8fafc);
 }
 
 .reports-hub__col-sub {
@@ -1681,7 +1713,7 @@
   gap: 0.45rem;
   font-size: 0.5625rem;
   font-weight: 700;
-  color: rgba(203, 213, 225, 0.88);
+  color: var(--neo-muted, rgba(203, 213, 225, 0.88));
 }
 
 .reports-hub__donut-swatch {
@@ -1733,7 +1765,7 @@
   font-weight: 900;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: #f8fafc;
+  color: var(--neo-text, #f8fafc);
 }
 
 .reports-hub__pickups-dots {
@@ -1823,7 +1855,7 @@
 .reports-hub__pickup-loc {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--neo-text, #f1f5f9);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1912,7 +1944,7 @@
   margin: 0;
   font-size: 0.78rem;
   line-height: 1.55;
-  color: rgba(226, 232, 240, 0.92);
+  color: var(--neo-text, rgba(226, 232, 240, 0.92));
 }
 
 .reports-page__stat-label-row {
@@ -2007,11 +2039,11 @@
 }
 
 .reports-exec-suite .reports-page__exec--intel .reports-page__stat strong {
-  color: #f8fafc;
+  color: var(--neo-text, #f8fafc);
 }
 
 .reports-exec-suite .reports-page__exec--intel .reports-page__stat-note {
-  color: rgba(203, 213, 225, 0.92);
+  color: var(--neo-muted, rgba(203, 213, 225, 0.92));
 }
 
 .reports-exec-suite .reports-page__exec--intel .reports-page__stat-label-row {
@@ -2233,7 +2265,7 @@
 .reports-exec-today-strip__v {
   font-size: 0.8rem;
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--neo-text, #e2e8f0);
 }
 
 .reports-exec-spark {
@@ -2303,7 +2335,7 @@
   display: block;
   margin-top: 0;
   font-size: 1.15rem;
-  color: #f8fafc;
+  color: var(--neo-text, #f8fafc);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   text-shadow: 0 0 10px rgba(0, 242, 255, 0.32);
 }
@@ -2370,7 +2402,7 @@
   margin: 0;
   font-size: 0.72rem;
   line-height: 1.5;
-  color: rgba(226, 232, 240, 0.95);
+  color: var(--neo-text, rgba(226, 232, 240, 0.95));
 }
 
 .reports-page__heartbeat {
@@ -2502,7 +2534,7 @@
 
 .reports-hub__mini-name {
   font-weight: 800;
-  color: rgba(203, 213, 225, 0.95);
+  color: var(--neo-muted, rgba(203, 213, 225, 0.95));
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2542,12 +2574,30 @@
 }
 
 :root[data-theme="light"] .admin-shell .reports-hub__nav-btn {
-  background: rgba(15, 23, 42, 0.06);
-  color: rgba(71, 85, 105, 0.95);
+  border-color: #e2e6ec;
+  background: #ffffff;
+  color: #475569;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-theme="light"] .admin-shell .reports-hub__nav-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+  box-shadow: none;
+  filter: none;
 }
 
 :root[data-theme="light"] .admin-shell .reports-hub__nav-btn--active {
-  color: #e8f0ff;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .admin-shell .reports-hub__nav-btn--active:hover {
+  background: #bae6fd;
+  color: #0369a1;
 }
 
 :root[data-theme="light"] .admin-shell .reports-hub__chart-shell,
@@ -2673,12 +2723,18 @@
   background: rgba(15, 23, 42, 0.45);
 }
 
+:root[data-theme="light"] .reports-page__speed-panel {
+  border: 1px solid #e2e6ec;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
 .reports-page__speed-panel h2 {
   margin: 0 0 0.35rem;
   font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: #e2e8f0;
+  color: var(--neo-text, #e2e8f0);
 }
 
 .reports-page__speed-panel > p {
@@ -2711,15 +2767,29 @@
   border-bottom: 1px solid rgba(51, 65, 85, 0.85);
 }
 
+:root[data-theme="light"] .reports-page__speed-table th {
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e6ec;
+}
+
 .reports-page__speed-table td {
   padding: 0.5rem 0.55rem;
   border-bottom: 1px solid rgba(30, 41, 59, 0.65);
-  color: #f1f5f9;
+  color: var(--neo-text, #f1f5f9);
   vertical-align: top;
+}
+
+:root[data-theme="light"] .reports-page__speed-table td {
+  border-bottom: 1px solid #eef1f6;
 }
 
 .reports-page__speed-table tbody tr:hover td {
   background: rgba(30, 41, 59, 0.35);
+}
+
+:root[data-theme="light"] .reports-page__speed-table tbody tr:hover td {
+  background: #f8fafc;
 }
 
 .reports-page__speed-mono {
@@ -2727,6 +2797,10 @@
   font-size: 0.7rem;
   color: #e0f2fe;
   word-break: break-all;
+}
+
+:root[data-theme="light"] .reports-page__speed-mono {
+  color: #0369a1;
 }
 
 .reports-page__speed-empty {
