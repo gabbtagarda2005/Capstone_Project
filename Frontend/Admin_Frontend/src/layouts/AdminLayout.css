@@ -395,36 +395,6 @@
   gap: 0.95rem;
 }
 
-.admin-topbar__theme-toggle {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid var(--neo-border);
-  background: var(--neo-panel);
-  font-size: 1.05rem;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition:
-    box-shadow 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.15s ease,
-    background 0.2s ease;
-}
-
-.admin-topbar__theme-toggle:hover {
-  border-color: var(--neo-cyan);
-  background: color-mix(in srgb, var(--neo-cyan) 14%, var(--neo-panel));
-  transform: translateY(-1px);
-}
-
-.admin-topbar__theme-toggle:active {
-  transform: translateY(0) scale(0.93);
-}
-
 .admin-topbar__bell {
   position: relative;
   width: 40px;

@@ -11,7 +11,6 @@ import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useSosInterceptOptional } from "@/context/SosInterceptContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { useAdminTheme } from "@/context/ThemeContext";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import { COMMAND_CENTER_HUB } from "@/pages/commandCenterPaths";
 import "./AdminLayout.css";
@@ -196,7 +195,6 @@ export function AdminLayout() {
   const { showError } = useToast();
   const sos = useSosInterceptOptional();
   const tactical = useTacticalNotifications();
-  const { theme, toggleTheme } = useAdminTheme();
   const { setSidebarOpen: setTacticalSidebarOpen } = tactical;
   const lastAutoOpenSosId = useRef<string | null>(null);
   useSessionTimeout(branding.sessionTimeoutMinutes, branding.securityPolicyApplyAdmin !== false);
@@ -349,15 +347,6 @@ export function AdminLayout() {
         <header className="admin-topbar">
           <div className="admin-topbar__title">{getTopbarTitle(location.pathname)}</div>
           <div className="admin-topbar__right">
-            <button
-              type="button"
-              className="admin-topbar__theme-toggle"
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              onClick={toggleTheme}
-              title={theme === "dark" ? "Light mode" : "Dark mode"}
-            >
-              {theme === "dark" ? "☀️" : "🌙"}
-            </button>
             <button
               type="button"
               className={
