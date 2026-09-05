@@ -1993,6 +1993,24 @@
     0 0 48px -8px rgba(59, 130, 246, 0.2);
 }
 
+/* Light mode: solid white card, no backdrop blur, subtle color tint kept only as a faint
+   corner wash instead of a 45%-opacity dark overlay (the flat "gray fog" this was reported
+   as — a translucent dark panel doesn't read as a card once the page behind it is white). */
+:root[data-theme="light"] .reports-exec-suite .reports-page__exec--intel .reports-page__stat {
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  background-image: radial-gradient(ellipse 120% 85% at 8% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 90% 75% at 100% 100%, rgba(99, 102, 241, 0.05) 0%, transparent 58%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .reports-exec-suite .reports-page__exec--intel .reports-page__stat:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
 .reports-exec-suite .reports-page__exec--intel .reports-page__stat:nth-child(1) {
   background-image: radial-gradient(ellipse 120% 85% at 8% 0%, rgba(56, 189, 248, 0.22) 0%, transparent 55%),
     radial-gradient(ellipse 90% 75% at 100% 100%, rgba(34, 211, 238, 0.1) 0%, transparent 58%);
@@ -2048,6 +2066,10 @@
 
 .reports-exec-suite .reports-page__exec--intel .reports-page__stat-label-row {
   color: rgba(186, 230, 253, 0.92);
+}
+
+:root[data-theme="light"] .reports-exec-suite .reports-page__exec--intel .reports-page__stat-label-row {
+  color: #475569;
 }
 
 .reports-exec-suite .reports-page__exec--intel .reports-page__stat--glow-up {
