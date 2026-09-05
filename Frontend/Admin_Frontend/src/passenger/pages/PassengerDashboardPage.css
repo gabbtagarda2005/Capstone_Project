@@ -2321,6 +2321,12 @@ a.pd-card:hover {
   border-radius: 0;
   border: none;
   box-shadow: none;
+  /* .dashboard-map__frame below needs `flex: 1` on an actual flex parent to fill this space —
+     without this, .dashboard-map stayed display:block and the frame's flex:1 was inert, so the
+     leaflet container (height: 100% of frame) collapsed to 0 and only this element's own
+     decorative background/gradient was ever visible where the map tiles should be. */
+  display: flex;
+  flex-direction: column;
 }
 
 .pd-spa__map-fill .dashboard-map__frame {

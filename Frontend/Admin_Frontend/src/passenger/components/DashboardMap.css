@@ -268,13 +268,21 @@
   font-family: inherit;
 }
 
-/* Light roadmap: natural OSM colors. Dark basemap only when user picks “Dark”. */
-.dashboard-map--dark-chrome .dashboard-map__leaflet .leaflet-container {
+/* Light roadmap: natural OSM colors. Dark basemap only when user picks “Dark”.
+   No descendant combinator here — Leaflet puts `leaflet-container` directly on the same
+   element as `.dashboard-map__leaflet`, not on a child, so this must be a compound selector.
+   A stray space here previously meant this never matched, leaving Leaflet's own default
+   background (#ddd, light gray) visible wherever tiles hadn't loaded/covered the viewport yet. */
+.dashboard-map--dark-chrome .dashboard-map__leaflet.leaflet-container {
   background: #040e2a;
 }
 
+/* "dark" mode now reuses the plain OSM tile source (see passengerMapTiles.ts — CARTO's free
+   dark-tile CDN started requiring an API key and was showing a watermark instead of the map),
+   so it needs this filter to actually look dark: invert + hue-rotate flips OSM's light colors
+   into a dark navy palette without depending on any external dark-tile provider. */
 .dashboard-map--dark-chrome .dashboard-map__leaflet:not(.dashboard-map__leaflet--photo) .leaflet-tile {
-  filter: grayscale(1) brightness(0.72) saturate(0.55) contrast(1.05);
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92) saturate(0.7);
 }
 
 .dashboard-map--light-chrome {
