@@ -2,6 +2,56 @@
 
 .live-ops-table-wrap {
   margin-top: 0.35rem;
+
+  --ops-chip-bg: rgba(15, 23, 42, 0.55);
+  --ops-chip-text: #cbd5e1;
+  --ops-chip-hover-bg: rgba(30, 41, 59, 0.75);
+  --ops-chip-hover-text: #e2e8f0;
+  --ops-panel-bg: rgba(2, 6, 23, 0.35);
+  --ops-panel-border: rgba(51, 65, 85, 0.55);
+  --ops-head-a: rgba(15, 23, 42, 0.98);
+  --ops-head-b: rgba(30, 41, 59, 0.92);
+  --ops-head-text: #94a3b8;
+  --ops-head-border: rgba(71, 85, 105, 0.55);
+  --ops-row-border: rgba(255, 255, 255, 0.05);
+  --ops-cell-text: #e2e8f0;
+  --ops-num-text: #64748b;
+  --ops-mono-text: #f1f5f9;
+  --ops-attendant-text: #f8fafc;
+  --ops-fare-text: #5ee396;
+  --ops-bus-text: #a5b4fc;
+  --ops-icon-bg: rgba(30, 41, 59, 0.65);
+  --ops-icon-border: rgba(148, 163, 184, 0.35);
+  --ops-icon-text: #94a3b8;
+  --ops-empty-border: rgba(148, 163, 184, 0.35);
+  --ops-empty-text: rgba(148, 163, 184, 0.9);
+}
+
+/* Light mode — table chrome flips to a soft white/gray SaaS surface;
+   status/fare accent hexes darken slightly so they stay readable on white. */
+:root[data-theme="light"] .live-ops-table-wrap {
+  --ops-chip-bg: #eef1f6;
+  --ops-chip-text: #475569;
+  --ops-chip-hover-bg: #e2e8f0;
+  --ops-chip-hover-text: #101828;
+  --ops-panel-bg: #ffffff;
+  --ops-panel-border: #e2e6ec;
+  --ops-head-a: #eef1f6;
+  --ops-head-b: #e7ebf1;
+  --ops-head-text: #52607a;
+  --ops-head-border: #dde2ea;
+  --ops-row-border: #eef1f6;
+  --ops-cell-text: #101828;
+  --ops-num-text: #7c8798;
+  --ops-mono-text: #101828;
+  --ops-attendant-text: #101828;
+  --ops-fare-text: #15803d;
+  --ops-bus-text: #4338ca;
+  --ops-icon-bg: #eef1f6;
+  --ops-icon-border: #dde2ea;
+  --ops-icon-text: #52607a;
+  --ops-empty-border: #e2e6ec;
+  --ops-empty-text: #7c8798;
 }
 
 .live-ops-table__chips {
@@ -16,8 +66,8 @@
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.55);
-  color: #cbd5e1;
+  background: var(--ops-chip-bg);
+  color: var(--ops-chip-text);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -31,13 +81,13 @@
 
 .live-ops-table__chip:hover {
   border-color: rgba(94, 227, 150, 0.45);
-  color: #e2e8f0;
-  background: rgba(30, 41, 59, 0.75);
+  color: var(--ops-chip-hover-text);
+  background: var(--ops-chip-hover-bg);
 }
 
 .live-ops-table__chip--active {
   border-color: rgba(94, 227, 150, 0.75);
-  color: #5ee396;
+  color: var(--ops-fare-text);
   background: rgba(94, 227, 150, 0.1);
   box-shadow: 0 0 0 1px rgba(94, 227, 150, 0.15);
 }
@@ -45,8 +95,8 @@
 .live-ops-table__scroll {
   overflow-x: auto;
   border-radius: 14px;
-  border: 1px solid rgba(51, 65, 85, 0.55);
-  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid var(--ops-panel-border);
+  background: var(--ops-panel-bg);
 }
 
 .live-ops-table {
@@ -108,9 +158,9 @@
   height: 2rem;
   padding: 0;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(30, 41, 59, 0.65);
-  color: #94a3b8;
+  border: 1px solid var(--ops-icon-border);
+  background: var(--ops-icon-bg);
+  color: var(--ops-icon-text);
   cursor: pointer;
   transition:
     color 0.15s ease,
@@ -119,7 +169,7 @@
 }
 
 .live-ops-table__icon-btn:hover:not(:disabled) {
-  color: #e2e8f0;
+  color: var(--ops-chip-hover-text);
   border-color: rgba(94, 227, 150, 0.45);
   background: rgba(94, 227, 150, 0.12);
 }
@@ -141,7 +191,7 @@
 }
 
 .live-ops-table thead {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.92));
+  background: linear-gradient(180deg, var(--ops-head-a), var(--ops-head-b));
 }
 
 .live-ops-table th {
@@ -151,8 +201,8 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.62rem;
-  color: #94a3b8;
-  border-bottom: 1px solid rgba(71, 85, 105, 0.55);
+  color: var(--ops-head-text);
+  border-bottom: 1px solid var(--ops-head-border);
   white-space: nowrap;
 }
 
@@ -167,9 +217,9 @@
 
 .live-ops-table td {
   padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--ops-row-border);
   vertical-align: middle;
-  color: #e2e8f0;
+  color: var(--ops-cell-text);
 }
 
 .live-ops-table tbody tr {
@@ -186,7 +236,7 @@
 
 .live-ops-table__num {
   text-align: center;
-  color: #64748b;
+  color: var(--ops-num-text);
   font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
 }
@@ -195,7 +245,7 @@
   font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", monospace;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--ops-mono-text);
   max-width: 11rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,21 +302,21 @@
   min-width: 8.5rem;
   max-width: 12rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--ops-attendant-text);
   line-height: 1.35;
 }
 
 .live-ops-table__bus {
   font-family: ui-monospace, "JetBrains Mono", monospace;
   font-size: 0.76rem;
-  color: #a5b4fc;
+  color: var(--ops-bus-text);
   white-space: nowrap;
 }
 
 .live-ops-table__fare {
   text-align: right;
   font-weight: 800;
-  color: #5ee396;
+  color: var(--ops-fare-text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -276,8 +326,8 @@
   padding: 1.25rem;
   text-align: center;
   border-radius: 14px;
-  border: 1px dashed rgba(148, 163, 184, 0.35);
-  color: rgba(148, 163, 184, 0.9);
+  border: 1px dashed var(--ops-empty-border);
+  color: var(--ops-empty-text);
   font-size: 0.88rem;
 }
 

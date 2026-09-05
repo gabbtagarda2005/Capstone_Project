@@ -91,7 +91,7 @@
 .command-center__card--glass {
   border-radius: 2rem;
   border: 1px solid rgba(139, 92, 246, 0.14);
-  background: linear-gradient(165deg, rgba(22, 18, 40, 0.72), rgba(15, 23, 42, 0.52));
+  background: linear-gradient(165deg, color-mix(in srgb, var(--neo-panel) 85%, var(--neo-purple) 15%), var(--neo-panel));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 16px 40px rgba(2, 6, 23, 0.45);
@@ -111,7 +111,7 @@
   margin-bottom: 0.25rem;
   border-radius: 1.5rem;
   border: 1px solid rgba(139, 92, 246, 0.16);
-  background: linear-gradient(155deg, rgba(24, 20, 45, 0.58), rgba(15, 23, 42, 0.42));
+  background: linear-gradient(155deg, color-mix(in srgb, var(--neo-panel) 88%, var(--neo-purple) 12%), var(--neo-panel));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 14px 40px rgba(2, 6, 23, 0.38);
@@ -127,7 +127,7 @@
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(167, 139, 250, 0.92);
+  color: var(--neo-purple);
 }
 
 .command-center__hero-actions {
@@ -161,7 +161,7 @@
 .command-center__health-tile {
   padding: 0.65rem 0.75rem;
   border-radius: 1.25rem;
-  background: rgba(8, 12, 22, 0.45);
+  background: color-mix(in srgb, var(--neo-panel) 88%, black 12%);
   border: 1px solid rgba(100, 120, 200, 0.12);
 }
 
@@ -203,7 +203,7 @@
   display: block;
   margin-top: 0.25rem;
   font-size: 0.65rem;
-  color: rgba(148, 163, 184, 0.75);
+  color: var(--neo-muted);
   letter-spacing: 0.02em;
 }
 
@@ -218,7 +218,7 @@
 .command-center__alerts-empty {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(203, 213, 225, 0.85);
+  color: var(--neo-muted);
 }
 
 .command-center__alerts-list {
@@ -238,7 +238,7 @@
   border-radius: 1rem;
   font-size: 0.85rem;
   line-height: 1.4;
-  background: rgba(8, 12, 22, 0.45);
+  background: color-mix(in srgb, var(--neo-panel) 88%, black 12%);
 }
 
 .command-center__alert-row--critical {
@@ -435,7 +435,7 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.85);
+  color: var(--neo-muted);
 }
 
 .command-center__phone {
@@ -553,7 +553,7 @@
   margin-top: 1rem;
   padding: 0.75rem 0.85rem;
   border-radius: 1.25rem;
-  background: rgba(127, 29, 29, 0.22);
+  background: rgba(220, 38, 38, 0.14);
   border: 1px solid rgba(248, 113, 113, 0.28);
 }
 
@@ -605,7 +605,7 @@
   gap: 0.35rem;
   padding: 0.75rem 0.6rem;
   border-radius: 14px;
-  background: rgba(8, 12, 22, 0.4);
+  background: color-mix(in srgb, var(--neo-panel) 88%, black 12%);
   border: 1px solid rgba(100, 120, 200, 0.1);
   font-size: 0.82rem;
   text-align: center;
@@ -622,7 +622,7 @@
 }
 
 .command-center__wx-meta {
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--neo-muted);
   font-size: 0.78rem;
 }
 
@@ -642,7 +642,7 @@
 .command-center__wx-temp-hum {
   font-size: 0.72rem;
   font-weight: 600;
-  color: rgba(186, 230, 253, 0.92);
+  color: var(--neo-cyan);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -716,8 +716,8 @@
   padding: 0.55rem 1.1rem;
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(30, 41, 59, 0.8);
-  color: rgba(148, 163, 184, 0.95);
+  background: color-mix(in srgb, var(--neo-panel) 85%, black 15%);
+  color: var(--neo-muted);
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -801,7 +801,7 @@
   padding: 1.1rem 1.15rem 1.2rem;
   border-radius: 20px;
   border: 1px solid var(--neo-border, rgba(100, 120, 200, 0.18));
-  background: linear-gradient(165deg, rgba(16, 22, 36, 0.65), rgba(16, 22, 36, 0.45));
+  background: var(--neo-panel);
   backdrop-filter: blur(12px);
   box-shadow: 0 12px 28px rgba(2, 6, 23, 0.32);
 }
@@ -816,7 +816,7 @@
 .command-center__hint {
   margin: 0 0 0.75rem;
   font-size: 0.82rem;
-  color: rgba(148, 163, 184, 0.88);
+  color: var(--neo-muted);
   line-height: 1.45;
 }
 
@@ -826,8 +826,8 @@
   padding: 0.65rem 0.75rem;
   border-radius: 12px;
   border: 1px solid rgba(100, 120, 200, 0.35);
-  background: rgba(8, 12, 22, 0.65);
-  color: #f1f5f9;
+  background: color-mix(in srgb, var(--neo-panel) 90%, black 10%);
+  color: var(--neo-text);
   font-size: 0.92rem;
   line-height: 1.45;
   resize: vertical;
@@ -842,6 +842,8 @@
 }
 
 .command-center__textarea--terminal {
+  /* Deliberately fixed-dark terminal look regardless of theme */
+  color: #e2e8f0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   border-color: rgba(34, 197, 94, 0.45);
   box-shadow: inset 0 0 14px rgba(34, 197, 94, 0.15);
@@ -862,7 +864,7 @@
 
 .command-center__meta {
   font-size: 0.78rem;
-  color: rgba(148, 163, 184, 0.75);
+  color: var(--neo-muted);
 }
 
 .command-center__btn-row {
@@ -875,15 +877,15 @@
   padding: 0.45rem 0.9rem;
   border-radius: 10px;
   border: 1px solid rgba(100, 120, 200, 0.35);
-  background: rgba(255, 255, 255, 0.06);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--neo-text) 6%, transparent);
+  color: var(--neo-text);
   font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .command-center__btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--neo-text) 10%, transparent);
 }
 
 .command-center__btn--ghost {
@@ -919,7 +921,7 @@
 }
 
 .command-center__health-label {
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--neo-muted);
 }
 
 .command-center__health-val {
@@ -965,11 +967,11 @@
 
 .command-center__intel li {
   font-size: 0.86rem;
-  color: rgba(226, 232, 240, 0.92);
+  color: var(--neo-text);
   line-height: 1.45;
   padding: 0.65rem 0.75rem;
   border-radius: 10px;
-  background: rgba(8, 12, 22, 0.45);
+  background: color-mix(in srgb, var(--neo-panel) 88%, black 12%);
   border: 1px solid rgba(100, 120, 200, 0.12);
 }
 
@@ -982,9 +984,9 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #22d3ee;
-  background: rgba(34, 211, 238, 0.12);
-  border: 1px solid rgba(34, 211, 238, 0.25);
+  color: var(--neo-cyan);
+  background: color-mix(in srgb, var(--neo-cyan) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--neo-cyan) 25%, transparent);
 }
 
 .command-center__toggle {
@@ -1087,8 +1089,8 @@
   width: 100%;
   border-radius: 10px;
   border: 1px solid rgba(100, 120, 200, 0.35);
-  background: rgba(8, 12, 22, 0.5);
-  color: #f1f5f9;
+  background: color-mix(in srgb, var(--neo-panel) 90%, black 10%);
+  color: var(--neo-text);
   padding: 0.45rem 0.6rem;
   font-size: 0.82rem;
 }
@@ -1103,7 +1105,7 @@
 .command-center__log-item {
   padding: 0.55rem 0.65rem;
   border-radius: 10px;
-  background: rgba(8, 12, 22, 0.4);
+  background: color-mix(in srgb, var(--neo-panel) 88%, black 12%);
   border: 1px solid rgba(100, 120, 200, 0.12);
 }
 
@@ -1116,13 +1118,13 @@
 
 .command-center__log-title {
   font-size: 0.84rem;
-  color: #e2e8f0;
+  color: var(--neo-text);
 }
 
 .command-center__log-meta {
   margin-top: 0.2rem;
   font-size: 0.74rem;
-  color: rgba(148, 163, 184, 0.88);
+  color: var(--neo-muted);
 }
 
 .command-center__status-badge {
@@ -1204,7 +1206,7 @@
 }
 
 .command-center__error-item time {
-  color: rgba(148, 163, 184, 0.88);
+  color: var(--neo-muted);
   font-size: 0.7rem;
   white-space: nowrap;
 }
@@ -1237,7 +1239,7 @@
   margin: 0.55rem 0 0;
   font-size: 0.84rem;
   line-height: 1.55;
-  color: rgba(226, 232, 240, 0.96);
+  color: var(--neo-text);
 }
 
 .command-center__intel-link {
@@ -1252,8 +1254,8 @@
   font-family: inherit;
   border: 1px solid rgba(34, 211, 238, 0.28);
   border-radius: 12px;
-  background: rgba(8, 12, 22, 0.4);
-  color: rgba(226, 232, 240, 0.96);
+  background: color-mix(in srgb, var(--neo-panel) 88%, black 12%);
+  color: var(--neo-text);
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
@@ -1289,7 +1291,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.95);
+  color: var(--neo-cyan);
 }
 
 .command-center__maint-link {
@@ -1304,8 +1306,8 @@
   font-family: inherit;
   border: 1px solid rgba(100, 120, 200, 0.35);
   border-radius: 12px;
-  background: rgba(8, 12, 22, 0.35);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--neo-panel) 88%, black 12%);
+  color: var(--neo-text);
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
@@ -1324,7 +1326,7 @@
 .command-center__maint-link-hint {
   font-size: 0.78rem;
   line-height: 1.45;
-  color: rgba(148, 163, 184, 0.92);
+  color: var(--neo-muted);
 }
 
 .command-center__maint-field-label {
@@ -1333,7 +1335,7 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.88);
+  color: var(--neo-cyan);
 }
 
 .command-center__maint-config-box {
@@ -1355,7 +1357,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(148, 163, 184, 0.75);
+  color: var(--neo-muted);
 }
 
 /* Tactical Bento v2 — page chrome matches Management (shell gradient shows through) */
@@ -1409,8 +1411,8 @@
   font-family: inherit;
   border-radius: 14px;
   border: 1px solid rgba(100, 120, 200, 0.38);
-  background: linear-gradient(165deg, rgba(4, 14, 35, 0.9), rgba(7, 26, 56, 0.74));
-  color: #e2e8f0;
+  background: linear-gradient(165deg, var(--neo-panel), color-mix(in srgb, var(--neo-panel) 90%, var(--neo-cyan) 10%));
+  color: var(--neo-text);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
@@ -1442,7 +1444,7 @@
 
 .command-center__hub-btn-hint {
   font-size: 0.76rem;
-  color: rgba(148, 163, 184, 0.92);
+  color: var(--neo-muted);
   line-height: 1.35;
 }
 
@@ -1531,12 +1533,12 @@
 }
 
 .command-center__sub-nav__hub .mgmt-mod__back-label {
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--neo-muted);
   font-weight: 500;
 }
 
 .command-center__sub-nav-sep--topbar {
-  color: rgba(148, 163, 184, 0.45);
+  color: var(--neo-muted);
   user-select: none;
   line-height: 1;
 }
@@ -1562,7 +1564,7 @@
 
 .command-center__sub-nav__list--topbar li:not(:first-child)::before {
   content: "·";
-  color: rgba(148, 163, 184, 0.45);
+  color: var(--neo-muted);
   user-select: none;
   font-weight: 400;
 }
@@ -1574,7 +1576,7 @@
   font-size: 0.88rem;
   letter-spacing: -0.01em;
   text-decoration: none;
-  color: #7dd3fc;
+  color: var(--neo-cyan);
   background: transparent;
   border: none;
   transition: color 0.15s ease;
@@ -1582,7 +1584,7 @@
 }
 
 .command-center__sub-link--topbar:hover {
-  color: #a5f3fc;
+  color: var(--neo-cyan);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -1593,7 +1595,7 @@
   border-radius: 0.55rem;
   border: 1px solid rgba(79, 209, 197, 0.7);
   background: transparent;
-  color: #f8fafc;
+  color: var(--neo-text);
   font-weight: 800;
   font-size: 0.88rem;
   letter-spacing: -0.02em;
@@ -1617,7 +1619,7 @@
 .command-center__crumb-current {
   font-size: 0.84rem;
   font-weight: 800;
-  color: #f1f5f9;
+  color: var(--neo-text);
   letter-spacing: -0.02em;
 }
 
@@ -1701,7 +1703,7 @@
   margin: 0.35rem 0 0.5rem;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--neo-text);
   cursor: pointer;
   user-select: none;
 }
@@ -1759,8 +1761,8 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 0.85rem;
-  background: linear-gradient(155deg, rgba(30, 41, 59, 0.55) 0%, rgba(15, 23, 42, 0.42) 45%, rgba(30, 27, 75, 0.38) 100%);
-  background-color: rgba(15, 23, 42, 0.35);
+  background: linear-gradient(155deg, color-mix(in srgb, var(--neo-panel) 88%, var(--neo-cyan) 6%) 0%, var(--neo-panel) 45%, color-mix(in srgb, var(--neo-panel) 90%, var(--neo-purple) 10%) 100%);
+  background-color: var(--neo-panel);
   backdrop-filter: blur(16px) saturate(1.2);
   -webkit-backdrop-filter: blur(16px) saturate(1.2);
   box-shadow:
@@ -1798,12 +1800,12 @@
   z-index: 1;
   width: 1.2rem;
   height: 1.2rem;
-  color: #f1f5f9;
+  color: var(--neo-text);
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.08));
 }
 
 .command-center .mgmt-mod__back-label {
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--neo-muted);
   transition: color 0.2s ease;
 }
 
@@ -1818,7 +1820,7 @@
 }
 
 .command-center .mgmt-mod__back:hover .mgmt-mod__back-label {
-  color: #e2e8f0;
+  color: var(--neo-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1828,7 +1830,7 @@
 }
 
 .command-center__sub-link {
-  color: rgba(125, 211, 252, 0.95);
+  color: var(--neo-cyan);
   text-decoration: none;
   font-weight: 600;
 }
@@ -1838,7 +1840,7 @@
 }
 
 .command-center__sub-nav-sep {
-  color: rgba(148, 163, 184, 0.45);
+  color: var(--neo-muted);
   user-select: none;
 }
 
@@ -1851,13 +1853,13 @@
   font-size: clamp(1.35rem, 3vw, 1.75rem);
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #f1f5f9;
+  color: var(--neo-text);
 }
 
 .command-center__sub-lead {
   margin: 0.35rem 0 0;
   font-size: 0.88rem;
-  color: rgba(148, 163, 184, 0.92);
+  color: var(--neo-muted);
   line-height: 1.45;
 }
 
@@ -1897,7 +1899,7 @@
 
 .command-center__card--glass {
   border-color: #1f5885;
-  background: linear-gradient(165deg, rgba(4, 14, 35, 0.9), rgba(7, 26, 56, 0.75));
+  background: linear-gradient(165deg, color-mix(in srgb, var(--neo-panel) 85%, var(--neo-cyan) 15%), var(--neo-panel));
   box-shadow: 0 12px 32px rgba(1, 10, 28, 0.55);
 }
 
@@ -1958,7 +1960,7 @@
   padding: 0.55rem 0.65rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(56, 189, 248, 0.22);
-  background: rgba(15, 23, 42, 0.45);
+  background: color-mix(in srgb, var(--neo-panel) 90%, var(--neo-cyan) 10%);
 }
 
 .command-center__severity-label {
@@ -1967,7 +1969,7 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #bae6fd;
+  color: var(--neo-cyan);
   margin-bottom: 0.45rem;
 }
 
@@ -1986,8 +1988,8 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  background: rgba(2, 8, 23, 0.55);
-  color: rgba(226, 232, 240, 0.88);
+  background: color-mix(in srgb, var(--neo-panel) 85%, black 15%);
+  color: var(--neo-text);
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -1996,7 +1998,7 @@
 
 .command-center__severity-btn:hover {
   border-color: rgba(56, 189, 248, 0.45);
-  color: #f8fafc;
+  color: var(--neo-text);
 }
 
 .command-center__severity-btn--active {
@@ -2050,7 +2052,7 @@
 .command-center__heat-hub {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #c7ddff;
+  color: var(--neo-cyan);
 }
 
 .command-center__heat-bar {
@@ -2070,7 +2072,7 @@
 
 .command-center__heat-n {
   font-family: ui-monospace, monospace;
-  color: #9bd3ff;
+  color: var(--neo-cyan);
   font-size: 0.74rem;
   font-weight: 700;
 }
@@ -2117,7 +2119,7 @@
   padding: 1rem 1.1rem 1.1rem;
   border-radius: 1.25rem;
   border: 1px solid rgba(225, 29, 72, 0.45);
-  background: linear-gradient(165deg, rgba(69, 10, 26, 0.35), rgba(15, 23, 42, 0.55));
+  background: linear-gradient(165deg, color-mix(in srgb, var(--neo-panel) 85%, #dc2626 15%), var(--neo-panel));
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
 }
 
@@ -2145,7 +2147,7 @@
   gap: 0.4rem;
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(226, 232, 240, 0.9);
+  color: var(--neo-text);
   cursor: pointer;
   user-select: none;
 }
@@ -2170,7 +2172,7 @@
 .command-center__btn--audio-live {
   position: relative;
   border: 1px solid rgba(34, 211, 238, 0.55) !important;
-  background: rgba(2, 8, 23, 0.75) !important;
+  background: color-mix(in srgb, var(--neo-panel) 80%, black 20%) !important;
   color: #67e8f9 !important;
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
   animation: command-audio-neon 1.6s ease-in-out infinite;
@@ -2193,7 +2195,7 @@
   padding: 0.55rem 0.65rem;
   border-radius: 0.85rem;
   border: 1px solid rgba(251, 191, 36, 0.35);
-  background: rgba(30, 20, 10, 0.35);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 .command-center__incident-passenger label {
@@ -2221,4 +2223,110 @@
   .command-center__tactical-col--middle .command-center__card--terminal {
     min-height: 640px;
   }
+}
+
+/* ============================================================
+   Light mode — status/severity color overrides.
+   The dark theme uses pale chip text on translucent dark chip
+   backgrounds; on a white card those pale colors lose contrast,
+   so light mode gets darker, more saturated equivalents that
+   keep the same hue (green = ok/success, red = bad/critical,
+   amber = warn/pending, blue = info, slate = neutral/expired).
+   ============================================================ */
+:root[data-theme="light"] .command-center__pill--ok,
+:root[data-theme="light"] .command-center__status-badge--live,
+:root[data-theme="light"] .command-center__audit-level--success {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(21, 128, 61, 0.35);
+}
+
+:root[data-theme="light"] .command-center__pill--bad,
+:root[data-theme="light"] .command-center__audit-level--critical {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+:root[data-theme="light"] .command-center__pill--warn,
+:root[data-theme="light"] .command-center__status-badge--pending,
+:root[data-theme="light"] .command-center__audit-level--warning,
+:root[data-theme="light"] .command-center__error-item--warning {
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(180, 83, 9, 0.4);
+}
+
+:root[data-theme="light"] .command-center__status-badge--expired {
+  color: #475569;
+  background: rgba(100, 116, 139, 0.14);
+  border-color: rgba(71, 85, 105, 0.35);
+}
+
+:root[data-theme="light"] .command-center__audit-level--info {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.14);
+}
+
+:root[data-theme="light"] .command-center__error-item--error {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+:root[data-theme="light"] .command-center__alert-row--critical {
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .command-center__alert-row--warning {
+  color: #92400e;
+}
+
+:root[data-theme="light"] .command-center__flash {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(21, 128, 61, 0.35);
+}
+
+:root[data-theme="light"] .command-center__flash--err {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(185, 28, 28, 0.4);
+}
+
+:root[data-theme="light"] .command-center__warn,
+:root[data-theme="light"] .command-center__incident-passenger label {
+  color: #92400e;
+}
+
+:root[data-theme="light"] .command-center__dup-title,
+:root[data-theme="light"] .command-center__dup-list li,
+:root[data-theme="light"] .command-center__priority-text,
+:root[data-theme="light"] .command-center__countdown-label,
+:root[data-theme="light"] .command-center__incident-title {
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .command-center__countdown {
+  color: #7f1d1d;
+  text-shadow: none;
+}
+
+:root[data-theme="light"] .command-center__live--on {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+:root[data-theme="light"] .command-center__severity-btn--active {
+  color: #4c1d95;
+  background: rgba(139, 92, 246, 0.16);
+}
+
+:root[data-theme="light"] .command-center__btn--audio-live {
+  color: #0e7490 !important;
+}
+
+:root[data-theme="light"] .command-center__btn--resolve-incident {
+  color: #14532d !important;
+  background: rgba(34, 197, 94, 0.22) !important;
 }

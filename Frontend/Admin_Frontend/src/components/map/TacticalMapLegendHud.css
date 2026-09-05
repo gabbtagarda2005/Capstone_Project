@@ -9,6 +9,41 @@
   gap: 0.35rem;
   max-width: calc(100% - 5.5rem);
   pointer-events: none;
+
+  --tac-border: #1f5885;
+  --tac-panel: #020817;
+  --tac-trigger-bg: rgba(2, 8, 23, 0.92);
+  --tac-header-bg: rgba(15, 23, 42, 0.65);
+  --tac-thead-bg: rgba(15, 23, 42, 0.85);
+  --tac-row-alt-bg: rgba(15, 23, 42, 0.35);
+  --tac-section-bg: rgba(2, 8, 23, 0.98);
+  --tac-muted: #94a3b8;
+  --tac-faint: #64748b;
+  --tac-text: #cbd5e1;
+  --tac-text-strong: #e2e8f0;
+  --tac-accent: #38bdf8;
+  --tac-accent-2: #7dd3fc;
+  --tac-label-accent: #a5b4fc;
+}
+
+/* Light mode — the tactical HUD chrome floats over the map, not the admin
+   shell, so it keeps its own (now light) surface + darkened accent hexes for
+   contrast against white instead of borrowing --neo-* tokens. */
+:root[data-theme="light"] .tactical-map-hud-wrap {
+  --tac-border: #b9c7da;
+  --tac-panel: #ffffff;
+  --tac-trigger-bg: rgba(255, 255, 255, 0.95);
+  --tac-header-bg: #eef2f7;
+  --tac-thead-bg: #eef2f7;
+  --tac-row-alt-bg: #f5f8fb;
+  --tac-section-bg: #eef2f7;
+  --tac-muted: #52607a;
+  --tac-faint: #7c8798;
+  --tac-text: #1e293b;
+  --tac-text-strong: #101828;
+  --tac-accent: #0369a1;
+  --tac-accent-2: #0e7490;
+  --tac-label-accent: #4338ca;
 }
 
 .tactical-map-hud-wrap > * {
@@ -21,9 +56,9 @@
   gap: 0.4rem;
   padding: 0.38rem 0.55rem 0.38rem 0.42rem;
   border-radius: 10px;
-  border: 1px solid #1f5885;
-  background: rgba(2, 8, 23, 0.92);
-  color: #94a3b8;
+  border: 1px solid var(--tac-border);
+  background: var(--tac-trigger-bg);
+  color: var(--tac-muted);
   cursor: pointer;
   font-size: 0.72rem;
   font-weight: 700;
@@ -40,7 +75,7 @@
 
 .tactical-map-hud-trigger:hover {
   border-color: rgba(56, 189, 248, 0.55);
-  color: #e2e8f0;
+  color: var(--tac-text-strong);
   box-shadow: 0 4px 28px rgba(34, 211, 238, 0.12);
 }
 
@@ -61,7 +96,7 @@
   font-style: italic;
   font-weight: 700;
   font-size: 0.85rem;
-  color: #7dd3fc;
+  color: var(--tac-accent-2);
 }
 
 .tactical-map-hud-trigger__label {
@@ -72,8 +107,8 @@
   width: min(400px, calc(100vw - 2rem));
   max-height: min(72vh, 520px);
   overflow: auto;
-  border: 1px solid #1f5885;
-  background: #020817;
+  border: 1px solid var(--tac-border);
+  background: var(--tac-panel);
   border-radius: 4px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.35);
   scrollbar-width: thin;
@@ -95,8 +130,8 @@
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.45rem 0.5rem 0.4rem;
-  border-bottom: 1px solid #1f5885;
-  background: rgba(15, 23, 42, 0.65);
+  border-bottom: 1px solid var(--tac-border);
+  background: var(--tac-header-bg);
 }
 
 .tactical-map-hud__title {
@@ -104,13 +139,13 @@
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.14em;
-  color: #38bdf8;
+  color: var(--tac-accent);
 }
 
 .tactical-map-hud__close {
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--tac-faint);
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
@@ -119,7 +154,7 @@
 }
 
 .tactical-map-hud__close:hover {
-  color: #f1f5f9;
+  color: var(--tac-text-strong);
   background: rgba(248, 113, 113, 0.12);
 }
 
@@ -127,12 +162,12 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.68rem;
-  color: #cbd5e1;
+  color: var(--tac-text);
 }
 
 .tactical-map-hud-table th,
 .tactical-map-hud-table td {
-  border: 1px solid #1f5885;
+  border: 1px solid var(--tac-border);
   padding: 0.42rem 0.45rem;
   vertical-align: middle;
   text-align: left;
@@ -144,8 +179,8 @@
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #7dd3fc;
-  background: rgba(15, 23, 42, 0.85);
+  color: var(--tac-accent-2);
+  background: var(--tac-thead-bg);
 }
 
 .tactical-map-hud-table__status {
@@ -154,13 +189,13 @@
 
 .tactical-map-hud-table__cat {
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--tac-text-strong);
   white-space: nowrap;
   max-width: 6.5rem;
 }
 
 .tactical-map-hud-table tbody tr:nth-child(even) td {
-  background: rgba(15, 23, 42, 0.35);
+  background: var(--tac-row-alt-bg);
 }
 
 .tactical-map-hud-table--layers .tactical-map-hud-table__cat {
@@ -172,7 +207,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.62rem;
   line-height: 1.45;
-  color: #94a3b8;
+  color: var(--tac-muted);
 }
 
 .tactical-map-hud-table__sub {
@@ -194,13 +229,13 @@
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.12em;
-  color: #a5b4fc;
-  border-top: 1px solid #1f5885;
-  background: rgba(2, 8, 23, 0.98);
+  color: var(--tac-label-accent);
+  border-top: 1px solid var(--tac-border);
+  background: var(--tac-section-bg);
 }
 
 .tactical-map-hud-table--layers tbody td:first-child {
-  border-right: 1px solid #1f5885;
+  border-right: 1px solid var(--tac-border);
 }
 
 .tactical-map-hud-pill {
@@ -250,6 +285,45 @@
   color: #fca5a5;
 }
 
+/* Light mode — these pale glow tints assume a dark HUD panel behind them;
+   on white the pastel background survives but the light-toned text nearly
+   disappears, so darken/saturate each hue for contrast. */
+:root[data-theme="light"] .tactical-map-hud-pill--orange {
+  background: rgba(251, 146, 60, 0.16);
+  border-color: rgba(194, 65, 12, 0.4);
+  color: #9a3412;
+}
+
+:root[data-theme="light"] .tactical-map-hud-pill--cyan {
+  background: rgba(34, 211, 238, 0.14);
+  border-color: rgba(14, 116, 144, 0.4);
+  color: #0e7490;
+}
+
+:root[data-theme="light"] .tactical-map-hud-pill--red {
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(185, 28, 28, 0.4);
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .tactical-map-hud-pill--green {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(21, 128, 61, 0.4);
+  color: #15803d;
+}
+
+:root[data-theme="light"] .tactical-map-hud-pill--amber {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(146, 64, 14, 0.4);
+  color: #92400e;
+}
+
+:root[data-theme="light"] .tactical-map-hud-pill--redbright {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(185, 28, 28, 0.45);
+  color: #b91c1c;
+}
+
 .tactical-map-hud-fare {
   display: inline-flex;
   flex-wrap: wrap;
@@ -258,7 +332,7 @@
 }
 
 .tactical-map-hud-fare-sep {
-  color: #475569;
+  color: var(--tac-faint);
   font-weight: 700;
 }
 
@@ -267,8 +341,8 @@
   padding: 0.45rem 0.5rem 0.55rem;
   font-size: 0.58rem;
   line-height: 1.4;
-  color: #64748b;
-  border-top: 1px solid #1f5885;
+  color: var(--tac-faint);
+  border-top: 1px solid var(--tac-border);
   letter-spacing: 0.02em;
 }
 

@@ -425,6 +425,14 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* Light mode — this chip floats directly on the map, so it keeps its own
+   (now light) surface rather than inheriting the admin shell panel color. */
+:root[data-theme="light"] .map-dock__stat {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+}
+
 .map-dock__stat--rail {
   min-width: 0;
   width: 100%;
@@ -453,6 +461,10 @@
   color: #94a3b8;
 }
 
+:root[data-theme="light"] .map-dock__stat-label {
+  color: #52607a;
+}
+
 .map-dock__stat-value {
   margin: 0.15rem 0 0;
   font-size: 1.15rem;
@@ -462,10 +474,18 @@
   line-height: 1.1;
 }
 
+:root[data-theme="light"] .map-dock__stat-value {
+  color: #101828;
+}
+
 .map-dock__stat-suffix {
   font-size: 0.65rem;
   font-weight: 600;
   color: #7dd3fc;
+}
+
+:root[data-theme="light"] .map-dock__stat-suffix {
+  color: #0891b2;
 }
 
 .map-dock__attr {

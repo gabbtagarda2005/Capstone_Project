@@ -147,16 +147,16 @@
   margin-top: 0.25rem;
 }
 
-.admin-shell--light .att-glass-card__crew-role {
+:root[data-theme="light"] .admin-shell .att-glass-card__crew-role {
   color: rgba(6, 78, 59, 0.65);
 }
 
-.admin-shell--light .att-glass-card__crew-name {
+:root[data-theme="light"] .admin-shell .att-glass-card__crew-name {
   color: rgba(6, 78, 59, 0.92);
 }
 
-.admin-shell--light .att-glass-card__meta--route,
-.admin-shell--light .att-glass-card__meta--tickets {
+:root[data-theme="light"] .admin-shell .att-glass-card__meta--route,
+:root[data-theme="light"] .admin-shell .att-glass-card__meta--tickets {
   color: rgba(6, 78, 59, 0.82);
 }
 
@@ -460,15 +460,15 @@ a.att-glass-card__action {
   transform: translate3d(0, 0, 120px);
 }
 
-.admin-shell--light .att-glass-card__title {
+:root[data-theme="light"] .admin-shell .att-glass-card__title {
   color: #064e3b;
 }
 
-.admin-shell--light .att-glass-card__text {
+:root[data-theme="light"] .admin-shell .att-glass-card__text {
   color: rgba(6, 78, 59, 0.88);
 }
 
-.admin-shell--light .att-glass-card__meta {
+:root[data-theme="light"] .admin-shell .att-glass-card__meta {
   color: rgba(6, 78, 59, 0.7);
 }
 
@@ -525,16 +525,16 @@ a.att-glass-card__action {
   color: rgba(0, 107, 61, 0.72);
 }
 
-.admin-shell--light .att-glass-card__route-chip {
+:root[data-theme="light"] .admin-shell .att-glass-card__route-chip {
   color: rgba(6, 78, 59, 0.95);
   background: rgba(255, 255, 255, 0.55);
 }
 
-.admin-shell--light .att-glass-card__route-k {
+:root[data-theme="light"] .admin-shell .att-glass-card__route-k {
   color: rgba(6, 78, 59, 0.72);
 }
 
-.admin-shell--light .att-glass-card__route-v {
+:root[data-theme="light"] .admin-shell .att-glass-card__route-v {
   color: rgba(6, 78, 59, 0.92);
 }
 

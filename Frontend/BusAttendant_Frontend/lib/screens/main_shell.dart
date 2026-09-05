@@ -1333,62 +1333,67 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
           ),
-          Theme(
-            data: Theme.of(context).copyWith(
-              navigationBarTheme: NavigationBarThemeData(
-                indicatorColor: const Color(0xFF5EE396).withValues(alpha: 0.28),
-                labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                  final isDark = Theme.of(context).brightness == Brightness.dark;
-                  final selected = states.contains(WidgetState.selected);
-                  return TextStyle(
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    letterSpacing: 0.2,
-                    color: selected ? const Color(0xFF5EE396) : (isDark ? MintObsidian.textSecondary : const Color(0xFF64748B)),
-                  );
-                }),
-              ),
-            ),
-            child: NavigationBar(
-              backgroundColor: Theme.of(context).brightness == Brightness.dark ? MintObsidian.surface : Colors.white,
-              surfaceTintColor: Colors.transparent,
-              shadowColor: Colors.black54,
-              elevation: 12,
-              height: 72,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              selectedIndex: _index,
-              onDestinationSelected: (i) {
-                final prev = _index;
-                setState(() {
-                  _index = i;
-                  if (i == 2 && prev != 2) {
-                    _passengerTicketsEpoch++;
-                  }
-                });
-              },
-              destinations: [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined, color: Theme.of(context).brightness == Brightness.dark ? MintObsidian.textSecondary : const Color(0xFF64748B)),
-                  selectedIcon: const Icon(Icons.home_rounded, color: Color(0xFF5EE396)),
-                  label: 'Home',
+          Builder(
+            builder: (context) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final unselectedIconColor = isDark ? MintObsidian.textSecondary : const Color(0xFF64748B);
+              return Theme(
+                data: Theme.of(context).copyWith(
+                  navigationBarTheme: NavigationBarThemeData(
+                    indicatorColor: const Color(0xFF5EE396).withValues(alpha: 0.28),
+                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                      final selected = states.contains(WidgetState.selected);
+                      return TextStyle(
+                        fontSize: 11,
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        letterSpacing: 0.2,
+                        color: selected ? const Color(0xFF5EE396) : unselectedIconColor,
+                      );
+                    }),
+                  ),
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.confirmation_number_outlined, color: Theme.of(context).brightness == Brightness.dark ? MintObsidian.textSecondary : const Color(0xFF64748B)),
-                  selectedIcon: const Icon(Icons.confirmation_number_rounded, color: Color(0xFF5EE396)),
-                  label: 'Tickets',
+                child: NavigationBar(
+                  backgroundColor: isDark ? MintObsidian.surface : Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                  shadowColor: Colors.black54,
+                  elevation: 12,
+                  height: 72,
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  selectedIndex: _index,
+                  onDestinationSelected: (i) {
+                    final prev = _index;
+                    setState(() {
+                      _index = i;
+                      if (i == 2 && prev != 2) {
+                        _passengerTicketsEpoch++;
+                      }
+                    });
+                  },
+                  destinations: [
+                    NavigationDestination(
+                      icon: Icon(Icons.home_outlined, color: unselectedIconColor),
+                      selectedIcon: const Icon(Icons.home_rounded, color: Color(0xFF5EE396)),
+                      label: 'Home',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.confirmation_number_outlined, color: unselectedIconColor),
+                      selectedIcon: const Icon(Icons.confirmation_number_rounded, color: Color(0xFF5EE396)),
+                      label: 'Tickets',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.groups_outlined, color: unselectedIconColor),
+                      selectedIcon: const Icon(Icons.groups_rounded, color: Color(0xFF5EE396)),
+                      label: 'Passengers',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.person_outline_rounded, color: unselectedIconColor),
+                      selectedIcon: const Icon(Icons.person_rounded, color: Color(0xFF5EE396)),
+                      label: 'Profile',
+                    ),
+                  ],
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.groups_outlined, color: Theme.of(context).brightness == Brightness.dark ? MintObsidian.textSecondary : const Color(0xFF64748B)),
-                  selectedIcon: const Icon(Icons.groups_rounded, color: Color(0xFF5EE396)),
-                  label: 'Passengers',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded, color: Theme.of(context).brightness == Brightness.dark ? MintObsidian.textSecondary : const Color(0xFF64748B)),
-                  selectedIcon: const Icon(Icons.person_rounded, color: Color(0xFF5EE396)),
-                  label: 'Profile',
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),

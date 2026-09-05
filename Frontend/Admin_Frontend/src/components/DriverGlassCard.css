@@ -299,15 +299,15 @@
   transform: translate3d(0, 0, 120px);
 }
 
-.admin-shell--light .drv-glass-card__title {
+:root[data-theme="light"] .admin-shell .drv-glass-card__title {
   color: #075985;
 }
 
-.admin-shell--light .drv-glass-card__text {
+:root[data-theme="light"] .admin-shell .drv-glass-card__text {
   color: rgba(7, 89, 133, 0.92);
 }
 
-.admin-shell--light .drv-glass-card__meta {
+:root[data-theme="light"] .admin-shell .drv-glass-card__meta {
   color: rgba(7, 89, 133, 0.82);
 }
 

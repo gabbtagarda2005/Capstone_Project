@@ -11,6 +11,7 @@ import { useAdminBranding } from "@/context/AdminBrandingContext";
 import { useSosInterceptOptional } from "@/context/SosInterceptContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { useAdminTheme } from "@/context/ThemeContext";
 import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import { COMMAND_CENTER_HUB } from "@/pages/commandCenterPaths";
 import "./AdminLayout.css";
@@ -153,9 +154,16 @@ function IconLogout() {
   );
 }
 
-function IconBell() {
+function IconBell({ ringing }: { ringing?: boolean }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={"admin-topbar__bell-icon" + (ringing ? " admin-topbar__bell-icon--ring" : "")}
+    >
       <path
         d="M15 17h5l-1.4-1.4c-.39-.39-.6-.9-.6-1.45V11a6 6 0 10-12 0v3.15c0 .55-.21 1.06-.6 1.45L4 17h5m6 0H9m6 0a3 3 0 11-6 0"
         stroke="currentColor"
@@ -188,6 +196,7 @@ export function AdminLayout() {
   const { showError } = useToast();
   const sos = useSosInterceptOptional();
   const tactical = useTacticalNotifications();
+  const { theme, toggleTheme } = useAdminTheme();
   const { setSidebarOpen: setTacticalSidebarOpen } = tactical;
   const lastAutoOpenSosId = useRef<string | null>(null);
   useSessionTimeout(branding.sessionTimeoutMinutes, branding.securityPolicyApplyAdmin !== false);
@@ -342,16 +351,32 @@ export function AdminLayout() {
           <div className="admin-topbar__right">
             <button
               type="button"
-              className={"admin-topbar__bell" + (sos?.activeIncident ? " admin-topbar__bell--critical" : "")}
+              className="admin-topbar__theme-toggle"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+            <button
+              type="button"
+              className={
+                "admin-topbar__bell" +
+                (sos?.activeIncident ? " admin-topbar__bell--critical" : "") +
+                (tactical.sidebarOpen ? " admin-topbar__bell--active" : "")
+              }
               aria-label={tactical.sidebarOpen ? "Close tactical feed" : "Open tactical feed"}
               aria-expanded={tactical.sidebarOpen}
               onClick={() => tactical.toggleSidebar()}
             >
-              <IconBell />
-              <span
-                className={"admin-topbar__bell-badge" + (sos?.activeIncident ? " admin-topbar__bell-badge--pulse" : "")}
-                aria-hidden
-              />
+              <IconBell ringing={sos?.activeIncident != null} />
+              {sos?.activeIncident ? (
+                <span className="admin-topbar__bell-badge admin-topbar__bell-badge--pulse" aria-hidden />
+              ) : tactical.unreadCount > 0 ? (
+                <span className="admin-topbar__bell-count" aria-hidden>
+                  {tactical.unreadCount > 9 ? "9+" : tactical.unreadCount}
+                </span>
+              ) : null}
             </button>
             <div className="admin-topbar__identity">
               <div className="admin-topbar__meta-label">

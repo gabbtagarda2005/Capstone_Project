@@ -124,3 +124,35 @@
   font-size: 0.8rem;
   color: #cbd5e1;
 }
+
+:root[data-theme="light"] .admin-shell .view-details-modal {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.99));
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.14);
+}
+
+:root[data-theme="light"] .admin-shell .view-details-modal__header,
+:root[data-theme="light"] .admin-shell .view-details-modal__footer {
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="light"] .admin-shell .view-details-modal__title {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .admin-shell .view-details-modal__close {
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+}
+
+:root[data-theme="light"] .admin-shell .view-details-modal__close:hover {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="light"] .admin-shell .view-details-dl > .view-details-row__value {
+  color: #1e293b;
+}
+
+:root[data-theme="light"] .admin-shell .view-details-row__value--mono {
+  color: #475569;
+}

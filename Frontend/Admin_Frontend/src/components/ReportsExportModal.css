@@ -151,3 +151,40 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__card {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+  border-color: rgba(31, 88, 133, 0.22);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+}
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__title {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__hint {
+  color: rgba(71, 85, 105, 0.9);
+}
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__hint strong,
+:root[data-theme="light"] .admin-shell .reports-export-modal__csv-only {
+  color: #1f5885;
+}
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__radio,
+:root[data-theme="light"] .admin-shell .reports-export-modal__bundle-label {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__check {
+  color: #334155;
+}
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__bundle-desc {
+  color: rgba(71, 85, 105, 0.85);
+}
+
+:root[data-theme="light"] .admin-shell .reports-export-modal__btn--ghost {
+  color: rgba(71, 85, 105, 0.95);
+  border-color: rgba(15, 23, 42, 0.16);
+}

@@ -112,33 +112,35 @@ class _PassengerPageState extends State<PassengerPage> {
     final code = t.ticketCode.trim().isEmpty ? t.id : t.ticketCode;
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: MintObsidian.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        title: const Text('Ticket details', style: TextStyle(color: MintObsidian.textPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Code: $code', style: const TextStyle(fontWeight: FontWeight.w700, color: MintObsidian.textPrimary)),
-            const SizedBox(height: 6),
-            Text('Route: ${_shortRouteLabel(t.from, t.to)}', style: const TextStyle(color: MintObsidian.textSecondary)),
-            Text('Fare: ₱${t.fare.toStringAsFixed(2)}', style: const TextStyle(color: MintObsidian.mint, fontWeight: FontWeight.w700)),
-            Text('Date: $dateStr', style: const TextStyle(color: MintObsidian.textSecondary)),
-            Text('Time: $timeStr', style: const TextStyle(color: MintObsidian.textSecondary)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+      builder: (context) {
+        final onSurfaceVariant = Theme.of(context).colorScheme.onSurfaceVariant;
+        return AlertDialog(
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.16)),
           ),
-        ],
-      ),
+          title: const Text('Ticket details'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Code: $code', style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text('Route: ${_shortRouteLabel(t.from, t.to)}', style: TextStyle(color: onSurfaceVariant)),
+              Text('Fare: ₱${t.fare.toStringAsFixed(2)}', style: const TextStyle(color: MintObsidian.mint, fontWeight: FontWeight.w700)),
+              Text('Date: $dateStr', style: TextStyle(color: onSurfaceVariant)),
+              Text('Time: $timeStr', style: TextStyle(color: onSurfaceVariant)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
     );
   }
 

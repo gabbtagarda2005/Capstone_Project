@@ -8,12 +8,41 @@
 }
 
 .rte-dossier {
+  --rte-bg: #020817;
   --rte-border: #1f5885;
   --rte-cyan: #22d3ee;
-  background: #020817;
-  color: #f8fafc;
+  --rte-text: #f8fafc;
+  --rte-muted: rgba(148, 163, 184, 0.9);
+  --rte-panel: rgba(15, 23, 42, 0.72);
+  --rte-panel-strong: rgba(15, 23, 42, 0.92);
+  --rte-panel-soft: rgba(15, 23, 42, 0.55);
+  --rte-well: rgba(15, 23, 42, 0.65);
+  --rte-label: rgba(125, 211, 252, 0.88);
+  --rte-btn-text: #e2e8f0;
+  background: var(--rte-bg);
+  color: var(--rte-text);
   min-height: 100%;
   padding-bottom: 2rem;
+}
+
+/* Light mode — same "tactical" identity, recolored for a white/soft-gray surface. */
+:root[data-theme="light"] .rte-dossier {
+  --rte-bg: #ffffff;
+  --rte-border: #c7d7e8;
+  --rte-cyan: #0891b2;
+  --rte-text: #101828;
+  --rte-muted: #5b6472;
+  --rte-panel: #ffffff;
+  --rte-panel-strong: #ffffff;
+  --rte-panel-soft: #f4f6f9;
+  --rte-well: #eef2f7;
+  --rte-label: #0e7490;
+  --rte-btn-text: #101828;
+}
+
+:root[data-theme="light"] .mgmt-mod:has(.rte-dossier) {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e2e6ec;
 }
 
 .rte-dossier__topbar {
@@ -30,12 +59,12 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.95);
+  color: var(--rte-label);
   text-decoration: none;
   border: 1px solid var(--rte-border);
   padding: 0.45rem 0.75rem;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.85);
+  background: var(--rte-panel-strong);
 }
 
 .rte-dossier__topbar .rte-dossier__mgmt-back {
@@ -55,7 +84,7 @@
   font-size: clamp(1.15rem, 2.4vw, 1.6rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  color: #ffffff;
+  color: var(--rte-text);
   max-width: min(100%, 48rem);
   line-height: 1.2;
 }
@@ -68,7 +97,7 @@
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.92);
+  color: var(--rte-muted);
 }
 
 .rte-dossier__status-dot {
@@ -102,7 +131,7 @@
 .rte-dossier__sub {
   margin: 0 0 1.15rem;
   font-size: 0.82rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--rte-muted);
 }
 
 .rte-dossier__telemetry {
@@ -122,7 +151,7 @@
   border: 1px solid var(--rte-border);
   border-radius: 12px;
   padding: 0.75rem 0.85rem;
-  background: rgba(15, 23, 42, 0.72);
+  background: var(--rte-panel);
 }
 
 .rte-dossier__tile-label {
@@ -131,7 +160,7 @@
   font-weight: 900;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.85);
+  color: var(--rte-label);
   margin-bottom: 0.35rem;
 }
 
@@ -139,7 +168,7 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--rte-text);
   line-height: 1.35;
 }
 
@@ -147,7 +176,7 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--rte-text);
   word-break: break-all;
 }
 
@@ -169,7 +198,7 @@
   border: 1px solid var(--rte-border);
   border-radius: 14px;
   padding: 0.85rem 1rem 1rem;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--rte-panel-soft);
 }
 
 .rte-dossier__module--span {
@@ -182,14 +211,14 @@
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.9);
+  color: var(--rte-label);
 }
 
 .rte-dossier__module-hint {
   margin: -0.35rem 0 0.65rem;
   font-size: 0.72rem;
   line-height: 1.45;
-  color: rgba(148, 163, 184, 0.92);
+  color: var(--rte-muted);
 }
 
 .rte-dossier__ring-wrap {
@@ -202,7 +231,7 @@
   margin: 0.65rem 0 0;
   font-size: 0.72rem;
   line-height: 1.45;
-  color: rgba(148, 163, 184, 0.88);
+  color: var(--rte-muted);
 }
 
 .rte-dossier__timeline {
@@ -227,7 +256,7 @@
   height: 11px;
   border-radius: 999px;
   background: var(--rte-cyan);
-  border: 2px solid rgba(15, 23, 42, 0.95);
+  border: 2px solid var(--rte-bg);
   margin-top: 0.35rem;
   z-index: 1;
   flex-shrink: 0;
@@ -255,14 +284,14 @@
   margin: 0 0 0.2rem;
   font-size: 0.88rem;
   font-weight: 800;
-  color: #f8fafc;
+  color: var(--rte-text);
 }
 
 .rte-dossier__timeline-meta {
   margin: 0;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.68rem;
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--rte-muted);
 }
 
 .rte-dossier__dock {
@@ -283,8 +312,8 @@
   padding: 0.65rem 1rem;
   border-radius: 10px;
   cursor: pointer;
-  background: rgba(15, 23, 42, 0.9);
-  color: #e2e8f0;
+  background: var(--rte-panel-strong);
+  color: var(--rte-btn-text);
   border-width: 1px;
   border-style: solid;
 }
@@ -301,6 +330,11 @@
 .rte-dossier__dock-btn--red {
   border-color: rgba(248, 113, 113, 0.85);
   color: rgba(254, 202, 202, 0.98);
+}
+
+:root[data-theme="light"] .rte-dossier__dock-btn--red {
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.55);
 }
 
 .rte-dossier__overlay-backdrop {
@@ -320,7 +354,7 @@
   overflow: auto;
   border-radius: 14px;
   border: 1px solid var(--rte-border);
-  background: #020817;
+  background: var(--rte-bg);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
   padding: 1.1rem 1.15rem 1.25rem;
 }
@@ -331,14 +365,14 @@
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.95);
+  color: var(--rte-label);
 }
 
 .rte-dossier__overlay-p {
   margin: 0 0 1rem;
   font-size: 0.8rem;
   line-height: 1.5;
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--rte-muted);
 }
 
 .rte-dossier__overlay-actions {
@@ -365,19 +399,19 @@
   padding: 0.55rem 0.65rem;
   border-radius: 10px;
   border: 1px solid rgba(31, 88, 133, 0.55);
-  background: rgba(15, 23, 42, 0.65);
+  background: var(--rte-well);
 }
 
 .rte-dossier__bus-id {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.75rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--rte-text);
 }
 
 .rte-dossier__bus-route {
   font-size: 0.65rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--rte-muted);
   max-width: 12rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -400,13 +434,17 @@
   border-radius: 8px;
   cursor: pointer;
   border: 1px solid #1f5885;
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--rte-panel-strong);
   color: #bae6fd;
+}
+
+:root[data-theme="light"] .rte-dossier__mini-btn {
+  color: #0e7490;
 }
 
 .rte-dossier__mini-btn--muted {
   border-color: rgba(71, 85, 105, 0.8);
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--rte-muted);
 }
 
 .rte-dossier__mini-btn:disabled {

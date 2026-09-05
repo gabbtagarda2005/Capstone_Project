@@ -473,7 +473,6 @@ class _TicketingPageState extends State<TicketingPage> {
                 ? 'Ticket queued (offline) — fare will be confirmed and sent once you\'re back online.'
                 : 'Ticket queued — no connection right now, it will send automatically once you\'re back online.',
           ),
-          backgroundColor: const Color(0xFF1E293B),
           duration: const Duration(seconds: 5),
         ),
       );

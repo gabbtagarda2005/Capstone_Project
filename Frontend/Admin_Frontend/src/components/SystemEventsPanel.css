@@ -7,8 +7,8 @@
 
 .sys-events__pause {
   border: 1px solid rgba(100, 120, 200, 0.25);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(226, 232, 240, 0.9);
+  background: color-mix(in srgb, var(--neo-text, #fff) 6%, transparent);
+  color: var(--neo-text, rgba(226, 232, 240, 0.9));
   border-radius: 999px;
   padding: 0.3rem 0.75rem;
   font-size: 0.72rem;
@@ -18,7 +18,7 @@
 }
 
 .sys-events__pause:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--neo-text, #fff) 10%, transparent);
 }
 
 .sys-events__filters {
@@ -31,7 +31,7 @@
 .sys-events__filter {
   border: 1px solid rgba(100, 120, 200, 0.2);
   background: transparent;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--neo-muted, rgba(148, 163, 184, 0.9));
   border-radius: 999px;
   padding: 0.28rem 0.7rem;
   font-size: 0.72rem;
@@ -47,13 +47,13 @@
 .sys-events__filter--active {
   background: rgba(34, 211, 238, 0.14);
   border-color: rgba(34, 211, 238, 0.55);
-  color: #e0fbff;
+  color: var(--neo-cyan, #e0fbff);
 }
 
 .sys-events__empty {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(203, 213, 225, 0.85);
+  color: var(--neo-muted, rgba(203, 213, 225, 0.85));
 }
 
 .sys-events__list {
@@ -75,7 +75,7 @@
   padding: 0.45rem 0.6rem;
   border-radius: 0.7rem;
   font-size: 0.8rem;
-  background: rgba(8, 12, 22, 0.4);
+  background: color-mix(in srgb, var(--neo-panel, #121826) 88%, black 12%);
 }
 
 @media (max-width: 640px) {
@@ -88,7 +88,7 @@
 .sys-events__time {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.72rem;
-  color: rgba(148, 163, 184, 0.85);
+  color: var(--neo-muted, rgba(148, 163, 184, 0.85));
 }
 
 .sys-events__badge {
@@ -114,11 +114,27 @@
 .sys-events__service {
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(226, 232, 240, 0.85);
+  color: var(--neo-text, rgba(226, 232, 240, 0.85));
 }
 
 .sys-events__msg {
-  color: rgba(226, 232, 240, 0.92);
+  color: var(--neo-text, rgba(226, 232, 240, 0.92));
   min-width: 0;
   overflow-wrap: break-word;
+}
+
+/* Light mode — severity badge colors: the dark theme's pale
+   red/amber/blue read fine on a dark row, but need to darken for
+   contrast against a white row background. */
+:root[data-theme="light"] .sys-events__row--critical .sys-events__badge,
+:root[data-theme="light"] .sys-events__row--error .sys-events__badge {
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .sys-events__row--warn .sys-events__badge {
+  color: #92400e;
+}
+
+:root[data-theme="light"] .sys-events__row--info .sys-events__badge {
+  color: #1d4ed8;
 }

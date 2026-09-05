@@ -117,23 +117,33 @@
   color: #fff;
 }
 
-.admin-shell--light .ticket-detail-modal {
+:root[data-theme="light"] .admin-shell .ticket-detail-modal {
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
   border-color: rgba(99, 102, 241, 0.25);
 }
 
-.admin-shell--light .ticket-detail-modal__title {
+:root[data-theme="light"] .admin-shell .ticket-detail-modal__title {
   color: #0f172a;
 }
 
-.admin-shell--light .ticket-detail-modal__id {
+:root[data-theme="light"] .admin-shell .ticket-detail-modal__id {
   color: rgba(51, 65, 85, 0.9);
 }
 
-.admin-shell--light .ticket-detail-modal__fare-value {
+:root[data-theme="light"] .admin-shell .ticket-detail-modal__fare {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(109, 40, 217, 0.06));
+  border-color: rgba(139, 92, 246, 0.22);
+}
+
+:root[data-theme="light"] .admin-shell .ticket-detail-modal__fare-value {
   color: #0f172a;
 }
 
-.admin-shell--light .ticket-detail-modal__row dd {
+:root[data-theme="light"] .admin-shell .ticket-detail-modal__fare-label,
+:root[data-theme="light"] .admin-shell .ticket-detail-modal__row dt {
+  color: rgba(71, 85, 105, 0.9);
+}
+
+:root[data-theme="light"] .admin-shell .ticket-detail-modal__row dd {
   color: #0f172a;
 }

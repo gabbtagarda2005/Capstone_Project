@@ -25,6 +25,21 @@
     radial-gradient(ellipse 60% 45% at 0% 80%, rgba(14, 165, 233, 0.28), transparent 45%), var(--gp-bg);
 }
 
+/* Light mode — same local-token pattern as .dash-glass / .admin-shell: soft
+   white glass card over a muted sky-blue wash instead of the deep-navy glow. */
+:root[data-theme="light"] .glass-login {
+  --gp-bg: #f4f6f9;
+  --gp-bg-mid: #eef2f8;
+  --gp-text: #101828;
+  --gp-muted: #5b6472;
+  --gp-glass: rgba(255, 255, 255, 0.82);
+  --gp-border: #e2e6ec;
+  --gp-input-border: #cbd5e1;
+  background: radial-gradient(ellipse 100% 80% at 50% -30%, rgba(37, 99, 235, 0.1), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 50%, rgba(59, 130, 246, 0.08), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 0% 80%, rgba(14, 165, 233, 0.06), transparent 45%), var(--gp-bg);
+}
+
 /* Fluid purple waves */
 .glass-login__blobs {
   position: absolute;
@@ -94,15 +109,15 @@
   font-weight: 600;
   color: var(--gp-muted);
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--gp-text) 7%, transparent);
+  border: 1px solid var(--gp-border);
   transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .glass-login__home-inline:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.34);
+  color: var(--gp-text);
+  background: color-mix(in srgb, var(--gp-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gp-text) 34%, transparent);
 }
 
 .glass-login__card {
@@ -148,8 +163,8 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--gp-border);
+  background: color-mix(in srgb, var(--gp-text) 6%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -185,7 +200,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: none;
-  color: #fff;
+  color: var(--gp-text);
   line-height: 1.25;
   max-width: 100%;
   padding: 0 0.25rem;
@@ -202,7 +217,7 @@
   font-family: "Caveat", cursive;
   font-size: 1.65rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--gp-text);
   line-height: 1.2;
 }
 
@@ -215,7 +230,7 @@
   display: block;
   font-size: 0.78rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--gp-text);
   margin-bottom: 0.4rem;
   letter-spacing: 0.02em;
 }
@@ -225,8 +240,8 @@
   padding: 0.7rem 0.85rem 0.7rem 2.45rem;
   border-radius: 12px;
   border: 1px solid var(--gp-input-border);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: color-mix(in srgb, var(--gp-text) 6%, transparent);
+  color: var(--gp-text);
   font-size: 0.95rem;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -244,28 +259,28 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--gp-muted);
   pointer-events: none;
 }
 
 .glass-login__input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--gp-muted);
 }
 
 .glass-login__input:focus {
-  border-color: rgba(255, 255, 255, 0.65);
+  border-color: color-mix(in srgb, var(--gp-text) 65%, transparent);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
 }
 
 .glass-login__forgot {
   font-size: 0.88rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--gp-muted);
   text-decoration: none;
 }
 
 .glass-login__forgot:hover {
-  color: #fff;
+  color: var(--gp-text);
   text-decoration: none;
 }
 
@@ -275,12 +290,12 @@
   padding: 0;
   font-size: 0.88rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--gp-muted);
   cursor: pointer;
 }
 
 .glass-login__forgot-btn:hover {
-  color: #fff;
+  color: var(--gp-text);
 }
 
 .glass-login__error {
@@ -292,6 +307,12 @@
   color: #fecaca;
   background: rgba(220, 38, 38, 0.25);
   border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+:root[data-theme="light"] .glass-login__error {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.3);
 }
 
 .glass-login__submit {
@@ -334,15 +355,15 @@
   border-radius: 14px;
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--gp-text);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--gp-text) 8%, transparent);
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.15s ease;
 }
 
 .glass-login__google:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: color-mix(in srgb, var(--gp-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--gp-text) 35%, transparent);
 }
 
 .glass-login__google:disabled {
@@ -360,7 +381,7 @@
   margin: 0.65rem 0 0;
   font-size: 0.72rem;
   line-height: 1.35;
-  color: rgba(226, 232, 240, 0.65);
+  color: var(--gp-muted);
   text-align: center;
 }
 
@@ -368,7 +389,7 @@
   font-size: 0.68rem;
   padding: 0.1em 0.25em;
   border-radius: 4px;
-  background: rgba(15, 23, 42, 0.6);
+  background: color-mix(in srgb, var(--gp-text) 10%, transparent);
 }
 
 .glass-login__footer {
@@ -412,6 +433,11 @@
   box-shadow: 0 20px 42px rgba(2, 6, 23, 0.5);
   display: grid;
   gap: 0.7rem;
+  color: var(--gp-text);
+}
+
+:root[data-theme="light"] .glass-login__otp-modal {
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .glass-login__otp-title {
@@ -429,7 +455,7 @@
   margin: 0;
   font-size: 0.78rem;
   line-height: 1.4;
-  color: rgba(226, 232, 240, 0.72);
+  color: var(--gp-muted);
 }
 
 .glass-login__otp-dev {
@@ -464,8 +490,8 @@
 
 .glass-login__otp-close {
   border: 1px solid rgba(148, 163, 184, 0.4);
-  background: rgba(255, 255, 255, 0.06);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--gp-text) 6%, transparent);
+  color: var(--gp-text);
   border-radius: 10px;
   padding: 0.45rem 0.7rem;
   cursor: pointer;

@@ -133,7 +133,7 @@
   width: min(440px, 100%);
   border-radius: 16px;
   border: 2px solid #22d3ee;
-  background: rgba(15, 23, 42, 0.96);
+  background: var(--neo-panel, rgba(15, 23, 42, 0.96));
   padding: 1.15rem 1.2rem 1.2rem;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
@@ -142,14 +142,14 @@
   margin: 0;
   font-size: 1rem;
   font-weight: 800;
-  color: #f8fafc;
+  color: var(--neo-text, #f8fafc);
 }
 
 .sos-resolve-modal__sub {
   margin: 0.4rem 0 0.75rem;
   font-size: 0.78rem;
   line-height: 1.45;
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--neo-muted, rgba(148, 163, 184, 0.95));
 }
 
 .sos-resolve-modal__textarea {
@@ -158,13 +158,18 @@
   padding: 0.65rem 0.75rem;
   font-size: 0.84rem;
   line-height: 1.45;
-  color: #f1f5f9;
+  color: var(--neo-text, #f1f5f9);
   background: #020817;
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 10px;
   resize: vertical;
   min-height: 120px;
   font-family: inherit;
+}
+
+:root[data-theme="light"] .sos-resolve-modal__textarea {
+  background: #f8fafc;
+  border-color: rgba(8, 145, 178, 0.35);
 }
 
 .sos-resolve-modal__textarea:focus {
@@ -178,6 +183,10 @@
   color: #fecaca;
 }
 
+:root[data-theme="light"] .sos-resolve-modal__err {
+  color: #b91c1c;
+}
+
 .sos-resolve-modal__row {
   margin-top: 0.85rem;
   display: flex;
@@ -188,9 +197,9 @@
 .sos-resolve-modal__cancel {
   padding: 0.5rem 0.85rem;
   border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid var(--neo-border, rgba(148, 163, 184, 0.35));
   background: transparent;
-  color: #94a3b8;
+  color: var(--neo-muted, #94a3b8);
   font-weight: 700;
   cursor: pointer;
 }

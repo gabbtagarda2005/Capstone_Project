@@ -99,6 +99,72 @@
   background: rgba(22, 101, 52, 0.42);
 }
 
+/* Light mode — the dark tinted glass washes out to near-invisible on a white
+   page, so swap to solid pastel surfaces with dark text for contrast. */
+:root[data-theme="light"] .app-toast {
+  border-top-color: rgba(15, 23, 42, 0.08);
+  border-right-color: rgba(15, 23, 42, 0.08);
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 10px 30px -10px rgba(15, 23, 42, 0.18),
+    0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-theme="light"] .app-toast--info {
+  background: #eaf2ff;
+  color: #1e3a8a;
+}
+
+:root[data-theme="light"] .app-toast--error {
+  background: #fdecec;
+  color: #7f1d1d;
+}
+
+:root[data-theme="light"] .app-toast--success {
+  background: #e9f9ef;
+  color: #14532d;
+}
+
+:root[data-theme="light"] .app-toast--info:hover {
+  background: #dce9ff;
+}
+
+:root[data-theme="light"] .app-toast--error:hover {
+  background: #fbdcdc;
+}
+
+:root[data-theme="light"] .app-toast--success:hover {
+  background: #d8f3e2;
+}
+
+:root[data-theme="light"] .app-toast--info .app-toast__icon {
+  color: #2563eb;
+  filter: none;
+}
+
+:root[data-theme="light"] .app-toast--error .app-toast__icon {
+  color: #dc2626;
+  filter: none;
+}
+
+:root[data-theme="light"] .app-toast--success .app-toast__icon {
+  color: #16a34a;
+  filter: none;
+}
+
+:root[data-theme="light"] .app-toast__title {
+  color: inherit;
+}
+
+:root[data-theme="light"] .app-toast__close {
+  color: rgba(15, 23, 42, 0.55);
+}
+
+:root[data-theme="light"] .app-toast__close:hover {
+  color: rgba(15, 23, 42, 0.85);
+  background: rgba(15, 23, 42, 0.06);
+}
+
 /* Neon icons — electric purple (info), aligned accents for error / success */
 .app-toast--info .app-toast__icon {
   color: #60a5fa;

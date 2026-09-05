@@ -274,3 +274,58 @@
 .add-route-form__submit svg {
   flex-shrink: 0;
 }
+
+:root[data-theme="light"] .admin-shell .add-route-form {
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__title {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__control {
+  background-color: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__select-icon {
+  color: #059669;
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__hint {
+  color: rgba(71, 85, 105, 0.9);
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__hint--muted {
+  color: rgba(100, 116, 139, 0.85);
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__stops-title {
+  color: #065f46;
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__stops-title svg {
+  color: #059669;
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__stop-row {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__stop-row:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__stop-name {
+  color: #334155;
+}
+
+:root[data-theme="light"] .admin-shell .add-route-form__error {
+  color: #dc2626;
+}

@@ -39,6 +39,24 @@
   position: relative;
 }
 
+/* Light mode — soft SaaS palette replacing the obsidian/neon-glass look.
+   Same variable names so every consumer (sidebar, topbar, nav links, bell)
+   repaints automatically; scoped via the data-theme attribute ThemeContext
+   sets on <html> (see src/context/ThemeContext.tsx). */
+:root[data-theme="light"] .admin-shell {
+  --neo-bg: #f4f6f9;
+  --neo-surface: #ffffff;
+  --neo-panel: #ffffff;
+  --neo-border: #e2e6ec;
+  --neo-cyan: #0891b2;
+  --neo-magenta: #c026d3;
+  --neo-purple: #7c3aed;
+  --neo-orange: #ea580c;
+  --neo-lime: #4d7c0f;
+  --neo-text: #101828;
+  --neo-muted: #5b6472;
+}
+
 .admin-shell__bg {
   position: fixed;
   inset: 0;
@@ -49,6 +67,13 @@
     radial-gradient(ellipse 55% 40% at -10% 105%, rgba(99, 102, 241, 0.08), transparent 52%),
     linear-gradient(180deg, #040e23 0%, #061a3a 45%, #020817 100%);
   z-index: 0;
+}
+
+:root[data-theme="light"] .admin-shell__bg {
+  background:
+    radial-gradient(ellipse 70% 50% at 55% -20%, rgba(37, 99, 235, 0.06), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 110% 0%, rgba(8, 145, 178, 0.05), transparent 50%),
+    linear-gradient(180deg, #f7f9fc 0%, #f2f4f8 100%);
 }
 
 /* Ensure page wrappers don't paint over the updated shell gradient */
@@ -104,7 +129,7 @@
 }
 
 .admin-sidebar__brand:hover .admin-sidebar__brand-text {
-  color: #fff;
+  color: var(--neo-text);
 }
 
 .admin-sidebar__logo {
@@ -197,14 +222,18 @@
 
 .admin-nav-link:hover {
   color: var(--neo-text);
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--neo-text) 6%, transparent);
 }
 
 .admin-nav-link--active {
-  color: #fff;
-  background: linear-gradient(90deg, rgba(168, 85, 247, 0.25), rgba(34, 211, 238, 0.12));
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+  color: var(--neo-text);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--neo-purple) 25%, transparent),
+    color-mix(in srgb, var(--neo-cyan) 12%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--neo-purple) 35%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--neo-purple) 20%, transparent);
 }
 
 .admin-nav-link__icon {
@@ -250,6 +279,16 @@
 
 .admin-sidebar__logout:hover {
   background: rgba(127, 29, 29, 0.35);
+}
+
+:root[data-theme="light"] .admin-sidebar__logout {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .admin-sidebar__logout:hover {
+  background: rgba(220, 38, 38, 0.16);
 }
 
 .admin-sidebar__logout span {
@@ -327,6 +366,11 @@
   border-left: none;
 }
 
+:root[data-theme="light"] .admin-shell--dashboard-home .admin-sidebar,
+:root[data-theme="light"] .admin-shell--dashboard-home .admin-topbar {
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 45%, #f2f4f8 100%);
+}
+
 .admin-topbar__title {
   font-size: 1.15rem;
   font-weight: 800;
@@ -335,20 +379,50 @@
 }
 
 .admin-topbar__title-sub {
-  color: rgba(148, 163, 184, 0.75);
+  color: var(--neo-muted);
   font-weight: 500;
   margin-left: 0.25rem;
 }
 
 .admin-topbar__meta {
   font-size: 0.86rem;
-  color: #e2e8f0;
+  color: var(--neo-text);
 }
 
 .admin-topbar__right {
   display: flex;
   align-items: center;
   gap: 0.95rem;
+}
+
+.admin-topbar__theme-toggle {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-panel);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease,
+    background 0.2s ease;
+}
+
+.admin-topbar__theme-toggle:hover {
+  border-color: var(--neo-cyan);
+  background: color-mix(in srgb, var(--neo-cyan) 14%, var(--neo-panel));
+  transform: translateY(-1px);
+}
+
+.admin-topbar__theme-toggle:active {
+  transform: translateY(0) scale(0.93);
 }
 
 .admin-topbar__bell {
@@ -359,49 +433,129 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid rgba(30, 41, 59, 0.95);
-  background: linear-gradient(165deg, #0b0e14 0%, #121a2a 55%, #0d1320 100%);
-  color: #e2e8f0;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 4px 14px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--neo-border);
+  background: var(--neo-panel);
+  color: var(--neo-muted);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition:
     box-shadow 0.2s ease,
     border-color 0.2s ease,
-    color 0.2s ease;
+    color 0.2s ease,
+    transform 0.15s ease,
+    background 0.2s ease;
 }
 
 .admin-topbar__bell:hover {
-  border-color: rgba(56, 189, 248, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 0 1px rgba(14, 165, 233, 0.22),
-    0 0 24px rgba(14, 165, 233, 0.28);
-  color: #7dd3fc;
+  border-color: var(--neo-cyan);
+  background: color-mix(in srgb, var(--neo-cyan) 14%, var(--neo-panel));
+  color: var(--neo-cyan);
+  transform: translateY(-1px);
+}
+
+.admin-topbar__bell:active {
+  transform: translateY(0) scale(0.93);
+}
+
+.admin-topbar__bell--active {
+  border-color: var(--neo-cyan);
+  background: color-mix(in srgb, var(--neo-cyan) 18%, var(--neo-panel));
+  color: var(--neo-cyan);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--neo-cyan) 25%, transparent);
 }
 
 .admin-topbar__bell--critical {
-  border-color: rgba(225, 29, 72, 0.45);
+  border-color: rgba(225, 29, 72, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 20px rgba(225, 29, 72, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(225, 29, 72, 0.2),
+    0 0 24px rgba(225, 29, 72, 0.28);
+  color: #fda4af;
+}
+
+.admin-topbar__bell-icon {
+  transition: transform 0.2s ease;
+}
+
+.admin-topbar__bell:hover .admin-topbar__bell-icon {
+  transform: rotate(-8deg);
+}
+
+.admin-topbar__bell-icon--ring {
+  animation: admin-bell-shake 1.4s ease-in-out infinite;
+  transform-origin: 50% 20%;
+}
+
+@keyframes admin-bell-shake {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(-14deg);
+  }
+  20% {
+    transform: rotate(11deg);
+  }
+  30% {
+    transform: rotate(-8deg);
+  }
+  40% {
+    transform: rotate(5deg);
+  }
+  50%,
+  100% {
+    transform: rotate(0deg);
+  }
 }
 
 .admin-topbar__bell-badge {
   position: absolute;
-  top: 9px;
-  right: 10px;
-  width: 9px;
-  height: 9px;
+  top: 6px;
+  right: 7px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.85);
+  background: #ef4444;
+  border: 2px solid var(--neo-panel);
   pointer-events: none;
 }
 
 .admin-topbar__bell-badge--pulse {
-  background: #ef4444;
   animation: admin-bell-sos-pulse 1.75s ease-in-out infinite;
+}
+
+.admin-topbar__bell-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  border: 2px solid var(--neo-panel);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.5);
+  pointer-events: none;
+  animation: admin-bell-count-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes admin-bell-count-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes admin-bell-sos-pulse {
@@ -417,8 +571,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-topbar__bell-badge--pulse {
+  .admin-topbar__bell-badge--pulse,
+  .admin-topbar__bell-icon--ring,
+  .admin-topbar__bell-count {
     animation: none;
+  }
+
+  .admin-topbar__bell-badge--pulse {
     box-shadow: 0 0 12px rgba(239, 68, 68, 0.65);
   }
 }
@@ -433,7 +592,7 @@
 
 .admin-topbar__meta-label {
   font-size: 0.7rem;
-  color: rgba(148, 163, 184, 0.7);
+  color: var(--neo-muted);
 }
 
 .admin-topbar__avatar-wrap {
@@ -596,7 +755,7 @@
 .admin-it-only__lead {
   margin: 0.3rem 0 0;
   font-size: 0.85rem;
-  color: rgba(203, 213, 225, 0.75);
+  color: var(--neo-muted);
 }
 
 .admin-it-only__head-right {
@@ -607,7 +766,7 @@
 
 .admin-it-only__email {
   font-size: 0.82rem;
-  color: rgba(203, 213, 225, 0.85);
+  color: var(--neo-muted);
 }
 
 .admin-it-only__logout {
@@ -628,6 +787,17 @@
 .admin-it-only__logout:hover {
   background: rgba(239, 68, 68, 0.18);
   border-color: rgba(239, 68, 68, 0.55);
+}
+
+:root[data-theme="light"] .admin-it-only__logout {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .admin-it-only__logout:hover {
+  background: rgba(220, 38, 38, 0.16);
+  border-color: rgba(220, 38, 38, 0.55);
 }
 
 .admin-it-only__body {

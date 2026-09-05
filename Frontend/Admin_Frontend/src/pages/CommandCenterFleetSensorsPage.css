@@ -1,9 +1,25 @@
 .fleet-sensors {
+  --fs-panel: linear-gradient(160deg, #011126 0%, #020817 100%);
+  --fs-border: rgba(31, 88, 133, 0.6);
+  --fs-well: rgba(15, 23, 42, 0.9);
+  --fs-cyan: #67e8f9;
+  --fs-muted: #94a3b8;
+
   color: #e2e8f0;
-  background: linear-gradient(160deg, #011126 0%, #020817 100%);
-  border: 1px solid rgba(31, 88, 133, 0.6);
+  background: var(--fs-panel);
+  border: 1px solid var(--fs-border);
   border-radius: 18px;
   padding: 1rem 1.1rem 1.2rem;
+}
+
+:root[data-theme="light"] .fleet-sensors {
+  --fs-panel: #ffffff;
+  --fs-border: #e2e6ec;
+  --fs-well: #f5f7fa;
+  --fs-cyan: #0e7490;
+  --fs-muted: #5b6472;
+
+  color: var(--neo-text, #101828);
 }
 
 .fleet-sensors__hero h1 {
@@ -14,7 +30,7 @@
 
 .fleet-sensors__hero p {
   margin: 0;
-  color: rgba(191, 219, 254, 0.85);
+  color: var(--fs-muted);
 }
 
 .fleet-sensors__pulse {
@@ -42,15 +58,15 @@
 }
 
 .fleet-sensors__kpi {
-  border: 1px solid rgba(31, 88, 133, 0.5);
+  border: 1px solid var(--fs-border);
   border-radius: 12px;
   padding: 0.55rem 0.7rem;
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--fs-well);
 }
 
 .fleet-sensors__kpi span {
   font-size: 0.75rem;
-  color: #93c5fd;
+  color: var(--fs-cyan);
 }
 
 .fleet-sensors__kpi strong {
@@ -64,7 +80,7 @@
   margin-top: 0.35rem;
   font-size: 0.62rem;
   line-height: 1.35;
-  color: rgba(147, 197, 253, 0.72);
+  color: var(--fs-muted);
   font-weight: 500;
 }
 
@@ -87,24 +103,24 @@
   text-align: left;
   font-size: 0.7rem;
   letter-spacing: 0.11em;
-  color: #67e8f9;
+  color: var(--fs-cyan);
   padding: 0.3rem 0.4rem;
   text-transform: uppercase;
 }
 
 .fleet-sensors__table td {
-  background: rgba(15, 23, 42, 0.9);
-  border-top: 1px solid rgba(31, 88, 133, 0.6);
-  border-bottom: 1px solid rgba(31, 88, 133, 0.6);
+  background: var(--fs-well);
+  border-top: 1px solid var(--fs-border);
+  border-bottom: 1px solid var(--fs-border);
   padding: 0.55rem 0.45rem;
 }
 
 .fleet-sensors__table td:first-child {
-  border-left: 1px solid rgba(31, 88, 133, 0.6);
+  border-left: 1px solid var(--fs-border);
   border-radius: 10px 0 0 10px;
 }
 .fleet-sensors__table td:last-child {
-  border-right: 1px solid rgba(31, 88, 133, 0.6);
+  border-right: 1px solid var(--fs-border);
   border-radius: 0 10px 10px 0;
 }
 
@@ -123,7 +139,7 @@
   display: block;
 }
 .fleet-sensors__bus span {
-  color: #94a3b8;
+  color: var(--fs-muted);
   font-size: 0.78rem;
 }
 
@@ -168,7 +184,7 @@
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  background: #0f172a;
+  background: var(--fs-well);
   display: grid;
   place-items: center;
   font-size: 0.63rem;
@@ -227,10 +243,48 @@
 }
 .fleet-sensors__empty {
   text-align: center;
-  color: #94a3b8;
+  color: var(--fs-muted);
 }
 .fleet-sensors__err {
   color: #fecaca;
   margin: 0.75rem 0 0;
+}
+
+/* Light mode — link/status chips use pale text on translucent dark
+   backgrounds in the dark theme; darken text and lighten the fill so
+   each chip stays readable and unambiguous on a white table row. */
+:root[data-theme="light"] .fleet-sensors__link--wifi {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.14);
+}
+:root[data-theme="light"] .fleet-sensors__link--lte {
+  color: #15803d;
+  background: rgba(22, 163, 74, 0.14);
+}
+:root[data-theme="light"] .fleet-sensors__link--staff {
+  color: #6d28d9;
+  background: rgba(109, 40, 217, 0.14);
+}
+:root[data-theme="light"] .fleet-sensors__link--down {
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.14);
+}
+
+:root[data-theme="light"] .fleet-sensors__badge--safe,
+:root[data-theme="light"] .fleet-sensors__badge--good {
+  color: #15803d;
+}
+:root[data-theme="light"] .fleet-sensors__badge--ok {
+  color: #4d7c0f;
+}
+:root[data-theme="light"] .fleet-sensors__badge--warn {
+  color: #92400e;
+}
+:root[data-theme="light"] .fleet-sensors__badge--critical {
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .fleet-sensors__err {
+  color: #b91c1c;
 }
 

@@ -35,6 +35,10 @@
   color: #fecaca;
 }
 
+:root[data-theme="light"] .dashboard-map__data-err {
+  color: #b91c1c;
+}
+
 .dashboard-map__chrome-actions {
   flex-shrink: 0;
   display: flex;
@@ -141,6 +145,12 @@
   max-width: 40rem;
 }
 
+:root[data-theme="light"] .dashboard-map__deck-offline {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
 .dashboard-map__deck-offline strong {
   font-weight: 800;
 }
@@ -160,10 +170,22 @@
   gap: 0.5rem;
 }
 
+:root[data-theme="light"] .dashboard-map__route-banner {
+  color: #334155;
+  background: rgba(16, 24, 40, 0.05);
+  border-color: rgba(16, 24, 40, 0.14);
+}
+
 .dashboard-map__route-banner--err {
   color: #fecaca;
   background: rgba(127, 29, 29, 0.3);
   border-color: rgba(248, 113, 113, 0.35);
+}
+
+:root[data-theme="light"] .dashboard-map__route-banner--err {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.28);
 }
 
 .dashboard-map__route-retry {
@@ -179,6 +201,16 @@
 
 .dashboard-map__route-retry:hover {
   background: rgba(248, 113, 113, 0.28);
+}
+
+:root[data-theme="light"] .dashboard-map__route-retry {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+:root[data-theme="light"] .dashboard-map__route-retry:hover {
+  background: rgba(220, 38, 38, 0.18);
 }
 
 .dashboard-map__route-endpoint {

@@ -17,6 +17,7 @@ import { fetchPublicOperationsDeck } from "@/passenger/lib/fetchPublicOperations
 import { passengerTileLayer, type PassengerBasemapMode } from "@/passenger/lib/passengerMapTiles";
 import { haversineKm } from "@/passenger/lib/passengerGeo";
 import { getPassengerLocationSession } from "@/passenger/lib/passengerLocationGate";
+import { useAdminTheme } from "@/context/ThemeContext";
 
 type MapConfig = {
   center: { lat: number; lng: number };
@@ -249,10 +250,14 @@ export function DashboardMap({
   selectedBusId,
   onClearSelection,
 }: Props) {
+  const { theme } = useAdminTheme();
   const [userSession] = useState(() => getPassengerLocationSession());
   const [nearbyBusesOnly, setNearbyBusesOnly] = useState(false);
   const [cfg, setCfg] = useState<MapConfig>(defaultConfig);
-  const [basemap, setBasemap] = useState<PassengerBasemapMode>("roadmap");
+  // Default tile style follows the app's light/dark theme at mount (dark theme -> dark tiles,
+  // light theme -> roadmap tiles), but the user's manual pick via the basemap dock always wins
+  // afterward — this only seeds the initial value, it never overrides a later selection.
+  const [basemap, setBasemap] = useState<PassengerBasemapMode>(() => (theme === "dark" ? "dark" : "roadmap"));
   const [deployed, setDeployed] = useState<DeployedPointItem[]>([]);
   const [liveBuses, setLiveBuses] = useState<LiveBusPosition[]>([]);
   const [fleetById, setFleetById] = useState<Map<string, PublicFleetBus>>(new Map());

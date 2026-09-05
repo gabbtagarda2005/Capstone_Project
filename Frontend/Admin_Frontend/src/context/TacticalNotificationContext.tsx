@@ -46,6 +46,9 @@ type Ctx = {
   items: TacticalFeedItem[];
   dismiss: (id: string) => void;
   flyToItem: (item: TacticalFeedItem) => void;
+  unreadCount: number;
+  isUnread: (id: string) => boolean;
+  markAllRead: () => void;
 };
 
 const TacticalNotificationContext = createContext<Ctx | null>(null);
@@ -113,6 +116,7 @@ function itemFromIncident(raw: CommandAlertPayload): TacticalFeedItem | null {
 export function TacticalNotificationProvider({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rows, setRows] = useState<TacticalFeedItem[]>([]);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const dismissed = useRef<Set<string>>(new Set());
 
   const pushUnique = useCallback((item: TacticalFeedItem) => {
@@ -181,6 +185,18 @@ export function TacticalNotificationProvider({ children }: { children: ReactNode
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
+  const isUnread = useCallback((id: string) => !readIds.has(id), [readIds]);
+
+  const markAllRead = useCallback(() => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      for (const r of rows) next.add(r.id);
+      return next;
+    });
+  }, [rows]);
+
+  const unreadCount = useMemo(() => rows.filter((r) => !readIds.has(r.id)).length, [rows, readIds]);
+
   const value = useMemo<Ctx>(
     () => ({
       sidebarOpen,
@@ -189,8 +205,11 @@ export function TacticalNotificationProvider({ children }: { children: ReactNode
       items: rows,
       dismiss,
       flyToItem,
+      unreadCount,
+      isUnread,
+      markAllRead,
     }),
-    [sidebarOpen, rows, dismiss, flyToItem, toggleSidebar]
+    [sidebarOpen, rows, dismiss, flyToItem, toggleSidebar, unreadCount, isUnread, markAllRead]
   );
 
   return <TacticalNotificationContext.Provider value={value}>{children}</TacticalNotificationContext.Provider>;

@@ -34,6 +34,13 @@ html:has(.ph) #root {
   flex-direction: column;
 }
 
+/* This landing page is a single fixed hero over a photographic bus background
+   (see .ph-part--1's background-image below) with a dark gradient scrim for
+   text legibility — deliberately theme-invariant, the same way the SOS
+   critical modal stays dark-red in both themes: a photo hero needs its own
+   permanent scrim, not a page-background swap. --ph-* intentionally has no
+   [data-theme="light"] override — every value above applies in both themes. */
+
 .ph-main {
   flex: 1;
   min-height: 0;

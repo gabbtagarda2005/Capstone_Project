@@ -10,6 +10,12 @@
   border: 1px solid rgba(248, 113, 113, 0.35);
 }
 
+:root[data-theme="light"] .mgmt-hub-stats-err {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
 .mgmt-module-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -46,9 +52,9 @@
   text-decoration: none;
   padding: 0.35rem;
   border-radius: 20px;
-  border: none;
-  background: #1b233d;
-  color: var(--dg-text, #fff);
+  border: 1px solid var(--neo-border, transparent);
+  background: var(--neo-panel, #1b233d);
+  color: var(--neo-text, #fff);
   cursor: pointer;
   transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
   font-family: inherit;
@@ -109,7 +115,7 @@
   font-size: 0.88rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: #fff;
+  color: var(--neo-text, #fff);
   text-transform: uppercase;
 }
 
@@ -118,7 +124,7 @@
   margin: 0.45rem 0 0;
   font-size: 0.71rem;
   font-weight: 500;
-  color: rgba(170, 222, 243, 0.8);
+  color: var(--neo-muted, rgba(170, 222, 243, 0.8));
   line-height: 1.35;
 }
 
@@ -126,7 +132,7 @@
   margin-top: 0.75rem;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid var(--neo-border, rgba(255, 255, 255, 0.12));
 }
 
 .mgmt-module-card__stats span {
@@ -135,11 +141,11 @@
   justify-content: center;
   min-height: 30px;
   font-size: 0.65rem;
-  color: rgba(170, 222, 243, 0.8);
+  color: var(--neo-muted, rgba(170, 222, 243, 0.8));
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .mgmt-module-card__stats span + span {
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid var(--neo-border, rgba(255, 255, 255, 0.1));
 }

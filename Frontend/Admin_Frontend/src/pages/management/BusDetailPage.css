@@ -1,10 +1,15 @@
 /* Tactical fleet command hub — obsidian + Slide Ocean Blue */
 .bus-hub {
+  --hub-accent: #5eead4;
   min-height: calc(100vh - 48px);
-  background: #020817;
-  color: #f8fafc;
+  background: var(--neo-bg);
+  color: var(--neo-text);
   padding: 0 0 1.25rem;
   margin: -1rem -1.25rem -2rem;
+}
+
+:root[data-theme="light"] .bus-hub {
+  --hub-accent: #0f766e;
 }
 
 @media (min-width: 900px) {
@@ -18,7 +23,7 @@
   align-items: center;
   gap: 8px;
   padding: 16px 20px 8px;
-  color: rgba(248, 250, 252, 0.75);
+  color: var(--neo-muted);
   text-decoration: none;
   font-size: 0.8rem;
   font-weight: 600;
@@ -27,7 +32,7 @@
 }
 
 .bus-hub__back:hover {
-  color: #5eead4;
+  color: var(--hub-accent);
 }
 
 .bus-hub__mgmt-back {
@@ -50,7 +55,7 @@
 .bus-hub__sub {
   margin: 6px 0 0;
   font-size: 0.8rem;
-  color: rgba(248, 250, 252, 0.55);
+  color: var(--neo-muted);
 }
 
 .bus-hub__grid {
@@ -72,7 +77,7 @@
 
 .bus-hub__tile {
   border: 1px solid #1f5885;
-  background: rgba(4, 14, 35, 0.65);
+  background: var(--neo-panel);
   padding: 14px 16px;
 }
 
@@ -81,14 +86,14 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: rgba(248, 250, 252, 0.45);
+  color: var(--neo-muted);
   margin-bottom: 8px;
 }
 
 .bus-hub__mono {
   font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--neo-text);
   font-weight: 500;
 }
 
@@ -98,7 +103,7 @@
 }
 
 .bus-hub__mono--muted {
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--neo-muted);
   font-weight: 600;
 }
 
@@ -114,7 +119,7 @@
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid rgba(31, 88, 133, 0.65);
-  background: rgba(2, 8, 23, 0.5);
+  background: var(--neo-panel);
 }
 
 .bus-hub__profile-avatar {
@@ -127,7 +132,7 @@
   justify-content: center;
   font-size: 0.75rem;
   font-weight: 800;
-  color: #5eead4;
+  color: var(--hub-accent);
   border: 1px solid rgba(34, 211, 238, 0.35);
 }
 
@@ -140,13 +145,13 @@
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(248, 250, 252, 0.45);
+  color: var(--neo-muted);
 }
 
 .bus-hub__profile-name {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--neo-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -163,7 +168,7 @@
 }
 
 .bus-hub__pulse--off {
-  background: rgba(248, 250, 252, 0.2);
+  background: rgba(148, 163, 184, 0.5);
   box-shadow: none;
   animation: none;
 }
@@ -240,7 +245,7 @@
   font-size: 0.78rem;
   font-weight: 700;
   border: 1px solid rgba(31, 88, 133, 0.65);
-  background: rgba(4, 14, 35, 0.6);
+  background: var(--neo-panel);
 }
 
 .bus-hub__live-status-badge--online {
@@ -260,7 +265,7 @@
 
 .bus-hub__live-status-age {
   font-size: 0.78rem;
-  color: rgba(248, 250, 252, 0.55);
+  color: var(--neo-muted);
 }
 
 .bus-hub__live-status-source {
@@ -271,7 +276,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(248, 250, 252, 0.45);
+  color: var(--neo-muted);
 }
 
 .bus-hub__live-status-source strong {
@@ -279,7 +284,7 @@
   font-weight: 700;
   text-transform: none;
   letter-spacing: normal;
-  color: #f8fafc;
+  color: var(--neo-text);
 }
 
 .bus-hub__congestion-bar {
@@ -336,27 +341,27 @@
   font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
   font-size: 1.65rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--neo-text);
   line-height: 1;
 }
 
 .bus-hub__gauge-den {
   font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
   font-size: 0.95rem;
-  color: rgba(248, 250, 252, 0.55);
+  color: var(--neo-muted);
 }
 
 .bus-hub__gauge-cap {
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: rgba(248, 250, 252, 0.4);
+  color: var(--neo-muted);
   margin-top: 4px;
 }
 
 .bus-hub__gauge-hint {
   font-size: 0.7rem;
-  color: rgba(248, 250, 252, 0.45);
+  color: var(--neo-muted);
   text-align: center;
   margin-top: 6px;
   max-width: 220px;
@@ -385,18 +390,18 @@
   height: 8px;
   border-radius: 50%;
   background: #1f5885;
-  border: 2px solid #020817;
+  border: 2px solid var(--neo-bg);
 }
 
 .bus-hub__timeline-label {
   font-size: 0.8rem;
-  color: rgba(248, 250, 252, 0.88);
+  color: var(--neo-text);
 }
 
 .bus-hub__timeline-time {
   font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
   font-size: 0.75rem;
-  color: #5eead4;
+  color: var(--hub-accent);
   margin-top: 2px;
 }
 
@@ -420,8 +425,8 @@
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-  color: rgba(248, 250, 252, 0.65);
-  background: rgba(4, 14, 35, 0.6);
+  color: var(--neo-muted);
+  background: var(--neo-panel);
   border: 1px solid rgba(31, 88, 133, 0.65);
   border-radius: 999px;
   cursor: pointer;
@@ -430,13 +435,13 @@
 
 .bus-hub__revenue-filter-btn:hover {
   border-color: rgba(56, 189, 248, 0.55);
-  color: #fff;
+  color: var(--neo-text);
 }
 
 .bus-hub__revenue-filter-btn--active {
   background: rgba(34, 211, 238, 0.16);
   border-color: #22d3ee;
-  color: #5eead4;
+  color: var(--hub-accent);
 }
 
 .bus-hub__revenue-datepicker-wrap {
@@ -451,7 +456,7 @@
   z-index: 40;
   width: 260px;
   padding: 14px;
-  background: #0a101f;
+  background: var(--neo-panel);
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 12px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
@@ -472,7 +477,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(248, 250, 252, 0.5);
+  color: var(--neo-muted);
 }
 
 .bus-hub__revenue-datepicker-field input[type="date"] {
@@ -480,17 +485,21 @@
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid rgba(31, 88, 133, 0.8);
-  background: rgba(4, 14, 35, 0.8);
-  color: #f8fafc;
+  background: var(--neo-panel);
+  color: var(--neo-text);
   font-size: 0.78rem;
   color-scheme: dark;
+}
+
+:root[data-theme="light"] .bus-hub__revenue-datepicker-field input[type="date"] {
+  color-scheme: light;
 }
 
 .bus-hub__revenue-datepicker-hint {
   margin: 10px 0 0;
   font-size: 0.68rem;
   line-height: 1.4;
-  color: rgba(248, 250, 252, 0.45);
+  color: var(--neo-muted);
 }
 
 .bus-hub__revenue-datepicker-actions {
@@ -512,23 +521,23 @@
 .bus-hub__revenue-datepicker-cancel {
   border: 1px solid rgba(31, 88, 133, 0.65);
   background: transparent;
-  color: rgba(248, 250, 252, 0.75);
+  color: var(--neo-muted);
 }
 
 .bus-hub__revenue-datepicker-cancel:hover {
-  color: #fff;
+  color: var(--neo-text);
   border-color: rgba(56, 189, 248, 0.55);
 }
 
 .bus-hub__revenue-datepicker-apply {
   border: 1px solid #22d3ee;
   background: rgba(34, 211, 238, 0.16);
-  color: #5eead4;
+  color: var(--hub-accent);
 }
 
 .bus-hub__revenue-datepicker-apply:hover:not(:disabled) {
   background: rgba(34, 211, 238, 0.28);
-  color: #fff;
+  color: var(--neo-text);
 }
 
 .bus-hub__revenue-datepicker-apply:disabled {
@@ -547,25 +556,25 @@
   font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
   font-size: 1.85rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--neo-text);
 }
 
 .bus-hub__revenue-meta {
   font-size: 0.78rem;
-  color: rgba(248, 250, 252, 0.5);
+  color: var(--neo-muted);
 }
 
 .bus-hub__revenue-empty-note {
   flex-basis: 100%;
   font-size: 0.72rem;
-  color: rgba(248, 250, 252, 0.4);
+  color: var(--neo-muted);
   font-style: italic;
 }
 
 .bus-hub__revenue-loading {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(248, 250, 252, 0.55);
+  color: var(--neo-muted);
 }
 
 .bus-hub__revenue-loading--err {
@@ -575,7 +584,7 @@
 .bus-hub__maint {
   border: 1px solid rgba(31, 88, 133, 0.65);
   padding: 16px;
-  background: rgba(4, 14, 35, 0.75);
+  background: var(--neo-panel);
 }
 
 .bus-hub__maint--amber {
@@ -610,7 +619,7 @@
   z-index: 30;
   margin: 20px 20px 0;
   padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
-  background: #0a101f;
+  background: var(--neo-panel);
   border: 1px solid rgba(56, 189, 248, 0.22);
   border-radius: 14px;
   box-shadow:
@@ -637,9 +646,8 @@
   cursor: pointer;
   border-width: 1px;
   border-style: solid;
-  /* Explicit light text so global / light-theme body color never wins */
-  color: #f1f5f9;
-  background: rgba(15, 23, 42, 0.95);
+  color: var(--neo-text);
+  background: var(--neo-panel);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -653,7 +661,7 @@
 .bus-hub__dock-btn--blue:hover:not(:disabled) {
   background: rgba(31, 88, 133, 0.42);
   border-color: rgba(56, 189, 248, 0.45);
-  color: #fff;
+  color: var(--neo-text);
 }
 
 .bus-hub__dock-btn--red {
@@ -664,7 +672,7 @@
 
 .bus-hub__dock-btn--red:hover:not(:disabled) {
   background: rgba(185, 28, 28, 0.28);
-  color: #fff;
+  color: var(--neo-text);
 }
 
 .bus-hub__dock-btn--delete {
@@ -676,15 +684,15 @@
 .bus-hub__dock-btn--delete:hover:not(:disabled) {
   background: rgba(127, 29, 29, 0.45);
   border-color: #f87171;
-  color: #fff;
+  color: var(--neo-text);
 }
 
 /* Avoid opacity-based disabled styles — they made labels nearly invisible on dark bars */
 .bus-hub__dock-btn:disabled {
   opacity: 1;
   cursor: not-allowed;
-  color: rgba(226, 232, 240, 0.55);
-  background: rgba(15, 23, 42, 0.5);
+  color: var(--neo-muted);
+  background: var(--neo-panel);
   border-color: rgba(51, 65, 85, 0.75);
 }
 
@@ -715,7 +723,7 @@
   max-width: 520px;
   max-height: 70vh;
   overflow: auto;
-  background: #020817;
+  background: var(--neo-panel);
   border: 1px solid #1f5885;
   padding: 20px;
 }
@@ -739,7 +747,7 @@
 }
 
 .bus-hub__table th {
-  color: rgba(248, 250, 252, 0.5);
+  color: var(--neo-muted);
   font-weight: 600;
   text-transform: uppercase;
   font-size: 0.65rem;
@@ -757,7 +765,7 @@
   padding: 10px;
   border: 1px solid #1f5885;
   background: transparent;
-  color: #f8fafc;
+  color: var(--neo-text);
   font-weight: 700;
   cursor: pointer;
 }
@@ -766,5 +774,5 @@
 .bus-hub__error {
   padding: 48px 24px;
   text-align: center;
-  color: rgba(248, 250, 252, 0.65);
+  color: var(--neo-muted);
 }

@@ -3,8 +3,8 @@
 .tactical-side__backdrop {
   position: fixed;
   inset: 0;
-  z-index: 200;
-  background: rgba(2, 8, 23, 0.35);
+  z-index: 9989;
+  background: rgba(2, 8, 23, 0.6);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -19,7 +19,7 @@
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 210;
+  z-index: 9990;
   width: min(420px, 100vw - 24px);
   max-width: 100%;
   height: 100vh;
@@ -27,7 +27,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  background: rgba(2, 8, 23, 0.7);
+  background: rgba(8, 13, 23, 0.97);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
   border-left: 1px solid rgba(56, 189, 248, 0.45);
@@ -41,12 +41,14 @@
 }
 
 .tactical-side__header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem 1.1rem 0.65rem;
   border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+  background: rgba(8, 13, 23, 0.97);
 }
 
 .tactical-side__h2 {
@@ -56,6 +58,36 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #e2e8f0;
+}
+
+.tactical-side__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tactical-side__mark-read {
+  font-family: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(8, 47, 73, 0.45);
+  color: #bae6fd;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.tactical-side__mark-read:hover {
+  border-color: #22d3ee;
+  background: rgba(14, 116, 144, 0.5);
+  color: #fff;
 }
 
 .tactical-side__close {
@@ -86,18 +118,57 @@
 }
 
 .tactical-side__empty {
-  margin: 1rem 0.5rem;
-  font-size: 0.82rem;
+  margin: 2rem 0.5rem 1rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px dashed rgba(51, 65, 85, 0.65);
+}
+
+.tactical-side__empty-icon {
+  display: block;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.85;
+}
+
+.tactical-side__empty-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.tactical-side__empty-sub {
+  margin: 0;
+  font-size: 0.78rem;
   color: rgba(148, 163, 184, 0.85);
   line-height: 1.5;
 }
 
 .tactical-side__card {
+  position: relative;
   border-radius: 14px;
   padding: 0.85rem 0.95rem;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(51, 65, 85, 0.65);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tactical-side__card--unread {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(19, 32, 56, 0.95);
+}
+
+.tactical-side__unread-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
 }
 
 .tactical-side__card--sos {
@@ -184,7 +255,7 @@
   margin-bottom: 0.65rem;
   padding: 0.5rem 0.55rem;
   border-radius: 8px;
-  background: rgba(2, 6, 23, 0.65);
+  background: rgba(2, 6, 23, 0.92);
   border: 1px solid rgba(56, 189, 248, 0.12);
   font-size: 0.72rem;
 }
@@ -300,6 +371,177 @@
   margin-top: 0.65rem;
   padding-top: 0.55rem;
   border-top: 1px solid rgba(248, 113, 113, 0.22);
+}
+
+/* Light mode — opaque white panel, dark navy text, soft borders. Same class
+   structure as the dark rules above, just re-colored (see ThemeContext /
+   [data-theme] on <html>). Kept mostly opaque (not glassy-transparent) so
+   notification content stays readable over the page behind it. */
+:root[data-theme="light"] .tactical-side {
+  background: rgba(255, 255, 255, 0.97);
+  border-left: 1px solid rgba(37, 99, 235, 0.25);
+  box-shadow: -12px 0 48px rgba(16, 24, 40, 0.18);
+}
+
+:root[data-theme="light"] .tactical-side__header {
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid rgba(16, 24, 40, 0.08);
+}
+
+:root[data-theme="light"] .tactical-side__h2 {
+  color: #101828;
+}
+
+:root[data-theme="light"] .tactical-side__mark-read {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+}
+
+:root[data-theme="light"] .tactical-side__mark-read:hover {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+}
+
+:root[data-theme="light"] .tactical-side__close {
+  border-color: rgba(16, 24, 40, 0.14);
+  background: rgba(16, 24, 40, 0.04);
+  color: #101828;
+}
+
+:root[data-theme="light"] .tactical-side__close:hover {
+  border-color: rgba(37, 99, 235, 0.45);
+  color: #1d4ed8;
+}
+
+:root[data-theme="light"] .tactical-side__empty {
+  background: rgba(241, 245, 249, 0.95);
+  border: 1px dashed rgba(16, 24, 40, 0.16);
+}
+
+:root[data-theme="light"] .tactical-side__empty-title {
+  color: #101828;
+}
+
+:root[data-theme="light"] .tactical-side__empty-sub {
+  color: #5b6472;
+}
+
+:root[data-theme="light"] .tactical-side__card {
+  background: #ffffff;
+  border: 1px solid rgba(16, 24, 40, 0.1);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+:root[data-theme="light"] .tactical-side__card--unread {
+  border-color: rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+:root[data-theme="light"] .tactical-side__unread-dot {
+  background: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+:root[data-theme="light"] .tactical-side__card--sos {
+  border-color: rgba(220, 38, 38, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(220, 38, 38, 0.1),
+    0 8px 20px rgba(220, 38, 38, 0.1);
+}
+
+:root[data-theme="light"] .tactical-side__card--geo {
+  border-color: rgba(22, 163, 74, 0.4);
+  box-shadow: 0 0 16px rgba(22, 163, 74, 0.08);
+}
+
+:root[data-theme="light"] .tactical-side__card--sys {
+  border-color: rgba(8, 145, 178, 0.4);
+  box-shadow: 0 0 16px rgba(8, 145, 178, 0.08);
+}
+
+:root[data-theme="light"] .tactical-side__card--maint {
+  border-color: rgba(217, 119, 6, 0.4);
+  box-shadow: 0 0 16px rgba(217, 119, 6, 0.08);
+}
+
+:root[data-theme="light"] .tactical-side__tag {
+  color: rgba(29, 78, 216, 0.85);
+}
+
+:root[data-theme="light"] .tactical-side__card-title {
+  color: #101828;
+}
+
+:root[data-theme="light"] .tactical-side__card-sub {
+  color: #3c4658;
+}
+
+:root[data-theme="light"] .tactical-side__mono-block {
+  background: rgba(241, 245, 249, 0.95);
+  border: 1px solid rgba(8, 145, 178, 0.18);
+}
+
+:root[data-theme="light"] .tactical-side__mono-label {
+  color: #5b6472;
+}
+
+:root[data-theme="light"] .tactical-side__mono {
+  color: #101828;
+}
+
+:root[data-theme="light"] .tactical-side__btn--track {
+  border-color: rgba(8, 145, 178, 0.4);
+  background: rgba(8, 145, 178, 0.1);
+  color: #0e7490;
+}
+
+:root[data-theme="light"] .tactical-side__btn--track:hover:not(:disabled) {
+  background: rgba(8, 145, 178, 0.18);
+  border-color: #0891b2;
+  color: #0e7490;
+}
+
+:root[data-theme="light"] .tactical-side__btn--bc {
+  border-color: rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+:root[data-theme="light"] .tactical-side__btn--bc:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+:root[data-theme="light"] .tactical-side__btn--dismiss {
+  border-color: rgba(16, 24, 40, 0.18);
+  background: transparent;
+  color: #3c4658;
+}
+
+:root[data-theme="light"] .tactical-side__btn--dismiss:hover:not(:disabled) {
+  border-color: rgba(16, 24, 40, 0.32);
+  color: #101828;
+}
+
+:root[data-theme="light"] .tactical-side__btn--resolve {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .tactical-side__btn--resolve:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.16);
+  color: #991b1b;
+}
+
+:root[data-theme="light"] .tactical-side__sos-ts {
+  color: #5b6472;
+}
+
+:root[data-theme="light"] .tactical-side__actions--sos-secondary {
+  border-top: 1px solid rgba(220, 38, 38, 0.18);
 }
 
 @media (prefers-reduced-motion: reduce) {

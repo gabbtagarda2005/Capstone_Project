@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSosInterceptOptional } from "@/context/SosInterceptContext";
 import { useTacticalNotifications } from "@/context/TacticalNotificationContext";
@@ -31,11 +32,13 @@ function kindMeta(kind: TacticalVisualKind): { emoji: string; tag: string; cardC
 
 function FeedTile({
   item,
+  unread,
   onFly,
   onDismiss,
   onBroadcast,
 }: {
   item: TacticalFeedItem;
+  unread: boolean;
   onFly: () => void;
   onDismiss: () => void;
   onBroadcast: (busId?: string) => void;
@@ -45,7 +48,7 @@ function FeedTile({
 
   return (
     <article
-      className={"tactical-side__card " + m.cardClass}
+      className={"tactical-side__card " + m.cardClass + (unread ? " tactical-side__card--unread" : "")}
       data-kind={item.kind}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
@@ -53,6 +56,7 @@ function FeedTile({
       }}
     >
       <div className="tactical-side__card-head">
+        {unread ? <span className="tactical-side__unread-dot" aria-hidden /> : null}
         <span className="tactical-side__emoji" aria-hidden>
           {m.emoji}
         </span>
@@ -106,8 +110,18 @@ function FeedTile({
 
 export function TacticalNotificationSidebar() {
   const navigate = useNavigate();
-  const { sidebarOpen, setSidebarOpen, items, dismiss, flyToItem } = useTacticalNotifications();
+  const { sidebarOpen, setSidebarOpen, items, dismiss, flyToItem, unreadCount, isUnread, markAllRead } =
+    useTacticalNotifications();
   const sos = useSosInterceptOptional();
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen, setSidebarOpen]);
 
   const goBroadcast = (busId?: string, sosPrefix?: boolean) => {
     const hint = sosPrefix && busId ? `SOS coordination — Bus ${busId}: ` : busId ? `Ops notice — Bus ${busId}: ` : "";
@@ -144,9 +158,16 @@ export function TacticalNotificationSidebar() {
       >
         <div className="tactical-side__header">
           <h2 className="tactical-side__h2">Tactical feed</h2>
-          <button type="button" className="tactical-side__close" onClick={() => setSidebarOpen(false)} aria-label="Close feed">
-            ×
-          </button>
+          <div className="tactical-side__header-actions">
+            {unreadCount > 0 ? (
+              <button type="button" className="tactical-side__mark-read" onClick={markAllRead}>
+                Mark all as read
+              </button>
+            ) : null}
+            <button type="button" className="tactical-side__close" onClick={() => setSidebarOpen(false)} aria-label="Close feed">
+              ×
+            </button>
+          </div>
         </div>
         <div className="tactical-side__scroll">
           {incident && la != null && ln != null ? (
@@ -205,13 +226,20 @@ export function TacticalNotificationSidebar() {
           ) : null}
 
           {items.length === 0 && !incident ? (
-            <p className="tactical-side__empty">No queued alerts. Geofence breaches and attendant reports appear here.</p>
+            <div className="tactical-side__empty">
+              <span className="tactical-side__empty-icon" aria-hidden>
+                🔔
+              </span>
+              <p className="tactical-side__empty-title">No new notifications</p>
+              <p className="tactical-side__empty-sub">You're all caught up. Geofence breaches and attendant reports appear here.</p>
+            </div>
           ) : null}
 
           {items.map((item) => (
             <FeedTile
               key={item.id}
               item={item}
+              unread={isUnread(item.id)}
               onFly={() => {
                 flyToItem(item);
                 navigate("/dashboard/locations");

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { useAdminBranding } from "@/context/AdminBrandingContext";
+import { useAdminTheme } from "@/context/ThemeContext";
 import { useToast } from "@/context/ToastContext";
 import { pushAdminAudit } from "@/lib/adminAudit";
 import { useAuth } from "@/context/AuthContext";
@@ -240,6 +241,7 @@ export function SettingsPage() {
     );
   }
 
+  const { theme, setTheme } = useAdminTheme();
   const fileRef = useRef<HTMLInputElement>(null);
   const companyLocationAbortRef = useRef<AbortController | null>(null);
   const idBase = useId();
@@ -677,6 +679,39 @@ export function SettingsPage() {
                   region that matches your operations (e.g. Asia/Manila).
                 </p>
               </InfoHeadingRow>
+              <div className="admin-settings__field">
+                <label className="admin-settings__label" id={`${idBase}-theme-label`}>
+                  Appearance
+                </label>
+                <div
+                  className="admin-settings__theme-toggle"
+                  role="radiogroup"
+                  aria-labelledby={`${idBase}-theme-label`}
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === "light"}
+                    className={"admin-settings__theme-btn" + (theme === "light" ? " admin-settings__theme-btn--active" : "")}
+                    onClick={() => setTheme("light")}
+                  >
+                    <span aria-hidden>☀️</span> Light
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === "dark"}
+                    className={"admin-settings__theme-btn" + (theme === "dark" ? " admin-settings__theme-btn--active" : "")}
+                    onClick={() => setTheme("dark")}
+                  >
+                    <span aria-hidden>🌙</span> Dark
+                  </button>
+                </div>
+                <p className="admin-settings__hint admin-settings__hint--tight">
+                  Applies instantly on this device and is remembered next time you sign in.
+                </p>
+              </div>
+
               <div className="admin-settings__field">
                 <label className="admin-settings__label" htmlFor={`${idBase}-tz`}>
                   Timezone

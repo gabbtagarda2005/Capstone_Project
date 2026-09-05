@@ -232,38 +232,76 @@
 }
 
 /* Light dashboard shell */
-.admin-shell--light .add-bus-modal {
+:root[data-theme="light"] .admin-shell .add-bus-modal {
   border-color: rgba(99, 102, 241, 0.25);
   background: linear-gradient(165deg, rgba(255, 255, 255, 0.94), rgba(241, 245, 249, 0.9));
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
 }
 
-.admin-shell--light .add-bus-modal__title {
+:root[data-theme="light"] .admin-shell .add-bus-modal__title {
   color: #0f172a;
 }
 
-.admin-shell--light .add-bus-modal__sub {
+:root[data-theme="light"] .admin-shell .add-bus-modal__sub {
   color: rgba(51, 65, 85, 0.9);
 }
 
-.admin-shell--light .add-bus-modal__input,
-.admin-shell--light .add-bus-modal__select {
+:root[data-theme="light"] .admin-shell .add-bus-modal__input,
+:root[data-theme="light"] .admin-shell .add-bus-modal__select {
   background: rgba(15, 23, 42, 0.04);
   border-color: rgba(15, 23, 42, 0.12);
   color: #0f172a;
 }
 
-.admin-shell--light .add-bus-modal__label {
+:root[data-theme="light"] .admin-shell .add-bus-modal__input::placeholder {
+  color: rgba(100, 116, 139, 0.65);
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__select-icon {
+  color: rgba(71, 85, 105, 0.85);
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__label {
   color: rgba(71, 85, 105, 0.95);
 }
 
-.admin-shell--light .add-bus-modal__imei-hint {
+:root[data-theme="light"] .admin-shell .add-bus-modal__imei-hint {
   color: rgba(8, 145, 178, 0.75);
   text-shadow: none;
 }
 
-.admin-shell--light .add-bus-modal__imei-hint--ok {
+:root[data-theme="light"] .admin-shell .add-bus-modal__imei-hint--ok {
   color: rgba(5, 150, 105, 0.95);
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__error {
+  color: #dc2626;
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__policy-hint {
+  color: rgba(71, 85, 105, 0.85);
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__btn--ghost {
+  color: rgba(71, 85, 105, 0.95);
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__readonly-strip {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__readonly-k {
+  color: rgba(71, 85, 105, 0.9);
+}
+
+:root[data-theme="light"] .admin-shell .add-bus-modal__readonly-v {
+  color: #0f172a;
 }
 
 .add-bus-modal__readonly-strip {

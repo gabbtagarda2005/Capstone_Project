@@ -20,7 +20,7 @@
 .locations-page__legend-card {
   border-radius: 16px;
   border: 1px solid var(--neo-border, rgba(100, 120, 200, 0.18));
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--neo-panel, rgba(15, 23, 42, 0.5));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 0.85rem 0.75rem 0.95rem;
@@ -30,7 +30,7 @@
 .locations-coverage {
   border-radius: 16px;
   border: 1px solid var(--neo-border, rgba(100, 120, 200, 0.18));
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--neo-panel, rgba(15, 23, 42, 0.55));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 0.85rem 0.75rem 0.95rem;
@@ -44,6 +44,10 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(96, 165, 250, 0.95);
+}
+
+:root[data-theme="light"] .locations-coverage__title {
+  color: #1d4ed8;
 }
 
 .locations-coverage__sub {
@@ -69,8 +73,8 @@
 .locations-coverage__input {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(30, 41, 59, 0.5);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--neo-text, #fff) 6%, transparent);
+  color: var(--neo-text, #e2e8f0);
   border-radius: 10px;
   padding: 0.52rem 0.62rem;
   font-size: 0.82rem;
@@ -103,7 +107,7 @@
   right: 0;
   border: 1px solid rgba(148, 163, 184, 0.15);
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--neo-panel, rgba(15, 23, 42, 0.95));
   overflow: hidden;
 }
 
@@ -113,7 +117,7 @@
   border: 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   background: transparent;
-  color: #cbd5e1;
+  color: var(--neo-text, #cbd5e1);
   padding: 0.5rem 0.62rem;
   font-size: 0.75rem;
   cursor: pointer;
@@ -139,8 +143,8 @@
 
 .locations-coverage__class-btn {
   border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(30, 41, 59, 0.45);
-  color: #94a3b8;
+  background: color-mix(in srgb, var(--neo-text, #fff) 6%, transparent);
+  color: var(--neo-muted, #94a3b8);
   border-radius: 10px;
   padding: 0.45rem 0.5rem;
   text-align: left;
@@ -172,6 +176,16 @@
   background: rgba(168, 85, 247, 0.14);
 }
 
+:root[data-theme="light"] .locations-coverage__class-btn--terminal {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.1);
+}
+
+:root[data-theme="light"] .locations-coverage__class-btn--stop {
+  color: #7e22ce;
+  background: rgba(147, 51, 234, 0.1);
+}
+
 .locations-coverage__meta-pill {
   align-self: center;
   justify-self: end;
@@ -183,6 +197,11 @@
   border: 1px solid rgba(34, 211, 238, 0.35);
   border-radius: 999px;
   padding: 0.25rem 0.5rem;
+}
+
+:root[data-theme="light"] .locations-coverage__meta-pill {
+  color: #0e7490;
+  background: rgba(8, 145, 178, 0.12);
 }
 
 .locations-coverage__pick,
@@ -199,6 +218,11 @@
   color: #bae6fd;
   font-size: 0.72rem;
   padding: 0.45rem 0.55rem;
+}
+
+:root[data-theme="light"] .locations-coverage__pick {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.1);
 }
 
 .locations-coverage__pick--on {
@@ -225,8 +249,8 @@
 .locations-coverage__mini-btn {
   font-size: 0.7rem;
   padding: 0.32rem 0.5rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--neo-text, #fff) 8%, transparent);
+  color: var(--neo-text, #e2e8f0);
 }
 
 .locations-coverage__stops {
@@ -252,6 +276,16 @@
   margin: 0.55rem 0 0;
   color: #fecaca;
   font-size: 0.72rem;
+}
+
+:root[data-theme="light"] .locations-coverage__del,
+:root[data-theme="light"] .locations-coverage__error,
+:root[data-theme="light"] .locations-page__warn {
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .locations-coverage__del {
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .locations-coverage__save {
@@ -298,7 +332,7 @@
   padding: 1rem 1.1rem 1.15rem;
   border-radius: 16px;
   border: 1px solid var(--neo-border, rgba(100, 120, 200, 0.18));
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--neo-panel, rgba(15, 23, 42, 0.55));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
@@ -331,9 +365,13 @@
   font-size: 0.78em;
   padding: 0.1em 0.35em;
   border-radius: 4px;
-  background: rgba(2, 8, 23, 0.55);
+  background: color-mix(in srgb, var(--neo-text, #fff) 8%, transparent);
   border: 1px solid rgba(56, 189, 248, 0.22);
   color: rgba(186, 230, 253, 0.95);
+}
+
+:root[data-theme="light"] .locations-page__code-inline {
+  color: #0e7490;
 }
 
 .locations-page__bus-list--horizontal > li {
@@ -425,7 +463,7 @@
 .locations-page__insight {
   border-radius: 16px;
   border: 1px solid var(--neo-border, rgba(100, 120, 200, 0.18));
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--neo-panel, rgba(15, 23, 42, 0.55));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 1rem 0.85rem;
@@ -492,7 +530,7 @@
   padding: 0.65rem 0.75rem;
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(30, 41, 59, 0.45);
+  background: color-mix(in srgb, var(--neo-text, #fff) 5%, transparent);
   color: inherit;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
@@ -501,7 +539,7 @@
 
 .locations-page__bus-row:hover {
   border-color: rgba(139, 92, 246, 0.35);
-  background: rgba(30, 41, 59, 0.65);
+  background: color-mix(in srgb, var(--neo-text, #fff) 8%, transparent);
 }
 
 .locations-page__bus-row--active {
@@ -544,6 +582,16 @@
   border: 1px solid rgba(251, 146, 60, 0.35);
 }
 
+:root[data-theme="light"] .locations-page__bus-badge--full {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.12);
+}
+
+:root[data-theme="light"] .locations-page__bus-badge--alert {
+  color: #c2410c;
+  background: rgba(234, 88, 12, 0.12);
+}
+
 .locations-page__bus-meta {
   margin-top: 0.35rem;
   font-size: 0.72rem;
@@ -555,6 +603,10 @@
   font-size: 0.7rem;
   color: rgba(34, 211, 238, 0.85);
   font-weight: 600;
+}
+
+:root[data-theme="light"] .locations-page__bus-eta {
+  color: #0e7490;
 }
 
 .locations-page__insight-foot {
@@ -973,7 +1025,7 @@
   border: 1px solid var(--neo-border, rgba(100, 120, 200, 0.18));
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
   min-height: min(70vh, 560px);
-  background: rgba(16, 22, 36, 0.6);
+  background: var(--neo-panel, rgba(16, 22, 36, 0.6));
 }
 
 .locations-page__map {
@@ -1089,7 +1141,7 @@
   height: 30px;
   flex-shrink: 0;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.65);
+  background: color-mix(in srgb, var(--neo-text, #fff) 8%, transparent);
   border: 1px solid rgba(100, 120, 200, 0.22);
 }
 
@@ -1102,7 +1154,7 @@
   padding: 0.38rem 0.55rem;
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(2, 6, 23, 0.72);
+  background: var(--neo-panel, rgba(2, 6, 23, 0.72));
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -1131,10 +1183,10 @@
   gap: 0.35rem;
   padding: 0.18rem 0.45rem;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.62);
+  background: color-mix(in srgb, var(--neo-text, #fff) 6%, transparent);
   border: 1px solid rgba(96, 165, 250, 0.22);
   font-size: 0.62rem;
-  color: rgba(203, 213, 225, 0.95);
+  color: var(--neo-text, rgba(203, 213, 225, 0.95));
 }
 
 .locations-page__map-reference-item .locations-page__legend-pin {
@@ -1142,7 +1194,7 @@
   height: 19px;
   border-radius: 6px;
   border-color: rgba(100, 120, 200, 0.2);
-  background: rgba(15, 23, 42, 0.72);
+  background: color-mix(in srgb, var(--neo-text, #fff) 8%, transparent);
 }
 
 .locations-page__map-reference-item .locations-page__legend-pin-svg {
@@ -1251,8 +1303,8 @@
   padding: 0.4rem 0.75rem;
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(30, 41, 59, 0.65);
-  color: #e2e8f0;
+  background: color-mix(in srgb, var(--neo-text, #fff) 8%, transparent);
+  color: var(--neo-text, #e2e8f0);
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
@@ -1260,7 +1312,7 @@
 
 .locations-page__test-gps-btn:hover:not(:disabled) {
   border-color: rgba(52, 211, 153, 0.45);
-  color: #fff;
+  color: var(--neo-text, #fff);
 }
 
 .locations-page__test-gps-btn:disabled {

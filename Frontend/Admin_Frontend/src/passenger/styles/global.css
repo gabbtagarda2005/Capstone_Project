@@ -27,6 +27,31 @@
   --pw-scrollbar-thumb-hover: rgba(148, 163, 184, 0.55);
 }
 
+/* Light mode — same soft SaaS palette as the Admin side (see
+   src/index.css / src/layouts/AdminLayout.css). Passenger inherits the
+   `data-theme` attribute for free since it shares the same <html> and
+   <ThemeProvider> as Admin (both live in one React app). */
+:root[data-theme="light"] {
+  --pw-bg: #f4f6f9;
+  --pw-surface: #ffffff;
+  --pw-surface-2: #eef1f6;
+  --pw-text: #101828;
+  --pw-muted: #5b6472;
+  --pw-border: #e2e6ec;
+  --pw-accent: #0891b2;
+  --pw-accent-strong: #0e7490;
+  --pw-primary: #2563eb;
+  --pw-primary-strong: #1d4ed8;
+  --pw-danger: #dc2626;
+  --pw-warning: #d97706;
+  --pw-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --pw-shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08);
+  --pw-shadow-lg: 0 24px 56px rgba(16, 24, 40, 0.12);
+  --pw-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.28);
+  --pw-scrollbar-thumb: rgba(15, 23, 42, 0.16);
+  --pw-scrollbar-thumb-hover: rgba(15, 23, 42, 0.28);
+}
+
 *,
 *::before,
 *::after {
@@ -117,7 +142,7 @@ button:disabled {
 }
 
 .app-swal-popup .swal2-title {
-  color: #f8fafc;
+  color: var(--pw-text);
   font-size: 1.15rem;
   font-weight: 700;
   padding: 0 0 0.35rem;
@@ -125,7 +150,7 @@ button:disabled {
 
 .app-swal-popup .swal2-html-container,
 .app-swal-popup .swal2-content {
-  color: #94a3b8;
+  color: var(--pw-muted);
   font-size: 0.95rem;
 }
 

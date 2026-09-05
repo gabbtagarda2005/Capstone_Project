@@ -32,6 +32,37 @@
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
 }
 
+/* Light mode — professional SaaS palette: white surfaces, soft gray background,
+   navy/charcoal text, blue accent. Opt-in via [data-theme="light"] on <html>
+   (see ThemeContext); dark stays the default so existing users see no change. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-2: #eef1f6;
+  --text: #101828;
+  --muted: #5b6472;
+  --muted-soft: #0f172a14;
+  --border: #e2e6ec;
+  --border-soft: #ebeef3;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: color-mix(in srgb, #2563eb 12%, transparent);
+  --danger: #dc2626;
+  --danger-soft: color-mix(in srgb, #dc2626 12%, transparent);
+  --success: #16a34a;
+  --placeholder: #94a3b8;
+  --select-fg: #101828;
+  --select-bg: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 24px 56px rgba(16, 24, 40, 0.12);
+  --shadow: var(--shadow-sm);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  --scrollbar-thumb: rgba(15, 23, 42, 0.16);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.28);
+}
+
 * {
   box-sizing: border-box;
 }

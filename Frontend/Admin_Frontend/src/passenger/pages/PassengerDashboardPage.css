@@ -19,6 +19,21 @@
   overflow-x: hidden;
 }
 
+/* Light mode — same soft SaaS palette as Admin/global.css, wired to the
+   real data-theme attribute (this dashboard is always rendered with
+   className="pd pd-spa"; .pd--light below was leftover/never applied). */
+:root[data-theme="light"] .pd {
+  --pd-bg: #f4f6f9;
+  --pd-blue: #2563eb;
+  --pd-cyan: #0891b2;
+  --pd-violet: #7c3aed;
+  --pd-text: #101828;
+  --pd-muted: #5b6472;
+  --pd-border: #e2e6ec;
+  --pd-glass: rgba(255, 255, 255, 0.85);
+  --pd-glow: rgba(8, 145, 178, 0.1);
+}
+
 .pd.pd--light {
   --pd-bg: #e8eef9;
   --pd-text: #0f172a;
@@ -37,6 +52,17 @@
   --pd-shadow-lift: 0 24px 64px rgba(0, 0, 0, 0.42);
   background: var(--pd-bg);
   color: var(--pd-text);
+}
+
+:root[data-theme="light"] .pd.pd-spa {
+  --pd-bg: #f4f6f9;
+  --pd-text: #101828;
+  --pd-muted: #5b6472;
+  --pd-accent: #2563eb;
+  --pd-accent-soft: rgba(37, 99, 235, 0.16);
+  --pd-glass-tint: rgba(255, 255, 255, 0.92);
+  --pd-shadow-soft: 0 10px 30px rgba(16, 24, 40, 0.08);
+  --pd-shadow-lift: 0 24px 56px rgba(16, 24, 40, 0.12);
 }
 
 .pd.pd-spa .pd__glow {
@@ -1901,6 +1927,10 @@ a.pd-card:hover {
   background: rgba(2, 6, 23, 0.65);
 }
 
+:root[data-theme="light"] .pd-notif-overlay__backdrop {
+  background: rgba(16, 24, 40, 0.35);
+}
+
 .pd-notif-drawer {
   position: absolute;
   top: 0;
@@ -1916,6 +1946,12 @@ a.pd-card:hover {
   flex-direction: column;
 }
 
+:root[data-theme="light"] .pd-notif-drawer {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 246, 249, 0.98) 100%);
+  border-left: 1px solid #e2e6ec;
+  box-shadow: -16px 0 48px rgba(16, 24, 40, 0.16);
+}
+
 .pd-notif-drawer__head {
   display: flex;
   align-items: center;
@@ -1923,6 +1959,11 @@ a.pd-card:hover {
   padding: 1rem;
   border-bottom: none;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme="light"] .pd-notif-drawer__head {
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.08);
+  border-bottom: 1px solid #e2e6ec;
 }
 
 .pd-notif-drawer__head h3 {
@@ -1944,6 +1985,10 @@ a.pd-card:hover {
   cursor: pointer;
 }
 
+:root[data-theme="light"] .pd-notif-drawer__head button {
+  color: #101828;
+}
+
 .pd-notif-drawer__head button.pd-notif-drawer__clear-all {
   font-size: 0.72rem;
   font-weight: 700;
@@ -1956,9 +2001,19 @@ a.pd-card:hover {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+:root[data-theme="light"] .pd-notif-drawer__head button.pd-notif-drawer__clear-all {
+  color: #5b6472;
+  border: 1px solid rgba(16, 24, 40, 0.14);
+}
+
 .pd-notif-drawer__head button.pd-notif-drawer__clear-all:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #e2e8f0;
+}
+
+:root[data-theme="light"] .pd-notif-drawer__head button.pd-notif-drawer__clear-all:hover {
+  background: rgba(16, 24, 40, 0.06);
+  color: #101828;
 }
 
 .pd-notif-drawer__body {
@@ -1975,12 +2030,22 @@ a.pd-card:hover {
   font-size: 0.88rem;
 }
 
+:root[data-theme="light"] .pd-notif-drawer__empty {
+  color: #5b6472;
+}
+
 .pd-notif-drawer__item {
   border: none;
   border-radius: 18px;
   padding: 0.85rem;
   background: rgba(255, 255, 255, 0.04);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme="light"] .pd-notif-drawer__item {
+  background: #ffffff;
+  border: 1px solid rgba(16, 24, 40, 0.1);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
 }
 
 .pd-notif-drawer__item-head {
@@ -2016,9 +2081,19 @@ a.pd-card:hover {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+:root[data-theme="light"] .pd-notif-drawer__item-delete {
+  background: rgba(16, 24, 40, 0.06);
+  color: #5b6472;
+}
+
 .pd-notif-drawer__item-delete:hover {
   background: rgba(239, 68, 68, 0.22);
   color: #fecaca;
+}
+
+:root[data-theme="light"] .pd-notif-drawer__item-delete:hover {
+  background: rgba(220, 38, 38, 0.14);
+  color: #b91c1c;
 }
 
 .pd-notif-drawer__item-head strong {
@@ -2028,10 +2103,18 @@ a.pd-card:hover {
   color: #e2e8f0;
 }
 
+:root[data-theme="light"] .pd-notif-drawer__item-head strong {
+  color: #101828;
+}
+
 .pd-notif-drawer__time {
   font-size: 0.68rem;
   color: #64748b;
   white-space: nowrap;
+}
+
+:root[data-theme="light"] .pd-notif-drawer__time {
+  color: #5b6472;
 }
 
 .pd-notif-drawer__item p {
@@ -2041,28 +2124,56 @@ a.pd-card:hover {
   color: #cbd5e1;
 }
 
+:root[data-theme="light"] .pd-notif-drawer__item p {
+  color: #3c4658;
+}
+
 .pd-notif-drawer__item--broadcast {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 0 24px rgba(56, 189, 248, 0.12);
+}
+
+:root[data-theme="light"] .pd-notif-drawer__item--broadcast {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 0 0 1px rgba(8, 145, 178, 0.25);
 }
 
 .pd-notif-drawer__item--arrival {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 0 22px rgba(94, 227, 150, 0.1);
 }
 
+:root[data-theme="light"] .pd-notif-drawer__item--arrival {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 0 0 1px rgba(22, 163, 74, 0.25);
+}
+
 .pd-notif-drawer__item--schedule {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 0 22px rgba(167, 139, 250, 0.1);
+}
+
+:root[data-theme="light"] .pd-notif-drawer__item--schedule {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 0 0 1px rgba(124, 58, 237, 0.25);
 }
 
 .pd-notif-drawer__item--delay {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 0 22px rgba(251, 191, 36, 0.12);
 }
 
+:root[data-theme="light"] .pd-notif-drawer__item--delay {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 0 0 1px rgba(217, 119, 6, 0.3);
+}
+
 .pd-notif-drawer__item--critical {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2), 0 0 26px rgba(239, 68, 68, 0.14);
 }
 
+:root[data-theme="light"] .pd-notif-drawer__item--critical {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 0 0 1px rgba(220, 38, 38, 0.35);
+}
+
 .pd-notif-drawer__item--medium {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 0 22px rgba(245, 158, 11, 0.12);
+}
+
+:root[data-theme="light"] .pd-notif-drawer__item--medium {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 0 0 1px rgba(217, 119, 6, 0.3);
 }
 
 /* Track Bus → live departures (admin-style board) */
@@ -2259,6 +2370,11 @@ a.pd-card:hover {
   scrollbar-width: none;
 }
 
+:root[data-theme="light"] .pd-spa-float-nav {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18), 0 0 0 1px rgba(16, 24, 40, 0.06) inset;
+}
+
 .pd-spa-float-nav::-webkit-scrollbar {
   display: none;
 }
@@ -2278,6 +2394,11 @@ a.pd-card:hover {
   flex-direction: column;
 }
 
+:root[data-theme="light"] .pd-spa-sheet {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 252, 0.98) 42%, rgba(238, 241, 246, 0.98) 100%);
+  box-shadow: 0 -8px 32px rgba(16, 24, 40, 0.12), 0 0 0 1px rgba(16, 24, 40, 0.04) inset;
+}
+
 .pd-spa-sheet:not(.pd-spa-sheet--collapsed) {
   flex: 0 0 auto;
   overflow: visible;
@@ -2295,12 +2416,20 @@ a.pd-card:hover {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
 }
 
+:root[data-theme="light"] .pd-spa-sheet__head {
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+}
+
 .pd-spa-sheet__head--minimal {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 0.35rem 0.75rem 0.45rem;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+:root[data-theme="light"] .pd-spa-sheet__head--minimal {
+  box-shadow: 0 8px 16px rgba(16, 24, 40, 0.06);
 }
 
 .pd-spa-support-panel {
@@ -2340,6 +2469,10 @@ a.pd-card:hover {
   background: rgba(148, 163, 184, 0.7);
 }
 
+:root[data-theme="light"] .pd-spa-sheet__handle span {
+  background: rgba(16, 24, 40, 0.22);
+}
+
 .pd-spa-sheet__brand {
   display: flex;
   align-items: center;
@@ -2377,6 +2510,10 @@ a.pd-card:hover {
   padding: 0.35rem 0.95rem 0.75rem;
   font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.92);
+}
+
+:root[data-theme="light"] .pd-spa-sheet__peek {
+  color: #1e2735;
 }
 
 .pd-spa-sheet__peek--detail {
@@ -2495,14 +2632,30 @@ a.pd-card:hover {
   transition: color 0.2s ease, text-shadow 0.2s ease, transform 0.15s ease;
 }
 
+:root[data-theme="light"] .pd-spa-float-nav .pd-spa-nav__chip,
+:root[data-theme="light"] .pd-spa-nav__chip,
+:root[data-theme="light"] .pd-spa-nav__map-btn {
+  color: rgba(16, 24, 40, 0.5);
+}
+
 .pd-spa-nav__chip:hover,
 .pd-spa-nav__map-btn:hover {
   color: rgba(255, 255, 255, 0.78);
 }
 
+:root[data-theme="light"] .pd-spa-nav__chip:hover,
+:root[data-theme="light"] .pd-spa-nav__map-btn:hover {
+  color: rgba(16, 24, 40, 0.85);
+}
+
 .pd-spa-nav__chip--active {
   color: #fff;
   text-shadow: 0 0 22px var(--pd-accent-soft), 0 0 42px rgba(72, 138, 236, 0.2);
+}
+
+:root[data-theme="light"] .pd-spa-nav__chip--active {
+  color: #101828;
+  text-shadow: none;
 }
 
 .pd-spa-nav__chip--active .pd-spa-nav__chip-icon {
@@ -2563,6 +2716,11 @@ a.pd-card:hover {
   border: none;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
   overflow: hidden;
+}
+
+:root[data-theme="light"] .pd-spa-support-split__col {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1), 0 0 0 1px rgba(16, 24, 40, 0.06);
 }
 
 .pd-spa-support-split .pd-tactical.pd-fb,
@@ -2630,6 +2788,11 @@ a.pd-card:hover {
   -webkit-backdrop-filter: blur(12px);
 }
 
+:root[data-theme="light"] .pd-spa-card {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1), 0 0 0 1px rgba(16, 24, 40, 0.06);
+}
+
 .pd-spa-card.pd-spa-card--stack-shell {
   padding: 0;
   overflow: visible;
@@ -2655,11 +2818,22 @@ a.pd-card:hover {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
+:root[data-theme="light"] .pd-spa-card.pd-spa-card--stack-shell > .pd-tactical.pd-feed,
+:root[data-theme="light"] .pd-spa-card.pd-spa-card--stack-shell > .pd-tactical.pd-check-buses {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1), inset 0 0 0 1px rgba(16, 24, 40, 0.06);
+}
+
 .pd-spa-card.pd-spa-card--planner-tool {
   background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="light"] .pd-spa-card.pd-spa-card--planner-tool {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1), 0 0 0 1px rgba(16, 24, 40, 0.06);
 }
 
 .pd-spa-card__head h2 {
@@ -2685,6 +2859,10 @@ a.pd-card:hover {
   margin: 0;
   color: #94a3b8;
   font-size: 0.88rem;
+}
+
+:root[data-theme="light"] .pd-spa-card__empty {
+  color: #5b6472;
 }
 
 .pd-spa-eta-row {
@@ -2740,6 +2918,15 @@ a.pd-card:hover {
   width: 100%;
 }
 
+/* Light mode — white card, subtle shadow, navy text, blue/cyan accent
+   (matches the client's reference "BUKIDNON BUS 1 / ACTIVE / ETA" example). */
+:root[data-theme="light"] .pd-spa-eta-tile {
+  --eta-electric: #1d6bff;
+  --eta-electric-soft: rgba(29, 107, 255, 0.16);
+  --eta-cyan: #0891b2;
+  --eta-glass-tint: rgba(255, 255, 255, 0.96);
+}
+
 .pd-spa-eta-tile__surface {
   position: relative;
   overflow: hidden;
@@ -2751,6 +2938,11 @@ a.pd-card:hover {
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 20px 56px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 85, 255, 0.06);
   transition: box-shadow 0.18s ease;
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__surface {
+  border: 1px solid rgba(16, 24, 40, 0.08);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.1), 0 0 0 1px rgba(0, 85, 255, 0.04);
 }
 
 .pd-spa-eta-tile__surface::before {
@@ -2841,6 +3033,10 @@ a.pd-card:hover {
   overflow-wrap: anywhere;
 }
 
+:root[data-theme="light"] .pd-spa-eta-tile__bus-title {
+  color: #101828;
+}
+
 .pd-spa-eta-tile__status-pill {
   display: inline-flex;
   align-items: center;
@@ -2854,6 +3050,12 @@ a.pd-card:hover {
   color: rgba(226, 232, 240, 0.88);
   background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__status-pill {
+  color: #3c4658;
+  background: rgba(16, 24, 40, 0.05);
+  box-shadow: none;
 }
 
 .pd-spa-eta-tile__status-pill-dot {
@@ -2870,6 +3072,12 @@ a.pd-card:hover {
   box-shadow:
     0 0 28px rgba(0, 85, 255, 0.35),
     0 6px 22px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__status-pill--on {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+  box-shadow: none;
 }
 
 .pd-spa-eta-tile__status-pill--on .pd-spa-eta-tile__status-pill-dot {
@@ -2897,6 +3105,10 @@ a.pd-card:hover {
   color: rgba(255, 255, 255, 0.58);
 }
 
+:root[data-theme="light"] .pd-spa-eta-tile__hero--stack .pd-spa-eta-tile__hero-cap {
+  color: #5b6472;
+}
+
 .pd-spa-eta-tile__hero-val {
   font-weight: 800;
   font-size: clamp(1.35rem, 4vw, 1.85rem);
@@ -2905,6 +3117,11 @@ a.pd-card:hover {
   color: #fff;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 36px rgba(0, 85, 255, 0.35), 0 0 64px rgba(56, 189, 248, 0.12);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__hero-val {
+  color: #101828;
+  text-shadow: none;
 }
 
 .pd-spa-eta-tile__hero--pulse .pd-spa-eta-tile__hero-val {
@@ -2941,11 +3158,19 @@ a.pd-card:hover {
   color: rgba(248, 250, 252, 0.94);
 }
 
+:root[data-theme="light"] .pd-spa-eta-tile__journey {
+  color: #1e2735;
+}
+
 .pd-spa-eta-tile__journey--single {
   margin-top: 0.85rem;
   text-align: center;
   line-height: 1.45;
   color: rgba(248, 250, 252, 0.9);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__journey--single {
+  color: #1e2735;
 }
 
 .pd-spa-eta-tile__journey-end {
@@ -2964,6 +3189,10 @@ a.pd-card:hover {
   border-radius: 1px;
 }
 
+:root[data-theme="light"] .pd-spa-eta-tile__journey-track {
+  background: linear-gradient(90deg, transparent, rgba(16, 24, 40, 0.25), transparent);
+}
+
 .pd-spa-eta-tile__journey-bus {
   width: 22px;
   height: 22px;
@@ -2972,11 +3201,20 @@ a.pd-card:hover {
   filter: drop-shadow(0 0 12px rgba(0, 85, 255, 0.4));
 }
 
+:root[data-theme="light"] .pd-spa-eta-tile__journey-bus {
+  color: #1d4ed8;
+  filter: none;
+}
+
 .pd-spa-eta-tile__journey-arrow {
   font-size: 0.55rem;
   color: rgba(125, 211, 252, 0.95);
   line-height: 1;
   padding: 0 0.05rem;
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__journey-arrow {
+  color: #0891b2;
 }
 
 .pd-spa-eta-tile__terminal-block {
@@ -3002,6 +3240,10 @@ a.pd-card:hover {
   overflow-wrap: anywhere;
 }
 
+:root[data-theme="light"] .pd-spa-eta-tile__terminal {
+  color: #3c4658;
+}
+
 .pd-spa-eta-tile__meta {
   margin-top: 0.55rem;
   display: flex;
@@ -3020,6 +3262,10 @@ a.pd-card:hover {
   font-size: 0.66rem;
   font-weight: 500;
   color: rgba(203, 213, 225, 0.92);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__meta-text {
+  color: #3c4658;
 }
 
 .pd-spa-eta-tile__board {
@@ -3049,12 +3295,21 @@ a.pd-card:hover {
   color: rgba(248, 250, 252, 0.9);
 }
 
+:root[data-theme="light"] .pd-spa-eta-tile__board-count {
+  color: #1e2735;
+}
+
 .pd-spa-eta-tile__bar-track {
   height: 6px;
   border-radius: 999px;
   background: rgba(2, 6, 23, 0.85);
   overflow: hidden;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__bar-track {
+  background: rgba(16, 24, 40, 0.1);
+  box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.1);
 }
 
 .pd-spa-eta-tile__bar-fill {
@@ -3078,6 +3333,10 @@ a.pd-card:hover {
   line-height: 1.5;
   color: rgba(248, 250, 252, 0.92);
   overflow-wrap: anywhere;
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__route-path {
+  color: #1e2735;
 }
 
 .pd-spa-eta-tile__route-cap {

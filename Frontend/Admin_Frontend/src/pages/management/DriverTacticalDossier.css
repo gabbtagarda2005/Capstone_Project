@@ -14,10 +14,35 @@
   --drv-green: #4ade80;
   --drv-text: #f8fafc;
   --drv-muted: rgba(148, 163, 184, 0.92);
+  --drv-panel: rgba(15, 23, 42, 0.98);
+  --drv-well: rgba(2, 8, 23, 0.85);
+  --drv-text-soft: #e2e8f0;
+  --drv-label: rgba(125, 211, 252, 0.85);
+  --drv-btn-text: #e0f2fe;
   background: var(--drv-bg);
   color: var(--drv-text);
   min-height: 100%;
   padding-bottom: 2rem;
+}
+
+/* Light mode — same "tactical" identity, recolored for a white/soft-gray surface. */
+:root[data-theme="light"] .drv-dossier {
+  --drv-bg: #ffffff;
+  --drv-border: #c7d7e8;
+  --drv-cyan: #0891b2;
+  --drv-green: #15803d;
+  --drv-text: #101828;
+  --drv-muted: #5b6472;
+  --drv-panel: #ffffff;
+  --drv-well: #eef2f7;
+  --drv-text-soft: #1e293b;
+  --drv-label: #0e7490;
+  --drv-btn-text: #0c4a6e;
+}
+
+:root[data-theme="light"] .mgmt-mod:has(.drv-dossier) {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e2e6ec;
 }
 
 .drv-dossier__topbar {
@@ -39,12 +64,12 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.95);
+  color: var(--drv-label);
   text-decoration: none;
   border: 1px solid var(--drv-border);
   padding: 0.45rem 0.75rem;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.85);
+  background: var(--drv-panel);
 }
 
 .drv-dossier__topbar .drv-dossier__mgmt-back {
@@ -64,7 +89,7 @@
   font-size: clamp(1.45rem, 3vw, 1.85rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  color: #ffffff;
+  color: var(--drv-text);
 }
 
 .drv-dossier__badge {
@@ -80,6 +105,13 @@
   background: rgba(34, 211, 238, 0.18);
   border: 1px solid rgba(34, 211, 238, 0.65);
   box-shadow: 0 0 16px rgba(34, 211, 238, 0.2);
+}
+
+:root[data-theme="light"] .drv-dossier__badge {
+  color: #0e7490;
+  background: rgba(8, 145, 178, 0.12);
+  border-color: rgba(8, 145, 178, 0.45);
+  box-shadow: none;
 }
 
 .drv-dossier__live {
@@ -139,7 +171,7 @@
   border: 1px solid var(--drv-border);
   border-radius: 12px;
   padding: 0.75rem 0.85rem;
-  background: rgba(15, 23, 42, 0.98);
+  background: var(--drv-panel);
   box-shadow: inset 0 1px 0 rgba(34, 211, 238, 0.04);
 }
 
@@ -149,7 +181,7 @@
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.75);
+  color: var(--drv-label);
   margin-bottom: 0.35rem;
 }
 
@@ -157,13 +189,13 @@
   margin: 0;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--drv-text-soft);
 }
 
 .drv-dossier__mono {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--drv-text);
   letter-spacing: 0.02em;
 }
 
@@ -184,7 +216,7 @@
   border: 1px solid var(--drv-border);
   border-radius: 14px;
   padding: 1rem 1.05rem;
-  background: rgba(15, 23, 42, 0.98);
+  background: var(--drv-panel);
 }
 
 .drv-dossier__module-title {
@@ -193,7 +225,7 @@
   font-weight: 900;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.88);
+  color: var(--drv-label);
 }
 
 .drv-dossier__unit {
@@ -211,7 +243,7 @@
   align-items: center;
   justify-content: center;
   font-size: 1.45rem;
-  background: rgba(2, 8, 23, 0.9);
+  background: var(--drv-well);
 }
 
 .drv-dossier__plate {
@@ -222,15 +254,15 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #f8fafc;
-  background: rgba(2, 8, 23, 0.9);
+  color: var(--drv-text);
+  background: var(--drv-well);
   border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .drv-dossier__expiry {
   border-radius: 12px;
   padding: 0.85rem 1rem;
-  background: rgba(15, 23, 42, 0.98);
+  background: var(--drv-panel);
   border: 1px solid var(--drv-border);
 }
 
@@ -238,6 +270,11 @@
   border-color: rgba(248, 113, 113, 0.95);
   background: rgba(69, 10, 10, 0.35);
   box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25), inset 0 0 24px rgba(248, 113, 113, 0.08);
+}
+
+:root[data-theme="light"] .drv-dossier__expiry--critical {
+  background: rgba(220, 38, 38, 0.08);
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.25);
 }
 
 .drv-dossier__expiry-k {
@@ -249,8 +286,12 @@
   margin-bottom: 0.35rem;
 }
 
+:root[data-theme="light"] .drv-dossier__expiry-k {
+  color: #b91c1c;
+}
+
 .drv-dossier__expiry:not(.drv-dossier__expiry--critical) .drv-dossier__expiry-k {
-  color: rgba(125, 211, 252, 0.75);
+  color: var(--drv-label);
 }
 
 .drv-dossier__expiry-v {
@@ -258,7 +299,7 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--drv-text);
 }
 
 .drv-dossier__row-split {
@@ -291,7 +332,7 @@
   border: 1px solid rgba(31, 88, 133, 0.65);
   border-radius: 10px;
   padding: 0.45rem 0.65rem;
-  background: rgba(2, 8, 23, 0.65);
+  background: var(--drv-well);
 }
 
 .drv-dossier__chip-k {
@@ -300,12 +341,12 @@
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.7);
+  color: var(--drv-label);
 }
 
 .drv-dossier__chip-v {
   font-size: 0.82rem;
-  color: #e2e8f0;
+  color: var(--drv-text-soft);
 }
 
 .drv-dossier__dock {
@@ -316,7 +357,7 @@
   padding: 1rem 0 0;
   margin-top: 0.5rem;
   border-top: 1px solid rgba(31, 88, 133, 0.55);
-  background: linear-gradient(180deg, transparent, #020817 18%);
+  background: linear-gradient(180deg, transparent, var(--drv-bg) 18%);
 }
 
 .drv-dossier__dock-btn {
@@ -327,8 +368,8 @@
   padding: 0.55rem 0.95rem;
   border-radius: 10px;
   cursor: pointer;
-  background: rgba(15, 23, 42, 0.98);
-  color: #e0f2fe;
+  background: var(--drv-panel);
+  color: var(--drv-btn-text);
 }
 
 .drv-dossier__dock-btn--blue {
@@ -339,6 +380,11 @@
   border: 1px solid rgba(248, 113, 113, 0.9);
   color: #fecaca;
   margin-left: auto;
+}
+
+:root[data-theme="light"] .drv-dossier__dock-btn--red {
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.55);
 }
 
 .drv-dossier__dock-spacer {
@@ -366,7 +412,7 @@
   flex-direction: column;
   border: 1px solid var(--drv-border);
   border-radius: 16px;
-  background: #020817;
+  background: var(--drv-bg);
 }
 
 .drv-dossier-overlay__head {
@@ -378,7 +424,7 @@
   margin: 0;
   font-size: 1rem;
   font-weight: 900;
-  color: #fff;
+  color: var(--drv-text);
 }
 
 .drv-dossier-overlay__sub {
@@ -404,15 +450,15 @@
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(125, 211, 252, 0.75);
+  color: var(--drv-label);
 }
 
 .drv-dossier-overlay__input {
   border: 1px solid var(--drv-border);
   border-radius: 10px;
   padding: 0.55rem 0.65rem;
-  background: rgba(15, 23, 42, 0.95);
-  color: #f1f5f9;
+  background: var(--drv-panel);
+  color: var(--drv-text);
   font-size: 0.88rem;
   font-family: "JetBrains Mono", ui-monospace, monospace;
 }
@@ -447,6 +493,12 @@
   white-space: nowrap;
 }
 
+:root[data-theme="light"] .drv-dossier-overlay__gen-pin {
+  color: #0e7490;
+  background: rgba(8, 145, 178, 0.12);
+  border-color: rgba(8, 145, 178, 0.4);
+}
+
 .drv-dossier-overlay__gen-pin:hover {
   background: rgba(34, 211, 238, 0.2);
 }
@@ -464,7 +516,7 @@
   margin-bottom: 0.35rem;
   border-radius: 10px;
   border: 1px solid rgba(31, 88, 133, 0.4);
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--drv-panel);
   color: inherit;
   cursor: pointer;
 }
@@ -476,7 +528,7 @@
 
 .drv-dossier-overlay__row-title {
   font-weight: 800;
-  color: #fff;
+  color: var(--drv-text);
   font-size: 0.85rem;
 }
 
@@ -503,13 +555,17 @@
   border-radius: 10px;
   cursor: pointer;
   border: 1px solid var(--drv-border);
-  background: rgba(15, 23, 42, 0.98);
-  color: #e0f2fe;
+  background: var(--drv-panel);
+  color: var(--drv-btn-text);
 }
 
 .drv-dossier-overlay__foot .drv-dossier-overlay__primary {
   border-color: rgba(34, 211, 238, 0.55);
   color: #ecfeff;
+}
+
+:root[data-theme="light"] .drv-dossier-overlay__foot .drv-dossier-overlay__primary {
+  color: #0c4a6e;
 }
 
 /* Passenger feedback ring placeholder (matches AttendantPerformanceRing footprint ~108px) */
@@ -524,7 +580,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.15rem;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--drv-panel);
 }
 
 .drv-dossier__feedback-ring--loading {
@@ -542,7 +598,7 @@
 .drv-dossier__feedback-ring-dash {
   font-size: 1.65rem;
   font-weight: 800;
-  color: rgba(125, 211, 252, 0.85);
+  color: var(--drv-label);
   line-height: 1;
 }
 

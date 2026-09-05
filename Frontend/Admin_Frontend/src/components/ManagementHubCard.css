@@ -22,12 +22,28 @@
   --blue-glow: rgba(59, 130, 246, 0.45);
   --blue-ambient: rgba(59, 130, 246, 0.22);
   --primary: var(--blue);
+  /* Obsidian glass panel fill — themeable so the card reads as a light SaaS
+     card (not a black tile) when the admin dashboard is in light mode. */
+  --mgmt-panel: rgba(8, 15, 30, 0.72);
+  --mgmt-vignette-1: rgba(15, 23, 42, 0.4);
+  --mgmt-vignette-2: rgba(8, 15, 30, 0.95);
 
   position: relative;
   border-radius: 1.5rem;
   isolation: isolate;
   transform-style: preserve-3d;
   transition: transform 0.5s ease-in-out;
+}
+
+/* Light mode — soft white glass card, same blue accent family */
+:root[data-theme="light"] .mgmt-bento-card {
+  --white: #101828;
+  --black: hsl(222, 47%, 6%);
+  --paragraph: #52607a;
+  --line: rgba(37, 99, 235, 0.18);
+  --mgmt-panel: rgba(255, 255, 255, 0.86);
+  --mgmt-vignette-1: rgba(219, 234, 254, 0.55);
+  --mgmt-vignette-2: rgba(255, 255, 255, 0.98);
 }
 
 .mgmt-bento-card-link:focus-visible {
@@ -95,11 +111,11 @@
   min-width: 0;
   border-radius: calc(1.5rem - 1px);
 
-  background-color: rgba(8, 15, 30, 0.72);
+  background-color: var(--mgmt-panel);
   background-image: radial-gradient(ellipse 120% 80% at 10% 0%, rgba(59, 130, 246, 0.18) 0%, transparent 52%),
     radial-gradient(ellipse 90% 70% at 100% 100%, rgba(29, 78, 216, 0.12) 0%, transparent 55%),
-    radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.4) 0%, transparent 70%),
-    radial-gradient(at 88% 30%, rgba(8, 15, 30, 0.95) 0px, transparent 80%);
+    radial-gradient(at 50% 50%, var(--mgmt-vignette-1) 0%, transparent 70%),
+    radial-gradient(at 88% 30%, var(--mgmt-vignette-2) 0px, transparent 80%);
 
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
@@ -221,8 +237,9 @@
 
 .mgmt-bento-card__list-text {
   font-size: 0.75rem;
-  color: rgba(248, 250, 252, 0.95);
+  color: var(--white);
   line-height: 1.35;
+  opacity: 0.95;
 }
 
 /* OPEN — glowing blue pill like active HMI tab */
