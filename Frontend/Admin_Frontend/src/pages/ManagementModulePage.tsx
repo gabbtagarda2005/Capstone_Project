@@ -2362,9 +2362,12 @@ function LocationManagementPanel() {
                   void runSnapCheck(clickLat, clickLng);
                 }}
               />
+              {/* CARTO's free dark-tile CDN now requires an API key (was showing a watermark);
+                  reuse OSM + a CSS dark filter (.dossier-map-dark-tile) instead. */}
               <TileLayer
-                attribution='&copy; <a href="https://openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://openstreetmap.org/copyright">OSM</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                className="dossier-map-dark-tile"
               />
               {coverageDocs.map((c) => {
                 const la = c.terminal.latitude;

@@ -1036,6 +1036,13 @@
   overflow: hidden;
 }
 
+/* "Dark" basemap reuses the plain OSM tile source (see LocationsPage.tsx — CARTO's free
+   dark-tile CDN now requires an API key and was showing a watermark instead of the map);
+   this filter darkens it without any external dependency. */
+.locations-map-dark-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92) saturate(0.7);
+}
+
 .locations-page__map .leaflet-container {
   font-family: inherit;
   background: #0f172a;

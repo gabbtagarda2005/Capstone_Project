@@ -671,9 +671,11 @@ export function BusDetailPage() {
               style={{ height: "100%", width: "100%" }}
               scrollWheelZoom
             >
+              {/* CARTO's free tile CDN now requires an API key (was showing a watermark);
+                  plain OSM tiles are already a light/neutral style. */}
               <TileLayer
-                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               {polyline.length >= 2 ? (
                 <Polyline positions={polyline} pathOptions={{ color: "#22d3ee", weight: 3, opacity: 0.55 }} />

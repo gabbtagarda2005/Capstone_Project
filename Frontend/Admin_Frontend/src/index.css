@@ -67,6 +67,14 @@
   box-sizing: border-box;
 }
 
+/* Shared dark-map-tile filter: several Admin dossier/tactical mini-maps used CARTO's free
+   dark_all tile CDN, which now requires an API key and was showing a watermark instead of a
+   map (AttendantDossierMap, FeedbackHotspotMap, TerminalGeofenceMap, ManagementModulePage).
+   All of them now request plain OSM tiles and darken them with this filter instead. */
+.dossier-map-dark-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92) saturate(0.7);
+}
+
 html {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;

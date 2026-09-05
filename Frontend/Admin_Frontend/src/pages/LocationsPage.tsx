@@ -310,8 +310,14 @@ const GOOGLE_DARK_STYLE = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#081426" }] },
 ];
 
-const TILE_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 const TILE_OSM = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+/**
+ * CARTO's free anonymous dark-tile CDN (basemaps.cartocdn.com) now requires an API key for
+ * real traffic — without one it serves a watermarked "API KEY REQUIRED" tile instead of the
+ * map. Reuse the OSM source and darken it with a CSS filter (see .locations-map-dark-tile in
+ * LocationsPage.css) instead of depending on a key/account.
+ */
+const TILE_DARK = TILE_OSM;
 const LEAFLET_STOP_ICON = L.divIcon({
   className: "locations-page__leaflet-stop",
   html:
@@ -1292,7 +1298,10 @@ export function LocationsPage() {
                 scrollWheelZoom
               >
                 <LeafletViewportTracker centerRef={viewportCenterRef} />
-                <TileLayer url={basemap === "dark" ? TILE_DARK : TILE_OSM} />
+                <TileLayer
+                  url={basemap === "dark" ? TILE_DARK : TILE_OSM}
+                  className={basemap === "dark" ? "locations-map-dark-tile" : undefined}
+                />
 
                 {corridorRoutes
                   .filter((r) => !r.suspended)

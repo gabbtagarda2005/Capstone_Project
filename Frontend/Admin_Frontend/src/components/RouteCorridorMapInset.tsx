@@ -111,11 +111,9 @@ export function RouteCorridorMapInset({ corridorLine, hubPins = [], liveBuses }:
           attributionControl={false}
         >
           {fitPoints.length > 0 ? <FitBounds points={fitPoints} /> : null}
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            subdomains="abcd"
-            maxZoom={20}
-          />
+          {/* CARTO's free tile CDN now requires an API key (was showing a watermark);
+              plain OSM tiles are already a light/neutral style, no filter needed. */}
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
           {linePositions.length >= 2 ? (
             <Polyline
               positions={linePositions}

@@ -71,7 +71,9 @@ export function AttendantDossierMap({
       </div>
       <div className="att-dossier-map__frame">
         <MapContainer center={center} zoom={zoom} className="att-dossier-map__leaflet" zoomControl={false} attributionControl={false}>
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" subdomains="abcd" maxZoom={20} />
+          {/* CARTO's free dark-tile CDN now requires an API key (was showing a watermark);
+              reuse OSM + a CSS dark filter (.dossier-map-dark-tile) instead. */}
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="dossier-map-dark-tile" maxZoom={19} />
           {routeLine.length >= 2 ? (
             <Polyline
               positions={routeLine}
