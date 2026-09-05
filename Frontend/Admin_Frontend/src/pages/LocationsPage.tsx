@@ -319,6 +319,29 @@ const TILE_OSM = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
  * LocationsPage.css) instead of depending on a key/account.
  */
 const TILE_DARK = TILE_OSM;
+/** Esri World Imagery — same source used by the Passenger map's "Satellite" mode. */
+const TILE_SAT = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const TILE_TERRAIN = "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png";
+
+/**
+ * The Leaflet fallback path (used whenever no Google Maps API key is configured, which is the
+ * case on this deployment) only ever branched on "dark" vs. everything-else -> OSM — Satellite
+ * and Terrain updated the basemap-picker's active-button highlight but never actually changed
+ * the rendered tiles, since there was no case for them. This resolves a real URL per mode.
+ */
+function leafletTileFor(mode: BasemapMode): { url: string; className?: string; maxZoom?: number } {
+  switch (mode) {
+    case "satellite":
+      return { url: TILE_SAT, maxZoom: 19 };
+    case "terrain":
+      return { url: TILE_TERRAIN, maxZoom: 17 };
+    case "dark":
+      return { url: TILE_DARK, className: "locations-map-dark-tile" };
+    case "roadmap":
+    default:
+      return { url: TILE_OSM };
+  }
+}
 const LEAFLET_STOP_ICON = L.divIcon({
   className: "locations-page__leaflet-stop",
   html:
@@ -1303,10 +1326,11 @@ export function LocationsPage() {
                 scrollWheelZoom
               >
                 <LeafletViewportTracker centerRef={viewportCenterRef} />
-                <TileLayer
-                  url={basemap === "dark" ? TILE_DARK : TILE_OSM}
-                  className={basemap === "dark" ? "locations-map-dark-tile" : undefined}
-                />
+                {/* key={basemap} forces a fresh TileLayer instance on every switch — Leaflet
+                    doesn't reliably pick up a changed `className` on an already-mounted layer,
+                    which was why Dark/Map looked identical and Satellite/Terrain never visibly
+                    changed even though the basemap-picker's active state updated correctly. */}
+                <TileLayer key={basemap} {...leafletTileFor(basemap)} />
 
                 {corridorRoutes
                   .filter((r) => !r.suspended)
