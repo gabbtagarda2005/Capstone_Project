@@ -26,6 +26,7 @@ import {
   useJsApiLoader,
 } from "@react-google-maps/api";
 import { useAuth } from "@/context/AuthContext";
+import { useAdminTheme } from "@/context/ThemeContext";
 import {
   ADMIN_API_ORIGIN,
   api,
@@ -485,7 +486,11 @@ export function LocationsPage() {
   /** Buses that reported attendant offline — hide pin until a new live location_update (stale HTTP poll can resurrect rows). */
   const [shiftEndedBusIds, setShiftEndedBusIds] = useState<Record<string, boolean>>({});
   const [busRows, setBusRows] = useState<BusRow[]>([]);
-  const [basemap, setBasemap] = useState<BasemapMode>("dark");
+  const { theme } = useAdminTheme();
+  // Default tile style follows the admin theme at mount (dark theme -> dark tiles, light theme
+  // -> roadmap tiles), matching the Passenger map's behavior — the user's manual pick via the
+  // basemap dock always wins afterward, this only seeds the initial value.
+  const [basemap, setBasemap] = useState<BasemapMode>(() => (theme === "dark" ? "dark" : "roadmap"));
   const overlayTransit = false;
   const overlayBiking = false;
   const [layers, setLayers] = useState<MapLayerState>({
