@@ -6,6 +6,7 @@ import { AdminLayout } from "@/layouts/AdminLayout";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { LandingPage } from "@/pages/LandingPage";
+import { TeamPage } from "@/pages/TeamPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { PassengerDashboardRoute } from "@/passenger/components/PassengerDashboardRoute";
 import { PassengerLandingPage } from "@/passenger/pages/PassengerLandingPage";
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/team" element={<TeamPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />

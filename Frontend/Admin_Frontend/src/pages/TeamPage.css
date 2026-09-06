@@ -1,0 +1,311 @@
+/* People Behind the System — standalone showcase page (public, no auth).
+   Self-contained dark palette, independent of both the Admin --neo-* tokens and the
+   landing page's --lp-* tokens, since this page can be reached directly by URL. */
+
+.team-page {
+  --tp-bg: #05070f;
+  --tp-panel: #0d1224;
+  --tp-panel-light: #161d38;
+  --tp-border: rgba(148, 163, 184, 0.16);
+  --tp-text: #f8fafc;
+  --tp-muted: #94a3b8;
+  --tp-cyan: #22d3ee;
+  --tp-purple: #a855f7;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  overflow-x: hidden;
+  background: var(--tp-bg);
+  color: var(--tp-text);
+  font-family: "Inter", system-ui, sans-serif;
+  padding-bottom: 3rem;
+}
+
+.team-page__glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 8%, color-mix(in srgb, var(--tp-purple) 20%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 15% 60%, color-mix(in srgb, var(--tp-cyan) 12%, transparent), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 85% 70%, color-mix(in srgb, var(--tp-purple) 12%, transparent), transparent 55%);
+}
+
+.team-page__nav {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+}
+
+.team-page__brand {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--tp-text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.team-page__back {
+  color: var(--tp-muted);
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--tp-border);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.team-page__back:hover {
+  color: var(--tp-text);
+  border-color: color-mix(in srgb, var(--tp-cyan) 45%, transparent);
+  background: color-mix(in srgb, var(--tp-cyan) 10%, transparent);
+}
+
+.team-page__head {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 46rem;
+  margin: 2rem auto 3rem;
+  padding: 0 1.5rem;
+}
+
+.team-page__eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--tp-cyan);
+}
+
+.team-page__title {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--tp-text);
+}
+
+.team-page__title-accent {
+  font-style: italic;
+  font-weight: 600;
+  background: linear-gradient(90deg, var(--tp-cyan), var(--tp-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.team-page__sub {
+  margin: 1.15rem 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--tp-muted);
+}
+
+.team-page__carousel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.team-page__track {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 0.5rem 0.25rem 1rem;
+  scrollbar-width: none;
+}
+
+.team-page__track::-webkit-scrollbar {
+  display: none;
+}
+
+.team-page__card {
+  position: relative;
+  flex: 0 0 min(260px, 72vw);
+  height: min(400px, 62vh);
+  scroll-snap-align: center;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--tp-border);
+  background: linear-gradient(180deg, var(--tp-panel-light) 0%, var(--tp-panel) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.team-page__card:hover {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--tp-cyan) 40%, var(--tp-border));
+  box-shadow: 0 20px 44px rgba(2, 6, 23, 0.45);
+}
+
+.team-page__avatar {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.team-page__card-footer {
+  flex-shrink: 0;
+  padding: 1.1rem 1.25rem 1.35rem;
+  background: linear-gradient(180deg, transparent, rgba(2, 6, 23, 0.55) 40%, rgba(2, 6, 23, 0.85));
+  margin-top: -4.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.team-page__card-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.team-page__card-role {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  color: var(--tp-cyan);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Featured (adviser) card ---------- */
+
+.team-page__card--featured {
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--tp-cyan) 14%, var(--tp-panel-light)),
+    color-mix(in srgb, var(--tp-purple) 12%, var(--tp-panel))
+  );
+  border-color: color-mix(in srgb, var(--tp-cyan) 45%, var(--tp-border));
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.5rem 1.75rem;
+  gap: 0.65rem;
+}
+
+.team-page__card-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background-image: linear-gradient(rgba(148, 163, 184, 0.6) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.6) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+
+.team-page__avatar--featured {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  font-size: 1.9rem;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--tp-cyan) 16%, transparent), 0 12px 28px rgba(2, 6, 23, 0.4);
+}
+
+.team-page__badge {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, var(--tp-cyan), var(--tp-purple));
+}
+
+.team-page__card--featured .team-page__card-name {
+  position: relative;
+  z-index: 1;
+  color: var(--tp-text);
+}
+
+.team-page__card--featured .team-page__card-role {
+  position: relative;
+  z-index: 1;
+  color: var(--tp-muted);
+}
+
+/* ---------- Arrows + progress ---------- */
+
+.team-page__arrow {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--tp-border);
+  background: var(--tp-panel);
+  color: var(--tp-text);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.team-page__arrow:hover {
+  border-color: color-mix(in srgb, var(--tp-cyan) 55%, transparent);
+  color: var(--tp-cyan);
+  background: color-mix(in srgb, var(--tp-cyan) 12%, var(--tp-panel));
+}
+
+.team-page__arrow:focus-visible {
+  outline: 2px solid var(--tp-cyan);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .team-page__arrow {
+    display: none;
+  }
+}
+
+.team-page__progress {
+  position: relative;
+  z-index: 1;
+  max-width: 320px;
+  height: 3px;
+  margin: 1.5rem auto 0;
+  border-radius: 999px;
+  background: var(--tp-border);
+  overflow: hidden;
+}
+
+.team-page__progress-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--tp-cyan), var(--tp-purple));
+  transition: left 0.15s ease, width 0.15s ease;
+}
