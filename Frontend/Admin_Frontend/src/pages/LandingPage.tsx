@@ -6,6 +6,7 @@ import img1 from "@/Image/1.jpg";
 import img2 from "@/Image/2.jpg";
 import img3 from "@/Image/3.jpg";
 import { AppDownloadCard } from "@/components/AppDownloadCard";
+import { TeamShowcase } from "@/components/TeamShowcase";
 import "./LandingPage.css";
 
 const ShieldIcon = () => (
@@ -296,6 +297,10 @@ export function LandingPage() {
               ))}
               </div>
             </div>
+          </section>
+
+          <section className="landing-section landing-team" aria-label="People behind the system">
+            <TeamShowcase variant="landing" />
           </section>
 
           <footer className="landing-footer">

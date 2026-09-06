@@ -1,6 +1,41 @@
-/* People Behind the System — teaser card (Admin Home) + "Meet the Team" modal.
-   Reuses .neo-card and the --neo-* tokens already scoped on .admin-shell, so it
-   automatically tracks the existing dark/light theme with no new variables. */
+/* People Behind the System — teaser card + "Meet the Team" modal.
+   Admin variant reuses .neo-card and the --neo-* tokens scoped on .admin-shell, so it
+   automatically tracks the existing dark/light theme with no new variables.
+   Landing variant (public, always-dark marketing page) remaps the same --neo-* names to
+   the page's own --lp-* tokens below, so every existing --neo-*-based rule in this file
+   works unchanged in both places — only the underlying values differ. */
+
+.team-teaser--landing {
+  --neo-panel: var(--lp-glass, rgba(15, 23, 42, 0.55));
+  --neo-border: var(--lp-border, rgba(148, 163, 184, 0.18));
+  --neo-text: var(--lp-text, #f8fafc);
+  --neo-muted: var(--lp-muted, #94a3b8);
+  --neo-cyan: var(--lp-cyan, #22d3ee);
+  --neo-purple: #a855f7;
+  --neo-magenta: #e879f9;
+  --neo-orange: #fb923c;
+  --neo-lime: #a3e635;
+
+  border-radius: 18px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-panel);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 1.4rem 1.5rem;
+  box-shadow: 0 14px 44px rgba(2, 6, 23, 0.35);
+}
+
+.team-modal-backdrop--landing {
+  --neo-panel: rgba(15, 23, 42, 0.92);
+  --neo-border: var(--lp-border, rgba(148, 163, 184, 0.18));
+  --neo-text: var(--lp-text, #f8fafc);
+  --neo-muted: var(--lp-muted, #94a3b8);
+  --neo-cyan: var(--lp-cyan, #22d3ee);
+  --neo-purple: #a855f7;
+  --neo-magenta: #e879f9;
+  --neo-orange: #fb923c;
+  --neo-lime: #a3e635;
+}
 
 .team-teaser {
   margin-top: 1rem;
@@ -114,7 +149,10 @@
   animation: team-modal-fade-in 0.18s ease;
 }
 
-:root[data-theme="light"] .team-modal-backdrop {
+/* :not(--landing) guards this against the public landing page, which is always dark by
+   design and has no theme toggle of its own — it must ignore a stray data-theme="light"
+   left over in localStorage from a previous admin session on the same browser. */
+:root[data-theme="light"] .team-modal-backdrop:not(.team-modal-backdrop--landing) {
   --neo-panel: #ffffff;
   --neo-border: #e2e6ec;
   --neo-cyan: #0891b2;

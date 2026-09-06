@@ -83,7 +83,15 @@ function IconChevron({ direction }: { direction: "left" | "right" }) {
   );
 }
 
-export function TeamShowcase() {
+type Props = {
+  /** "admin" (default) reads the --neo-* tokens scoped on .admin-shell. "landing" reads the
+   * public landing page's --lp-* tokens instead — see the --neo-* remapping on the
+   * *--landing modifier classes in TeamShowcase.css. */
+  variant?: "admin" | "landing";
+};
+
+export function TeamShowcase({ variant = "admin" }: Props) {
+  const isLanding = variant === "landing";
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [scrollable, setScrollable] = useState(false);
@@ -141,7 +149,10 @@ export function TeamShowcase() {
 
   return (
     <>
-      <section className="team-teaser neo-card" aria-labelledby="team-teaser-title">
+      <section
+        className={"team-teaser" + (isLanding ? " team-teaser--landing" : " neo-card")}
+        aria-labelledby="team-teaser-title"
+      >
         <div className="team-teaser__icon" aria-hidden>
           <IconUsers />
         </div>
@@ -163,7 +174,7 @@ export function TeamShowcase() {
       {open
         ? createPortal(
             <div
-              className="team-modal-backdrop"
+              className={"team-modal-backdrop" + (isLanding ? " team-modal-backdrop--landing" : "")}
               onMouseDown={(e) => {
                 if (e.target === e.currentTarget) setOpen(false);
               }}
