@@ -32,29 +32,38 @@ function IconHome() {
   );
 }
 
-/** A member card that flips itself on a loop (photo side ↔ info side) without any click —
- * each card runs on its own staggered timer so the grid doesn't flip in lockstep. */
-function MemberCard({ person, startDelayMs }: { person: TeamMember; startDelayMs: number }) {
-  const [flipped, setFlipped] = useState(false);
-
-  useEffect(() => {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) return;
-
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const startTimeout = setTimeout(() => {
-      setFlipped(true);
-      interval = setInterval(() => setFlipped((f) => !f), 3200);
-    }, startDelayMs);
-
-    return () => {
-      clearTimeout(startTimeout);
-      if (interval) clearInterval(interval);
-    };
-  }, [startDelayMs]);
+/** A member card that flips to its info side while the mouse is over it, and toggles on
+ * click/tap (for touch devices, which have no hover) — no automatic looping.
+ *
+ * Hovering and clicking are tracked as two separate flags rather than one shared toggle: a
+ * real click always fires a synthetic mouse-enter first, so a plain toggle would flip the
+ * card on, then immediately flip it right back off on the same click. Showing the info side
+ * whenever *either* flag is set means a click during a hover only ever reinforces it. */
+function MemberCard({ person }: { person: TeamMember }) {
+  const [hovering, setHovering] = useState(false);
+  const [clicked, setClicked] = useState(false);
+  const flipped = hovering || clicked;
 
   return (
-    <article className="team-page__card" aria-label={`${person.name}, ${person.role}`}>
+    <article
+      className="team-page__card"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => {
+        setHovering(false);
+        setClicked(false);
+      }}
+      onClick={() => setClicked((c) => !c)}
+      role="button"
+      tabIndex={0}
+      aria-pressed={flipped}
+      aria-label={`${person.name}, ${person.role}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setClicked((c) => !c);
+        }
+      }}
+    >
       <div className={"team-page__flip" + (flipped ? " team-page__flip--active" : "")}>
         <div className="team-page__face team-page__face--front">
           <div className="team-page__photo">
@@ -135,8 +144,8 @@ export function TeamPage() {
       </div>
 
       <div className="team-page__grid">
-        {TEAM_MEMBERS.map((person, i) => (
-          <MemberCard key={person.id} person={person} startDelayMs={900 + i * 850} />
+        {TEAM_MEMBERS.map((person) => (
+          <MemberCard key={person.id} person={person} />
         ))}
       </div>
     </div>
