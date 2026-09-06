@@ -1,5 +1,4 @@
-/* Bus hero visual: a real photo of the coach composited over the dark glass card styling
-   that only ever renders on the always-dark public landing page. */
+/* Bus hero visual: a real photo of the coach on the always-dark public landing page. */
 
 .bus3d {
   position: relative;
@@ -31,131 +30,16 @@
   filter: drop-shadow(0 18px 40px rgba(2, 6, 23, 0.55)) drop-shadow(0 0 32px rgba(34, 211, 238, 0.12));
 }
 
-.bus3d__card {
-  position: absolute;
-  z-index: 2;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 14px;
-  border: 1px solid rgba(103, 232, 249, 0.22);
-  background: rgba(8, 13, 26, 0.82);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.4), 0 0 20px rgba(34, 211, 238, 0.08);
-  max-width: 170px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.bus3d__card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(103, 232, 249, 0.4);
-  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.45), 0 0 26px rgba(34, 211, 238, 0.14);
-}
-
-.bus3d__card-icon {
-  flex-shrink: 0;
-  font-size: 1.05rem;
-  line-height: 1;
-  margin-top: 0.1rem;
-}
-
-.bus3d__card-label {
-  margin: 0;
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.85);
-}
-
-.bus3d__card-value {
-  margin: 0.15rem 0 0;
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: #f8fafc;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-  /* Real route names can be much longer than the sample data ("X Integrated Bus Terminal,
-     Barangay Y → Z Integrated Bus Terminal") -- capping every card's value at 2 lines keeps
-     all 5 cards a predictable height so they can never grow into and overlap each other. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.bus3d__card-value--ok {
-  color: #4ade80;
-}
-
-.bus3d__card-value--warn {
-  color: #fbbf24;
-}
-
-.bus3d__card-sub {
-  margin: 0.1rem 0 0;
-  font-size: 0.68rem;
-  color: rgba(148, 163, 184, 0.85);
-}
-
-.bus3d__card--location {
-  top: 6%;
-  left: -4%;
-}
-
-.bus3d__card--gps {
-  top: 4%;
-  right: -6%;
-}
-
-.bus3d__card--passengers {
-  top: 40%;
-  right: -10%;
-}
-
-.bus3d__card--speed {
-  top: 42%;
-  left: -10%;
-}
-
-@media (max-width: 1150px) {
-  .bus3d__card--location {
-    left: 0;
-  }
-  .bus3d__card--gps {
-    right: 0;
-  }
-  .bus3d__card--passengers {
-    right: -2%;
-  }
-  .bus3d__card--speed {
-    left: -2%;
-  }
-}
-
-/* Tablet: scale down and tuck cards closer so nothing clips the viewport. */
 @media (max-width: 900px) {
   .bus3d {
     max-width: 480px;
   }
-  .bus3d__card {
-    max-width: 140px;
-    padding: 0.5rem 0.65rem;
-  }
 }
 
-/* Mobile: the 3D view keeps a fixed-height box of its own (instead of a square that would
-   have to grow to fit stacked cards), and the cards drop out of absolute positioning into a
-   compact 2-column grid below it — nothing overlaps the model or overflows the screen. */
 @media (max-width: 640px) {
   .bus3d {
     max-width: 340px;
     aspect-ratio: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
   }
 
   .bus3d__image-mount {
@@ -163,32 +47,5 @@
     inset: auto;
     width: 100%;
     height: 300px;
-  }
-
-  .bus3d__cards {
-    order: 2;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .bus3d__card {
-    position: static;
-    max-width: none;
-    width: 100%;
-  }
-}
-
-@media (max-width: 640px) and (min-width: 421px) {
-  .bus3d__cards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bus3d__card {
-    transition: none;
   }
 }
