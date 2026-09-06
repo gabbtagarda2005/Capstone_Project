@@ -280,12 +280,9 @@
   box-shadow: 0 0 24px rgba(34, 211, 238, 0.2);
 }
 
-/* Hero visual: rotating ring + shield (right column) */
+/* Hero visual: interactive 3D bus (right column) — see Bus3DHero.tsx/.css for the actual
+   scene; this wrapper just centers it and mirrors the old element's desktop alignment. */
 .landing-hero__visual {
-  position: relative;
-  aspect-ratio: 1;
-  max-width: 420px;
-  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -293,56 +290,7 @@
 
 @media (min-width: 901px) {
   .landing-hero__visual {
-    margin: 0 0 0 auto;
-  }
-}
-
-.landing-hero__ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(from 210deg, rgba(34, 211, 238, 0.4), transparent 40%, rgba(37, 99, 235, 0.35), transparent 75%);
-  animation: lp-spin 28s linear infinite;
-  filter: blur(0.5px);
-}
-
-.landing-hero__ring2 {
-  position: absolute;
-  inset: 8%;
-  border-radius: 50%;
-  border: 2px solid rgba(34, 211, 238, 0.35);
-  box-shadow: 0 0 60px rgba(34, 211, 238, 0.2), inset 0 0 40px rgba(34, 211, 238, 0.08);
-}
-
-.landing-hero__core {
-  position: relative;
-  width: 58%;
-  height: 58%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #1e293b, #020617);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(34, 211, 238, 0.12);
-}
-
-.landing-hero__core svg {
-  width: 42%;
-  height: 42%;
-  opacity: 0.95;
-  filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.5));
-}
-
-@keyframes lp-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-hero__ring {
-    animation: none;
+    justify-content: flex-end;
   }
 }
 

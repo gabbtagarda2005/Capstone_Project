@@ -7,26 +7,8 @@ import img2 from "@/Image/2.jpg";
 import img3 from "@/Image/3.jpg";
 import { AppDownloadCard } from "@/components/AppDownloadCard";
 import { TeamShowcase } from "@/components/TeamShowcase";
+import { Bus3DHero } from "@/components/Bus3DHero";
 import "./LandingPage.css";
-
-const ShieldIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-    <path
-      d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"
-      stroke="url(#lp-shield-g)"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-      fill="rgba(34,211,238,0.12)"
-    />
-    <path d="M12 8v4l2 2" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" />
-    <defs>
-      <linearGradient id="lp-shield-g" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#67e8f9" />
-        <stop offset="1" stopColor="#2563eb" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
 
 const part1Bg: CSSProperties = {
   backgroundColor: "#020617",
@@ -157,12 +139,8 @@ export function LandingPage() {
                 </Link>
               </div>
             </div>
-            <div className="landing-hero__visual" aria-hidden>
-              <div className="landing-hero__ring" />
-              <div className="landing-hero__ring2" />
-              <div className="landing-hero__core">
-                <ShieldIcon />
-              </div>
+            <div className="landing-hero__visual">
+              <Bus3DHero />
             </div>
           </div>
         </div>
