@@ -93,6 +93,13 @@
   color: #f8fafc;
   line-height: 1.3;
   overflow-wrap: anywhere;
+  /* Real route names can be much longer than the sample data ("X Integrated Bus Terminal,
+     Barangay Y → Z Integrated Bus Terminal") -- capping every card's value at 2 lines keeps
+     all 5 cards a predictable height so they can never grow into and overlap each other. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .bus3d__card-value--ok {

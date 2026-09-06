@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { fetchPublicFleetBuses, type PublicFleetBus } from "@/passenger/lib/fetchPublicFleetBuses";
+import { shortPickupLocationLabel } from "@/lib/humanizeAdminAudit";
 import "./Bus3DHero.css";
 
 function isWebGLAvailable(): boolean {
@@ -526,7 +527,7 @@ export function Bus3DHero() {
         const gpsAgeMs = withGps.gpsRecordedAt ? Date.now() - new Date(withGps.gpsRecordedAt).getTime() : Infinity;
         const gpsFresh = gpsAgeMs < 5 * 60 * 1000;
         const routeLabel = withGps.routeStart && withGps.routeEnd
-          ? `${withGps.routeStart} → ${withGps.routeEnd}`
+          ? `${shortPickupLocationLabel(withGps.routeStart)} → ${shortPickupLocationLabel(withGps.routeEnd)}`
           : withGps.route || null;
         setCard({
           location: withGps.lastLatitude != null ? routeLabel || "En route, Bukidnon" : "Waiting for GPS…",
