@@ -32,9 +32,53 @@ function IconHome() {
   );
 }
 
+/** A member card that flips itself on a loop (photo side ↔ info side) without any click —
+ * each card runs on its own staggered timer so the grid doesn't flip in lockstep. */
+function MemberCard({ person, startDelayMs }: { person: TeamMember; startDelayMs: number }) {
+  const [flipped, setFlipped] = useState(false);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const startTimeout = setTimeout(() => {
+      setFlipped(true);
+      interval = setInterval(() => setFlipped((f) => !f), 3200);
+    }, startDelayMs);
+
+    return () => {
+      clearTimeout(startTimeout);
+      if (interval) clearInterval(interval);
+    };
+  }, [startDelayMs]);
+
+  return (
+    <article className="team-page__card" aria-label={`${person.name}, ${person.role}`}>
+      <div className={"team-page__flip" + (flipped ? " team-page__flip--active" : "")}>
+        <div className="team-page__face team-page__face--front">
+          <div className="team-page__photo">
+            <PersonPhoto person={person} />
+          </div>
+          <div className="team-page__card-footer">
+            <h2 className="team-page__card-name">{person.name}</h2>
+            <p className="team-page__card-role">{person.role}</p>
+          </div>
+        </div>
+        <div className="team-page__face team-page__face--back">
+          <div className="team-page__card-grid" aria-hidden />
+          <div className="team-page__card-footer team-page__card-footer--back">
+            <h2 className="team-page__card-name">{person.name}</h2>
+            <p className="team-page__card-role">{person.role}</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function TeamPage() {
   const [companyName, setCompanyName] = useState("Bukidnon Bus Company @BUKSU");
-  const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.title = "People Behind the System";
@@ -50,15 +94,6 @@ export function TeamPage() {
       cancelled = true;
     };
   }, []);
-
-  const toggleActive = (id: string) => {
-    setActiveIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   return (
     <div className="team-page">
@@ -100,35 +135,9 @@ export function TeamPage() {
       </div>
 
       <div className="team-page__grid">
-        {TEAM_MEMBERS.map((person) => {
-          const isActive = activeIds.has(person.id);
-          return (
-            <article
-              key={person.id}
-              className={"team-page__card" + (isActive ? " team-page__card--active" : "")}
-              onClick={() => toggleActive(person.id)}
-              role="button"
-              tabIndex={0}
-              aria-pressed={isActive}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  toggleActive(person.id);
-                }
-              }}
-            >
-              <div className="team-page__photo">
-                <PersonPhoto person={person} />
-              </div>
-              <div className="team-page__card-panel" aria-hidden />
-              <div className="team-page__card-grid" aria-hidden />
-              <div className="team-page__card-footer">
-                <h2 className="team-page__card-name">{person.name}</h2>
-                <p className="team-page__card-role">{person.role}</p>
-              </div>
-            </article>
-          );
-        })}
+        {TEAM_MEMBERS.map((person, i) => (
+          <MemberCard key={person.id} person={person} startDelayMs={900 + i * 850} />
+        ))}
       </div>
     </div>
   );

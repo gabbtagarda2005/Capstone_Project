@@ -169,8 +169,8 @@
   box-shadow: 0 22px 48px rgba(2, 6, 23, 0.5), 0 0 40px color-mix(in srgb, var(--tp-cyan) 16%, transparent);
 }
 
-.team-page__card:hover .team-page__card-grid {
-  opacity: 0.14;
+.team-page__card--featured:hover .team-page__card-grid {
+  opacity: 0.18;
 }
 
 .team-page__card:hover .team-page__photo-img,
@@ -178,13 +178,49 @@
   transform: scale(1.045);
 }
 
+/* Member cards are a 3D flip scene instead of a plain panel — the outer element only
+   provides perspective + the hover lift/glow; the actual card surface (border, background,
+   rounded corners) lives on each `.team-page__face` so it stays correct through the rotation. */
 .team-page__grid .team-page__card {
-  cursor: pointer;
+  overflow: visible;
+  border: none;
+  background: none;
+  perspective: 1600px;
 }
 
-.team-page__grid .team-page__card:focus-visible {
-  outline: 2px solid var(--tp-cyan);
-  outline-offset: 3px;
+.team-page__flip {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.9s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+
+.team-page__flip--active {
+  transform: rotateY(180deg);
+}
+
+.team-page__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--tp-border);
+  background: linear-gradient(180deg, var(--tp-panel-light) 0%, var(--tp-panel) 100%);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.team-page__face--back {
+  transform: rotateY(180deg);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--tp-cyan) 14%, var(--tp-panel-light)),
+    color-mix(in srgb, var(--tp-purple) 12%, var(--tp-panel))
+  );
+}
+
+.team-page__face--back .team-page__card-grid {
+  opacity: 0.16;
 }
 
 /* Full-bleed photo area — fills the entire card so a real portrait (via `photoUrl` in
@@ -216,57 +252,31 @@
   text-shadow: 0 4px 18px rgba(2, 6, 23, 0.4);
 }
 
-/* Solid backing shown only in the clicked/"active" info state — sits above the photo so the
-   card reads as a technical info panel instead of a photo once opened. */
-.team-page__card-panel {
+.team-page__card-grid {
   position: absolute;
   inset: 0;
   z-index: 1;
   opacity: 0;
-  transition: opacity 0.25s ease;
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--tp-cyan) 14%, var(--tp-panel-light)),
-    color-mix(in srgb, var(--tp-purple) 12%, var(--tp-panel))
-  );
-  pointer-events: none;
-}
-
-.team-page__card--active .team-page__card-panel {
-  opacity: 1;
-}
-
-.team-page__card-grid {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 0.25s ease;
   background-image: linear-gradient(rgba(148, 163, 184, 0.6) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.6) 1px, transparent 1px);
   background-size: 26px 26px;
   pointer-events: none;
 }
 
-.team-page__card--active .team-page__card-grid {
-  opacity: 0.14;
-}
-
-/* Name/role sit directly over the bottom of the photo behind a gradient scrim by default;
-   the clicked/"active" state moves them to the top of the now-panel-backed card instead,
-   matching the reference's opened-card layout. */
+/* Front face: name/role sit directly over the bottom of the photo behind a gradient scrim.
+   Back face (the flip's "info" side): name/role sit at the top instead, over the grid-panel
+   background, matching the reference's opened-card layout. */
 .team-page__card-footer {
   position: absolute;
-  z-index: 3;
+  z-index: 2;
   left: 0;
   right: 0;
   bottom: 0;
   padding: 1.1rem 1.15rem 1.25rem;
   background: linear-gradient(180deg, transparent 0%, rgba(5, 7, 15, 0.6) 45%, rgba(5, 7, 15, 0.92) 100%);
-  transition: background 0.25s ease;
 }
 
-.team-page__card--active .team-page__card-footer {
+.team-page__card-footer--back {
   top: 0;
   bottom: auto;
   padding: 1.25rem 1.25rem 1.1rem;
@@ -339,7 +349,8 @@
   .team-page__card,
   .team-page__photo-img,
   .team-page__photo-fallback,
-  .team-page__card-grid {
+  .team-page__card-grid,
+  .team-page__flip {
     transition: none;
   }
 }
