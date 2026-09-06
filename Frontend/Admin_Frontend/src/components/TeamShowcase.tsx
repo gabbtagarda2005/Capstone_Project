@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./TeamShowcase.css";
 
 type TeamMember = {
@@ -159,14 +160,15 @@ export function TeamShowcase() {
         </button>
       </section>
 
-      {open ? (
-        <div
-          className="team-modal-backdrop"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
-        >
-          <div className="team-modal" role="dialog" aria-modal="true" aria-labelledby="team-modal-title">
+      {open
+        ? createPortal(
+            <div
+              className="team-modal-backdrop"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setOpen(false);
+              }}
+            >
+              <div className="team-modal" role="dialog" aria-modal="true" aria-labelledby="team-modal-title">
             <div className="team-modal__head">
               <div>
                 <p className="team-modal__eyebrow">Bukidnon Bus Company @BUKSU</p>
@@ -250,10 +252,12 @@ export function TeamShowcase() {
                   ))}
                 </div>
               ) : null}
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
