@@ -88,9 +88,11 @@ type Props = {
    * public landing page's --lp-* tokens instead — see the --neo-* remapping on the
    * *--landing modifier classes in TeamShowcase.css. */
   variant?: "admin" | "landing";
+  /** The company name configured in Admin → Settings → Branding (falls back if not passed). */
+  companyName?: string;
 };
 
-export function TeamShowcase({ variant = "admin" }: Props) {
+export function TeamShowcase({ variant = "admin", companyName = "Bukidnon Bus Company @BUKSU" }: Props) {
   const isLanding = variant === "landing";
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -161,8 +163,7 @@ export function TeamShowcase({ variant = "admin" }: Props) {
             People Behind the System
           </h3>
           <p className="team-teaser__desc">
-            Meet the people behind the design, development, testing, and documentation of the Bukidnon Bus Company
-            @BUKSU system.
+            Meet the people behind the design, development, testing, and documentation of the {companyName} system.
           </p>
         </div>
         <button type="button" className="team-teaser__btn" onClick={() => setOpen(true)}>
@@ -182,7 +183,7 @@ export function TeamShowcase({ variant = "admin" }: Props) {
               <div className="team-modal" role="dialog" aria-modal="true" aria-labelledby="team-modal-title">
             <div className="team-modal__head">
               <div>
-                <p className="team-modal__eyebrow">Bukidnon Bus Company @BUKSU</p>
+                <p className="team-modal__eyebrow">{companyName}</p>
                 <h2 id="team-modal-title" className="team-modal__title">
                   People Behind the System
                 </h2>

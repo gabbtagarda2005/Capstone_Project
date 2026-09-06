@@ -300,7 +300,7 @@ export function LandingPage() {
           </section>
 
           <section className="landing-section landing-team" aria-label="People behind the system">
-            <TeamShowcase variant="landing" />
+            <TeamShowcase variant="landing" companyName={companyName} />
           </section>
 
           <footer className="landing-footer">
