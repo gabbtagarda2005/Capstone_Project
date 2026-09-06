@@ -4,8 +4,8 @@
 
 .team-page {
   --tp-bg: #05070f;
-  --tp-panel: #0d1224;
-  --tp-panel-light: #161d38;
+  --tp-panel: #0c0f24;
+  --tp-panel-light: #1a1f45;
   --tp-border: rgba(148, 163, 184, 0.16);
   --tp-text: #f8fafc;
   --tp-muted: #94a3b8;
@@ -148,16 +148,11 @@
 .team-page__card {
   position: relative;
   min-width: 0;
+  aspect-ratio: 3 / 4;
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid var(--tp-border);
   background: linear-gradient(180deg, var(--tp-panel-light) 0%, var(--tp-panel) 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 2rem 1.25rem 1.5rem;
-  gap: 0.45rem;
   transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -167,41 +162,68 @@
   box-shadow: 0 22px 48px rgba(2, 6, 23, 0.5), 0 0 40px color-mix(in srgb, var(--tp-cyan) 16%, transparent);
 }
 
-.team-page__card:hover .team-page__avatar {
-  box-shadow: 0 0 0 7px color-mix(in srgb, var(--tp-cyan) 22%, transparent), 0 14px 32px rgba(2, 6, 23, 0.5);
+.team-page__card:hover .team-page__card-grid {
+  opacity: 0.14;
+}
+
+.team-page__card:hover .team-page__photo-img,
+.team-page__card:hover .team-page__photo-fallback {
+  transform: scale(1.045);
+}
+
+/* Full-bleed photo area — fills the entire card so a real portrait (via `photoUrl` in
+   teamData.ts) drops straight into this same slot later with no layout changes. */
+.team-page__photo {
+  position: absolute;
+  inset: 0;
+}
+
+.team-page__photo-img,
+.team-page__photo-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.team-page__photo-fallback {
+  display: grid;
+  place-items: center;
+}
+
+.team-page__initials {
+  color: #fff;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-shadow: 0 4px 18px rgba(2, 6, 23, 0.4);
 }
 
 .team-page__card-grid {
   position: absolute;
   inset: 0;
-  opacity: 0.08;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.25s ease;
   background-image: linear-gradient(rgba(148, 163, 184, 0.6) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.6) 1px, transparent 1px);
   background-size: 26px 26px;
   pointer-events: none;
 }
 
-.team-page__avatar {
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-size: 1.55rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  margin-bottom: 0.4rem;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--tp-cyan) 14%, transparent), 0 10px 26px rgba(2, 6, 23, 0.4);
-  transition: box-shadow 0.25s ease;
+/* Name/role sit directly over the bottom of the photo behind a gradient scrim. */
+.team-page__card-footer {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1.1rem 1.15rem 1.25rem;
+  background: linear-gradient(180deg, transparent 0%, rgba(5, 7, 15, 0.6) 45%, rgba(5, 7, 15, 0.92) 100%);
 }
 
 .team-page__card-name {
-  position: relative;
-  z-index: 1;
   margin: 0;
   font-size: 1rem;
   font-weight: 800;
@@ -211,11 +233,9 @@
 }
 
 .team-page__card-role {
-  position: relative;
-  z-index: 1;
-  margin: 0;
+  margin: 0.25rem 0 0;
   font-size: 0.8rem;
-  color: var(--tp-cyan);
+  color: #c7d2fe;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -223,33 +243,38 @@
 /* ---------- Featured (adviser) card ---------- */
 
 .team-page__card--featured {
-  width: min(380px, 100%);
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--tp-cyan) 14%, var(--tp-panel-light)),
-    color-mix(in srgb, var(--tp-purple) 12%, var(--tp-panel))
-  );
+  width: min(420px, 100%);
   border-color: color-mix(in srgb, var(--tp-cyan) 45%, var(--tp-border));
   box-shadow: 0 0 50px color-mix(in srgb, var(--tp-cyan) 14%, transparent), 0 18px 44px rgba(2, 6, 23, 0.4);
-  padding: 2.35rem 2rem 2.1rem;
-  gap: 0.6rem;
 }
 
 .team-page__card--featured:hover {
   box-shadow: 0 0 64px color-mix(in srgb, var(--tp-cyan) 22%, transparent), 0 24px 52px rgba(2, 6, 23, 0.5);
 }
 
-.team-page__avatar--featured {
-  width: 104px;
-  height: 104px;
-  font-size: 2rem;
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--tp-cyan) 16%, transparent), 0 12px 28px rgba(2, 6, 23, 0.4);
+.team-page__card--featured .team-page__card-grid {
+  opacity: 0.1;
+}
+
+.team-page__card--featured .team-page__initials {
+  font-size: 2.9rem;
+}
+
+.team-page__card--featured .team-page__card-footer {
+  padding: 1.4rem 1.5rem 1.6rem;
+}
+
+.team-page__card--featured .team-page__card-name {
+  font-size: 1.25rem;
+}
+
+.team-page__card--featured .team-page__card-role {
+  color: var(--tp-muted);
 }
 
 .team-page__badge {
-  position: relative;
-  z-index: 1;
   display: inline-block;
+  margin-bottom: 0.5rem;
   padding: 0.3rem 0.8rem;
   border-radius: 999px;
   font-size: 0.64rem;
@@ -260,17 +285,11 @@
   background: linear-gradient(135deg, var(--tp-cyan), var(--tp-purple));
 }
 
-.team-page__card--featured .team-page__card-name {
-  font-size: 1.15rem;
-  color: var(--tp-text);
-}
-
-.team-page__card--featured .team-page__card-role {
-  color: var(--tp-muted);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .team-page__card {
+  .team-page__card,
+  .team-page__photo-img,
+  .team-page__photo-fallback,
+  .team-page__card-grid {
     transition: none;
   }
 }
