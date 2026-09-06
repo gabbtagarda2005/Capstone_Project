@@ -25,6 +25,7 @@ import {
   totalRevenueAllTime,
 } from "@/lib/chartAggregates";
 import { shortPickupLocationLabel } from "@/lib/humanizeAdminAudit";
+import { TeamShowcase } from "@/components/TeamShowcase";
 import type { TicketRow } from "@/lib/types";
 import dashboardBackground from "@/Design/DashboardBackground.png";
 import "./analytics.css";
@@ -423,6 +424,8 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <TeamShowcase />
     </div>
   );
 }
