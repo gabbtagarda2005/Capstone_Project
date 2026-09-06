@@ -147,10 +147,6 @@ export function LandingPage() {
                 <span className="landing-hero__title-welcome">Welcome to</span>{" "}
                 <span className="landing-hero__title-brand">{companyName}</span>
               </h1>
-              <p className="landing-hero__desc">
-                A distributed transport operations platform: LilyGo GPS ingestion, live fleet maps, Bus Attendant
-                ticketing, and admin oversight — keeping passengers, drivers, and control room in sync.
-              </p>
               <div className="landing-hero__actions">
                 <Link to="/login" className="landing-hero__go landing-hero__go--primary">
                   Get Started ↗
