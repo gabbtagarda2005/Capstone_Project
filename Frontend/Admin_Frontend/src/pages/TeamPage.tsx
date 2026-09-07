@@ -32,111 +32,83 @@ function IconHome() {
   );
 }
 
-/** Full profile detail shown when a card is clicked/tapped. */
-function ProfileModal({ person, onClose }: { person: TeamMember; onClose: () => void }) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [onClose]);
-
+/** The card back's content: name/role plus the full profile detail. Shared by the adviser's
+ * featured card and the regular member cards so both flip to the same layout. */
+function CardBackDetails({ person }: { person: TeamMember }) {
   return (
-    <div className="team-modal__overlay" onClick={onClose}>
-      <div
-        className="team-modal__panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${person.name} profile`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button className="team-modal__close" onClick={onClose} aria-label="Close">
-          ×
-        </button>
-
-        <div className="team-modal__avatar" style={{ background: person.accent }}>
-          {person.photoUrl ? (
-            <img src={person.photoUrl} alt={person.name} />
-          ) : (
-            <span>{person.initials}</span>
-          )}
+    <>
+      <h2 className="team-page__card-name">{person.name}</h2>
+      <p className="team-page__card-role">{person.role}</p>
+      <div className="team-page__detail-rule" />
+      {person.program && (
+        <div className="team-page__detail-section">
+          <p className="team-page__detail-title">🎓 Program</p>
+          <p className="team-page__detail-body">{person.program}</p>
         </div>
-
-        <h2 className="team-modal__name">{person.name}</h2>
-        <p className="team-modal__role">{person.role}</p>
-
-        {person.program && (
-          <div className="team-modal__section">
-            <p className="team-modal__section-title">🎓 Program</p>
-            <p className="team-modal__section-body">{person.program}</p>
-          </div>
-        )}
-
-        <div className="team-modal__section">
-          <p className="team-modal__section-title">💻 Specialization</p>
-          <p className="team-modal__section-body">{person.specialization}</p>
-        </div>
-
-        <div className="team-modal__section">
-          <p className="team-modal__section-title">🛠️ Responsibilities</p>
-          <ul className="team-modal__list">
-            {person.responsibilities.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
-        <button className="team-modal__close-btn" onClick={onClose}>
-          Close
-        </button>
+      )}
+      <div className="team-page__detail-section">
+        <p className="team-page__detail-title">💻 Specialization</p>
+        <p className="team-page__detail-body">{person.specialization}</p>
       </div>
-    </div>
+      <div className="team-page__detail-section">
+        <p className="team-page__detail-title">🛠️ Responsibilities</p>
+        <ul className="team-page__detail-list">
+          {person.responsibilities.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+    </>
   );
 }
 
-/** A member card that flips to its info side while the mouse is over it (desktop preview),
- * and opens the full profile modal on click/tap — the primary way to see the details on
- * touch devices, which have no hover. */
-function MemberCard({ person, onOpen }: { person: TeamMember; onOpen: (person: TeamMember) => void }) {
+/** A card that flips to its detail side while the mouse is over it, and toggles on click/tap
+ * (for touch devices, which have no hover) — no click-triggered popup, the flip itself is the
+ * reveal. Hovering and clicking are tracked as two separate flags rather than one shared
+ * toggle: a real click always fires a synthetic mouse-enter first, so a plain toggle would
+ * flip the card on, then immediately flip it right back off on the same click. Showing the
+ * detail side whenever *either* flag is set means a click during a hover only reinforces it. */
+function FlipCard({ person, featured }: { person: TeamMember; featured?: boolean }) {
   const [hovering, setHovering] = useState(false);
+  const [clicked, setClicked] = useState(false);
+  const flipped = hovering || clicked;
 
   return (
     <article
-      className="team-page__card"
+      className={"team-page__card" + (featured ? " team-page__card--featured" : "")}
       onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-      onClick={() => onOpen(person)}
+      onMouseLeave={() => {
+        setHovering(false);
+        setClicked(false);
+      }}
+      onClick={() => setClicked((c) => !c)}
       role="button"
       tabIndex={0}
-      aria-haspopup="dialog"
+      aria-pressed={flipped}
       aria-label={`${person.name}, ${person.role}`}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpen(person);
+          setClicked((c) => !c);
         }
       }}
     >
-      <div className={"team-page__flip" + (hovering ? " team-page__flip--active" : "")}>
+      <div className={"team-page__flip" + (flipped ? " team-page__flip--active" : "")}>
         <div className="team-page__face team-page__face--front">
           <div className="team-page__photo">
             <PersonPhoto person={person} />
           </div>
+          {featured && <div className="team-page__card-grid" aria-hidden />}
           <div className="team-page__card-footer">
+            {featured && <span className="team-page__badge">Project Adviser</span>}
             <h2 className="team-page__card-name">{person.name}</h2>
             <p className="team-page__card-role">{person.role}</p>
           </div>
         </div>
         <div className="team-page__face team-page__face--back">
           <div className="team-page__card-grid" aria-hidden />
-          <div className="team-page__card-footer team-page__card-footer--back">
-            <h2 className="team-page__card-name">{person.name}</h2>
-            <p className="team-page__card-role">{person.role}</p>
+          <div className="team-page__detail-content">
+            <CardBackDetails person={person} />
           </div>
         </div>
       </div>
@@ -146,7 +118,6 @@ function MemberCard({ person, onOpen }: { person: TeamMember; onOpen: (person: T
 
 export function TeamPage() {
   const [companyName, setCompanyName] = useState("Bukidnon Bus Company @BUKSU");
-  const [activePerson, setActivePerson] = useState<TeamMember | null>(null);
 
   useEffect(() => {
     document.title = "People Behind the System";
@@ -189,39 +160,14 @@ export function TeamPage() {
       </div>
 
       <div className="team-page__adviser-row">
-        <article
-          className="team-page__card team-page__card--featured"
-          role="button"
-          tabIndex={0}
-          aria-haspopup="dialog"
-          aria-label={`${TEAM_ADVISER.name}, ${TEAM_ADVISER.role}`}
-          onClick={() => setActivePerson(TEAM_ADVISER)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setActivePerson(TEAM_ADVISER);
-            }
-          }}
-        >
-          <div className="team-page__photo">
-            <PersonPhoto person={TEAM_ADVISER} />
-          </div>
-          <div className="team-page__card-grid" aria-hidden />
-          <div className="team-page__card-footer">
-            <span className="team-page__badge">Project Adviser</span>
-            <h2 className="team-page__card-name">{TEAM_ADVISER.name}</h2>
-            <p className="team-page__card-role">{TEAM_ADVISER.role}</p>
-          </div>
-        </article>
+        <FlipCard person={TEAM_ADVISER} featured />
       </div>
 
       <div className="team-page__grid">
         {TEAM_MEMBERS.map((person) => (
-          <MemberCard key={person.id} person={person} onOpen={setActivePerson} />
+          <FlipCard key={person.id} person={person} />
         ))}
       </div>
-
-      {activePerson && <ProfileModal person={activePerson} onClose={() => setActivePerson(null)} />}
     </div>
   );
 }
