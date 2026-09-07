@@ -102,3 +102,26 @@ In `hardware/lilygo_ta7670e_cellular_telemetry/config.h`:
 ## Later: swapping in a real domain
 
 Once you buy a domain, add it to a free Cloudflare account, install `cloudflared` on the Pi, and run `cloudflared tunnel` pointed at `127.0.0.1:4001` with a named tunnel bound to that domain — it replaces Funnel as the public entry point. Only `SERVER_HOST` in the firmware config needs to change; nothing else in the backend or the AT-command HTTPS logic depends on which hostname is in front of it.
+
+## Deploying Admin_Frontend changes
+
+Whenever `Frontend/Admin_Frontend` changes on GitHub, get them live with one command instead of typing out `git pull` / `npm run build` / `pm2 restart` by hand:
+
+```bash
+bash ~/Capstone_Project/deploy/raspberry-pi/deploy-frontend.sh
+```
+
+It also clears the merge conflict that `Backend/Admin_Backend/data/live-dispatch.json` would otherwise cause on every pull (the backend rewrites that file at runtime, so it always has local drift — safe to discard since it's just live schedule state).
+
+To make it a one-word command, add this alias once (SSH in, then run):
+
+```bash
+echo "alias deploy-frontend='bash ~/Capstone_Project/deploy/raspberry-pi/deploy-frontend.sh'" >> ~/.bashrc
+source ~/.bashrc
+```
+
+After that, every future deploy is just:
+
+```bash
+deploy-frontend
+```
