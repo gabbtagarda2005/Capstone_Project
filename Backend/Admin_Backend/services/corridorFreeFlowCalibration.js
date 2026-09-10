@@ -28,6 +28,12 @@ const Bus = require("../models/Bus");
 const CorridorRoute = require("../models/CorridorRoute");
 const GpsHistory = require("../models/GpsHistory");
 const CorridorFreeFlowCalibration = require("../models/CorridorFreeFlowCalibration");
+// Required for its side effect only: CorridorRoute's originCoverageId/destinationCoverageId
+// refs "RouteCoverage" — Mongoose's .populate() throws MissingSchemaError unless that model
+// class has been registered by requiring its file somewhere in the process. server.js pulls
+// this in transitively via its route files, but a standalone script (calibrate/backtest) never
+// otherwise touches it.
+require("../models/RouteCoverage");
 const { getCorridorPolyline, nearestPointOnPolyline } = require("./corridorGeometry");
 
 const DEFAULT_WINDOW_DAYS = 45;
