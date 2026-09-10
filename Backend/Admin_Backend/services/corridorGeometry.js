@@ -6,6 +6,7 @@
  * duplicating it.
  */
 const CorridorRoute = require("../models/CorridorRoute");
+const CorridorFreeFlowCalibration = require("../models/CorridorFreeFlowCalibration");
 const { fetchOsrmRoute } = require("./osrmTrafficService");
 
 function haversineMeters(a, b) {
@@ -177,12 +178,13 @@ const freeFlowProfileCache = new Map();
 const FREE_FLOW_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
 
 /**
- * "Free-flow" reference speed for a corridor — OSRM's routed duration/distance for the full
- * corridor, which reflects normal (uncongested) driving conditions since OSRM's default profile
- * has no live-traffic input. This is the honest baseline the congestion engine compares a bus's
- * actual live speed against (congestionRatio = 1 - liveSpeed/freeFlowSpeed) — never a guessed or
- * hardcoded number. Returns null if the corridor has no usable terminal geometry or OSRM/haversine
- * legs produced zero distance.
+ * "Free-flow" reference speed for a corridor. Prefers this fleet's own observed baseline (see
+ * services/corridorFreeFlowCalibration.js — the 85th-percentile driving speed actually recorded
+ * on this corridor by these buses) when one has been computed; falls back to OSRM's routed
+ * duration/distance for the full corridor when no calibration exists yet. Both are real,
+ * driving-condition-based references — never a guessed or hardcoded number. `source` on the
+ * returned profile tells callers which one was used. Returns null if the corridor has no usable
+ * terminal geometry or neither source produced a usable distance/speed.
  */
 async function getCorridorFreeFlowProfile(corridorDoc) {
   const origin = corridorDoc?.originCoverageId?.terminal;
@@ -201,13 +203,30 @@ async function getCorridorFreeFlowProfile(corridorDoc) {
   const waypoints = buildOrderedRouteWaypoints(origin, corridorDoc.authorizedStops, destination);
   if (waypoints.length < 2) return null;
   const { distanceMeters, durationSeconds } = await stitchRouteGeometry(waypoints);
+
   let profile = null;
-  if (distanceMeters > 0 && durationSeconds > 0) {
-    profile = {
-      freeFlowKph: (distanceMeters / durationSeconds) * 3.6,
-      distanceMeters,
-      durationSeconds,
-    };
+  if (distanceMeters > 0) {
+    const calibration = await CorridorFreeFlowCalibration.findOne({ corridorId: corridorDoc._id })
+      .select("observedFreeFlowKph sampleSize computedAt")
+      .lean()
+      .catch(() => null);
+    if (calibration && Number.isFinite(calibration.observedFreeFlowKph) && calibration.observedFreeFlowKph > 0) {
+      profile = {
+        freeFlowKph: calibration.observedFreeFlowKph,
+        distanceMeters,
+        durationSeconds,
+        source: "fleet_calibrated",
+        calibrationSampleSize: calibration.sampleSize,
+        calibrationComputedAt: calibration.computedAt,
+      };
+    } else if (durationSeconds > 0) {
+      profile = {
+        freeFlowKph: (distanceMeters / durationSeconds) * 3.6,
+        distanceMeters,
+        durationSeconds,
+        source: "osrm_static",
+      };
+    }
   }
   freeFlowProfileCache.set(cacheKey, { ts: Date.now(), profile });
   return profile;

@@ -39,6 +39,7 @@ function classifyRatio(ratio) {
  *   congestionRatio?: number,
  *   currentKph?: number,
  *   freeFlowKph?: number,
+ *   freeFlowSource?: "fleet_calibrated"|"osrm_static",
  *   corridorName?: string|null,
  *   reason?: string,
  * }>}
@@ -86,6 +87,7 @@ async function computeBusCongestion({ busId, latitude, longitude, speedKph }) {
     congestionRatio: Math.round(ratio * 100) / 100,
     currentKph: Math.round(speed * 10) / 10,
     freeFlowKph: Math.round(profile.freeFlowKph * 10) / 10,
+    freeFlowSource: profile.source || "osrm_static",
     corridorName: corridor.displayName || null,
   };
 }
