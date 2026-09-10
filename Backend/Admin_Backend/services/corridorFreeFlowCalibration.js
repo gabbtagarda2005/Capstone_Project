@@ -16,13 +16,19 @@
  *
  * Never fabricated: a corridor with too few qualifying samples is left uncalibrated
  * (status: "insufficient_data") rather than storing a number backed by noise.
+ *
+ * Bus↔corridor matching mirrors freeEtaEngine.matchCorridorForBus's fuzzy route-label logic
+ * exactly, but resolved once in memory across every bus/corridor pair instead of that
+ * function's one-fresh-DB-query-per-call design — matchCorridorForBus is fine for the live
+ * engine's single-bus lookups, but calling it per-bus-per-corridor here was an accidental O(buses
+ * × corridors) storm of redundant populated CorridorRoute queries (observed to make a full
+ * calibration run of even a small fleet take 15+ minutes before this fix).
  */
 const Bus = require("../models/Bus");
 const CorridorRoute = require("../models/CorridorRoute");
 const GpsHistory = require("../models/GpsHistory");
 const CorridorFreeFlowCalibration = require("../models/CorridorFreeFlowCalibration");
 const { getCorridorPolyline, nearestPointOnPolyline } = require("./corridorGeometry");
-const { matchCorridorForBus } = require("./freeEtaEngine");
 
 const DEFAULT_WINDOW_DAYS = 45;
 const DEFAULT_MIN_SAMPLES = 40;
@@ -37,26 +43,78 @@ function percentile(sortedAsc, p) {
   return sortedAsc[idx];
 }
 
-/** Which currently-assigned buses run this corridor, via the same fuzzy route-label match the
- *  live system uses (matchCorridorForBus) — guarantees calibration groups buses exactly the way
- *  the congestion engine will look them up later, with no separate/divergent matching logic. */
-async function findBusesForCorridor(corridorId) {
-  const buses = await Bus.find({}).select("busId route").lean();
-  const matches = [];
+/** Mirrors freeEtaEngine.js's routeLikeName exactly (kept local so this module doesn't need to
+ *  change that file's exports for one shared string helper). */
+function routeLikeName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*[→➔>–—-]\s*/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+/** Same two-pass priority as freeEtaEngine.matchCorridorForBus (displayName match first, then
+ *  origin+destination substring match), just operating on an already-fetched corridor list. */
+function findMatchingCorridor(corridors, routeLabel) {
+  const low = routeLikeName(routeLabel);
+  if (!low) return null;
+  const byDisplayName = corridors.find((r) => {
+    const d = routeLikeName(r.displayName || "");
+    return d && (d.includes(low) || low.includes(d));
+  });
+  if (byDisplayName) return byDisplayName;
+  return (
+    corridors.find((r) => {
+      const o = String(r.originCoverageId?.locationName || r.originCoverageId?.terminal?.name || "").toLowerCase();
+      const d = String(r.destinationCoverageId?.locationName || r.destinationCoverageId?.terminal?.name || "").toLowerCase();
+      return o && d && low.includes(o) && low.includes(d);
+    }) || null
+  );
+}
+
+/** Two queries total (all buses, all corridors), matched in memory — not one query per pair. */
+async function loadCorridorsAndBuses() {
+  const [buses, corridors] = await Promise.all([
+    Bus.find({}).select("busId route").lean(),
+    CorridorRoute.find({ suspended: { $ne: true } })
+      .populate("originCoverageId", "locationName terminal")
+      .populate("destinationCoverageId", "locationName terminal")
+      .lean(),
+  ]);
+  return { buses, corridors };
+}
+
+/** corridorId (string) -> busId[] map, built from one buses fetch + one corridors fetch. */
+function buildCorridorBusMap(buses, corridors) {
+  const map = new Map();
   for (const b of buses) {
     if (!b.route) continue;
-    const corridor = await matchCorridorForBus(b.busId).catch(() => null);
-    if (corridor && String(corridor._id) === String(corridorId)) matches.push(b.busId);
+    const corridor = findMatchingCorridor(corridors, b.route);
+    if (!corridor) continue;
+    const key = String(corridor._id);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(b.busId);
   }
-  return matches;
+  return map;
+}
+
+/** Which currently-assigned buses run this corridor. Convenience single-corridor wrapper around
+ *  loadCorridorsAndBuses/buildCorridorBusMap for callers (e.g. the backtest script) that only
+ *  need one corridor's buses — still just two DB queries, not one per bus. */
+async function findBusesForCorridor(corridorId) {
+  const { buses, corridors } = await loadCorridorsAndBuses();
+  const map = buildCorridorBusMap(buses, corridors);
+  return map.get(String(corridorId)) || [];
 }
 
 /**
+ * @param {object} corridorDoc
+ * @param {string[]} busIds - buses already resolved to this corridor (see buildCorridorBusMap).
  * @returns {Promise<{status:"ok", observedFreeFlowKph:number, sampleSize:number} |
  *                    {status:"insufficient_data", sampleSize:number} |
  *                    {status:"unavailable", reason:string}>}
  */
-async function computeCorridorCalibration(corridorDoc, opts = {}) {
+async function computeCorridorCalibration(corridorDoc, busIds, opts = {}) {
   const windowDays = Number(opts.windowDays) || DEFAULT_WINDOW_DAYS;
   const minSamples = Number(opts.minSamples) || DEFAULT_MIN_SAMPLES;
 
@@ -64,9 +122,7 @@ async function computeCorridorCalibration(corridorDoc, opts = {}) {
   if (!polyline || polyline.length < 2) {
     return { status: "unavailable", reason: "No corridor geometry available" };
   }
-
-  const busIds = await findBusesForCorridor(corridorDoc._id);
-  if (busIds.length === 0) {
+  if (!busIds || busIds.length === 0) {
     return { status: "insufficient_data", sampleSize: 0 };
   }
 
@@ -102,19 +158,24 @@ async function computeCorridorCalibration(corridorDoc, opts = {}) {
 }
 
 /** Recomputes and upserts calibration for every non-suspended corridor. Returns one summary row
- *  per corridor (including ones that stayed uncalibrated) for a script/report to print. */
+ *  per corridor (including ones that stayed uncalibrated) for a script/report to print.
+ *  `opts.onProgress(corridorName, index, total)` is called before each corridor starts, so a
+ *  long run (this genuinely takes tens of seconds to a few minutes on a real fleet's GPS
+ *  history) has visible progress instead of going silent until the very end. */
 async function computeAllCorridorCalibrations(opts = {}) {
-  const corridors = await CorridorRoute.find({ suspended: { $ne: true } })
-    .populate("originCoverageId", "locationName terminal")
-    .populate("destinationCoverageId", "locationName terminal")
-    .lean();
+  const { buses, corridors } = await loadCorridorsAndBuses();
+  const busMap = buildCorridorBusMap(buses, corridors);
 
   const results = [];
-  for (const corridor of corridors) {
-    const result = await computeCorridorCalibration(corridor, opts);
+  for (let i = 0; i < corridors.length; i++) {
+    const corridor = corridors[i];
     const corridorName =
       corridor.displayName ||
       `${corridor.originCoverageId?.locationName || "?"} → ${corridor.destinationCoverageId?.locationName || "?"}`;
+    if (typeof opts.onProgress === "function") opts.onProgress(corridorName, i + 1, corridors.length);
+
+    const busIds = busMap.get(String(corridor._id)) || [];
+    const result = await computeCorridorCalibration(corridor, busIds, opts);
 
     if (result.status === "ok") {
       await CorridorFreeFlowCalibration.findOneAndUpdate(
@@ -151,6 +212,8 @@ module.exports = {
   computeAllCorridorCalibrations,
   getStoredCalibration,
   findBusesForCorridor,
+  loadCorridorsAndBuses,
+  buildCorridorBusMap,
   FREE_FLOW_PERCENTILE,
   MOVING_SPEED_MIN_KPH,
   CORRIDOR_PROXIMITY_M,

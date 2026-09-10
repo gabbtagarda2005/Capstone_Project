@@ -40,12 +40,18 @@ async function main() {
     .populate("destinationCoverageId", "terminal")
     .lean();
   const osrmByCorridor = new Map();
-  for (const c of corridors) {
+  for (let i = 0; i < corridors.length; i++) {
+    const c = corridors[i];
+    process.stdout.write(`[${i + 1}/${corridors.length}] OSRM baseline for ${c.displayName || c._id}...\n`);
     const profile = await getCorridorFreeFlowProfile(c).catch(() => null);
     if (profile) osrmByCorridor.set(String(c._id), profile.freeFlowKph);
   }
 
-  const results = await computeAllCorridorCalibrations({ windowDays, minSamples });
+  const results = await computeAllCorridorCalibrations({
+    windowDays,
+    minSamples,
+    onProgress: (name, i, total) => process.stdout.write(`[${i}/${total}] Calibrating ${name} from GPS history...\n`),
+  });
 
   const rows = results.map((r) => {
     const osrmKph = osrmByCorridor.get(String(r.corridorId));

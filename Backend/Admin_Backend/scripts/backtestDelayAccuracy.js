@@ -64,10 +64,12 @@ async function main() {
   const allOsrmErrors = [];
   const allCalErrors = [];
 
-  for (const corridor of corridors) {
+  for (let ci = 0; ci < corridors.length; ci++) {
+    const corridor = corridors[ci];
     const corridorName =
       corridor.displayName ||
       `${corridor.originCoverageId?.locationName || "?"} → ${corridor.destinationCoverageId?.locationName || "?"}`;
+    process.stdout.write(`[${ci + 1}/${corridors.length}] ${corridorName}...\n`);
 
     const terminalA = corridor.originCoverageId?.terminal;
     const terminalB = corridor.destinationCoverageId?.terminal;
