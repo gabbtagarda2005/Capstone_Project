@@ -9,13 +9,21 @@
  * Method: for each corridor, gather every GPS breadcrumb from buses assigned to that corridor,
  * over a lookback window, restricted to points that are (a) moving (excludes idle/parked
  * noise) and (b) genuinely near the corridor's own road-following polyline (excludes off-route
- * detours, depot idling, etc.). The 85th percentile of that speed distribution is used as the
- * free-flow reference — a standard traffic-engineering convention (most trips aren't gridlocked,
- * so a high percentile of *all* observed speeds approximates the uncongested speed) that doesn't
- * require guessing which hours count as "light traffic" for this specific corridor.
+ * detours, depot idling, etc.). The 85th percentile of that speed distribution is the free-flow
+ * reference — a standard traffic-engineering convention (most trips aren't gridlocked, so a high
+ * percentile approximates the uncongested speed).
  *
- * Never fabricated: a corridor with too few qualifying samples is left uncalibrated
- * (status: "insufficient_data") rather than storing a number backed by noise.
+ * Adaptive window: prefers the percentile computed *only* from late-night/early-morning samples
+ * (genuinely light traffic — see isLightTrafficHour), since that's a truer "free flow" reference
+ * than mixing in daytime samples. But a small fleet's light-hour sample count can be tiny, so it
+ * only uses that window when it independently clears `minSamples`; otherwise it falls back to the
+ * percentile over *all* hours, which needs less data to be trustworthy (a high percentile of a
+ * mixed-hour distribution still approximates free-flow, since most samples still aren't
+ * gridlocked) — never a hardcoded guess either way, and the stored result records which one was
+ * actually used.
+ *
+ * Never fabricated: a corridor with too few qualifying samples in *either* window is left
+ * uncalibrated (status: "insufficient_data") rather than storing a number backed by noise.
  *
  * Bus↔corridor matching mirrors freeEtaEngine.matchCorridorForBus's fuzzy route-label logic
  * exactly, but resolved once in memory across every bus/corridor pair instead of that
@@ -42,6 +50,21 @@ const MOVING_SPEED_MIN_KPH = 5; // below this, treat as idle/parked/stopped — 
 const CORRIDOR_PROXIMITY_M = 250; // must be within this of the corridor polyline to count
 const FREE_FLOW_PERCENTILE = 0.85;
 const MAX_DOCS_PER_BUS = 20000; // safety cap so one very active bus can't blow up a single query
+
+// Genuinely light-traffic hours, local time. Philippines is a fixed UTC+8 with no DST, so this
+// is exact plain arithmetic on the stored UTC timestamp — no timezone library needed.
+const MANILA_UTC_OFFSET_HOURS = 8;
+const LIGHT_HOUR_START = 22; // 10pm
+const LIGHT_HOUR_END = 5; // up to, not including, 5am
+
+function manilaHour(date) {
+  return (date.getUTCHours() + MANILA_UTC_OFFSET_HOURS) % 24;
+}
+
+function isLightTrafficHour(date) {
+  const h = manilaHour(date);
+  return h >= LIGHT_HOUR_START || h < LIGHT_HOUR_END;
+}
 
 function percentile(sortedAsc, p) {
   if (sortedAsc.length === 0) return null;
@@ -116,9 +139,12 @@ async function findBusesForCorridor(corridorId) {
 /**
  * @param {object} corridorDoc
  * @param {string[]} busIds - buses already resolved to this corridor (see buildCorridorBusMap).
- * @returns {Promise<{status:"ok", observedFreeFlowKph:number, sampleSize:number} |
- *                    {status:"insufficient_data", sampleSize:number} |
- *                    {status:"unavailable", reason:string}>}
+ * @returns {Promise<
+ *   {status:"ok", observedFreeFlowKph:number, sampleSize:number, method:"p85_light_hours"|"p85_all_hours",
+ *    lightHourSampleSize:number, allHourSampleSize:number} |
+ *   {status:"insufficient_data", sampleSize:number, lightHourSampleSize:number, allHourSampleSize:number} |
+ *   {status:"unavailable", reason:string}
+ * >}
  */
 async function computeCorridorCalibration(corridorDoc, busIds, opts = {}) {
   const windowDays = Number(opts.windowDays) || DEFAULT_WINDOW_DAYS;
@@ -129,18 +155,19 @@ async function computeCorridorCalibration(corridorDoc, busIds, opts = {}) {
     return { status: "unavailable", reason: "No corridor geometry available" };
   }
   if (!busIds || busIds.length === 0) {
-    return { status: "insufficient_data", sampleSize: 0 };
+    return { status: "insufficient_data", sampleSize: 0, lightHourSampleSize: 0, allHourSampleSize: 0 };
   }
 
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
-  const speeds = [];
+  const allSpeeds = [];
+  const lightHourSpeeds = [];
   for (const busId of busIds) {
     const rows = await GpsHistory.find({
       busId,
       recordedAt: { $gte: since },
       speedKph: { $gte: MOVING_SPEED_MIN_KPH },
     })
-      .select("latitude longitude speedKph")
+      .select("latitude longitude speedKph recordedAt")
       .sort({ recordedAt: -1 })
       .limit(MAX_DOCS_PER_BUS)
       .lean();
@@ -148,19 +175,46 @@ async function computeCorridorCalibration(corridorDoc, busIds, opts = {}) {
     for (const row of rows) {
       if (!Number.isFinite(row.latitude) || !Number.isFinite(row.longitude)) continue;
       const nearest = nearestPointOnPolyline(row.latitude, row.longitude, polyline);
-      if (nearest && nearest.distanceMeters <= CORRIDOR_PROXIMITY_M) {
-        speeds.push(Number(row.speedKph));
-      }
+      if (!nearest || nearest.distanceMeters > CORRIDOR_PROXIMITY_M) continue;
+      const speed = Number(row.speedKph);
+      allSpeeds.push(speed);
+      if (isLightTrafficHour(new Date(row.recordedAt))) lightHourSpeeds.push(speed);
     }
   }
 
-  if (speeds.length < minSamples) {
-    return { status: "insufficient_data", sampleSize: speeds.length };
+  // Prefer the light-hour-only percentile when it independently has enough samples to trust —
+  // a truer free-flow reference. Falls back to the all-hours percentile (needs less data to be
+  // meaningful) when it doesn't, rather than reporting nothing at all.
+  if (lightHourSpeeds.length >= minSamples) {
+    lightHourSpeeds.sort((a, b) => a - b);
+    return {
+      status: "ok",
+      observedFreeFlowKph: percentile(lightHourSpeeds, FREE_FLOW_PERCENTILE),
+      sampleSize: lightHourSpeeds.length,
+      method: "p85_light_hours",
+      lightHourSampleSize: lightHourSpeeds.length,
+      allHourSampleSize: allSpeeds.length,
+      windowDays,
+    };
   }
-
-  speeds.sort((a, b) => a - b);
-  const observedFreeFlowKph = percentile(speeds, FREE_FLOW_PERCENTILE);
-  return { status: "ok", observedFreeFlowKph, sampleSize: speeds.length, windowDays };
+  if (allSpeeds.length >= minSamples) {
+    allSpeeds.sort((a, b) => a - b);
+    return {
+      status: "ok",
+      observedFreeFlowKph: percentile(allSpeeds, FREE_FLOW_PERCENTILE),
+      sampleSize: allSpeeds.length,
+      method: "p85_all_hours",
+      lightHourSampleSize: lightHourSpeeds.length,
+      allHourSampleSize: allSpeeds.length,
+      windowDays,
+    };
+  }
+  return {
+    status: "insufficient_data",
+    sampleSize: allSpeeds.length,
+    lightHourSampleSize: lightHourSpeeds.length,
+    allHourSampleSize: allSpeeds.length,
+  };
 }
 
 /** Recomputes and upserts calibration for every non-suspended corridor. Returns one summary row
@@ -191,8 +245,10 @@ async function computeAllCorridorCalibrations(opts = {}) {
           corridorName,
           observedFreeFlowKph: result.observedFreeFlowKph,
           sampleSize: result.sampleSize,
+          lightHourSampleSize: result.lightHourSampleSize,
+          allHourSampleSize: result.allHourSampleSize,
           windowDays: result.windowDays,
-          method: "p85_gps_history",
+          method: result.method,
           computedAt: new Date(),
         },
         { upsert: true, new: true }
@@ -220,6 +276,9 @@ module.exports = {
   findBusesForCorridor,
   loadCorridorsAndBuses,
   buildCorridorBusMap,
+  isLightTrafficHour,
+  LIGHT_HOUR_START,
+  LIGHT_HOUR_END,
   FREE_FLOW_PERCENTILE,
   MOVING_SPEED_MIN_KPH,
   CORRIDOR_PROXIMITY_M,

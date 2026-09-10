@@ -63,7 +63,9 @@ async function main() {
     return {
       Corridor: r.corridorName,
       Status: r.status,
-      Samples: r.sampleSize ?? 0,
+      Method: r.method === "p85_light_hours" ? "light-hours (10pm–5am)" : r.method === "p85_all_hours" ? "all-hours fallback" : "—",
+      "Light-hr samples": r.lightHourSampleSize ?? 0,
+      "All-hr samples": r.allHourSampleSize ?? 0,
       "OSRM free-flow (kph)": osrmKph != null ? Math.round(osrmKph * 10) / 10 : "—",
       "Calibrated free-flow (kph)": calibratedKph ?? "—",
       "Δ vs OSRM": deltaPct,

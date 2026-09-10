@@ -12,11 +12,18 @@ const corridorFreeFlowCalibrationSchema = new mongoose.Schema(
   {
     corridorId: { type: mongoose.Schema.Types.ObjectId, ref: "CorridorRoute", required: true, unique: true, index: true },
     corridorName: { type: String, default: null },
-    /** 85th percentile of observed on-corridor moving speeds over the lookback window. */
+    /** 85th percentile of the sample pool `method` actually used (light-hours-only when that
+     *  pool had enough samples, else all-hours). */
     observedFreeFlowKph: { type: Number, required: true },
+    /** Size of whichever pool `method` used — equals lightHourSampleSize or allHourSampleSize. */
     sampleSize: { type: Number, required: true },
+    /** Always recorded regardless of which pool won, for transparency/diagnostics. */
+    lightHourSampleSize: { type: Number, default: null },
+    allHourSampleSize: { type: Number, default: null },
     windowDays: { type: Number, required: true },
-    method: { type: String, default: "p85_gps_history" },
+    /** "p85_light_hours" (preferred, genuinely light-traffic hours only) or "p85_all_hours"
+     *  (fallback used when the light-hour pool didn't independently clear minSamples). */
+    method: { type: String, default: "p85_all_hours" },
     computedAt: { type: Date, required: true, default: Date.now },
   },
   { timestamps: true, collection: "corridor_free_flow_calibrations" }
