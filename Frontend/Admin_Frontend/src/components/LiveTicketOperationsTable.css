@@ -105,35 +105,41 @@
   background: var(--ops-panel-bg);
 }
 
+/* All column widths below are fixed rem values (no percentages) that sum to 57rem (~912px).
+   With table-layout:fixed, percentage columns resolve against the TABLE's own rendered width —
+   when a percentage+fixed mix sums to more than fits, some browsers grow the table past its own
+   `width:100%`/min-width to honor every column's specified size, which pushed the Actions column
+   off past the edge of its scroll container instead of staying inside it. All-fixed widths make
+   the table's natural width fully deterministic (the plain sum of its columns) and small enough
+   to fit almost any real layout without needing to scroll at all. */
 .live-ops-table {
-  width: 100%;
-  min-width: 780px;
+  width: auto;
+  min-width: 57rem;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.84rem;
 }
 
-/* Keep column widths stable — do not use display:flex on <td> (breaks table layout in Chrome). */
 .live-ops-table__col-num {
   width: 2.25rem;
 }
 .live-ops-table__col-pax {
-  width: 18%;
+  width: 10rem;
 }
 .live-ops-table__col-start {
-  width: 14%;
+  width: 7.5rem;
 }
 .live-ops-table__col-dest {
-  width: 14%;
+  width: 7.5rem;
 }
 .live-ops-table__col-attendant {
-  width: 24%;
+  width: 9.5rem;
 }
 .live-ops-table__col-bus {
-  width: 12%;
+  width: 6.75rem;
 }
 .live-ops-table__col-fare {
-  width: 9rem;
+  width: 8rem;
 }
 
 .live-ops-table__col-actions {
