@@ -100,7 +100,7 @@ export function FleetBusGlassCard({ bus, attendantLabel, healthTone, onEdit, onD
               <span className="fleet-u3__line">
                 <strong>IMEI</strong> {maskImei(bus.imei)}
               </span>
-              <span className="fleet-u3__line">
+              <span className="fleet-u3__line fleet-u3__line--attendant" title={attendantLabel}>
                 <strong>Attendant</strong> {attendantLabel}
               </span>
               <span className="fleet-u3__line fleet-u3__line--route" title={bus.route || undefined}>

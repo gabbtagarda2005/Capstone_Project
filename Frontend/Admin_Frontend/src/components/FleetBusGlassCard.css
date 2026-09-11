@@ -9,7 +9,7 @@
 .fleet-u3__parent {
   width: 100%;
   max-width: 300px;
-  height: 300px;
+  height: 340px;
   margin: 0 auto;
   perspective: 1000px;
 }
@@ -46,6 +46,11 @@
   z-index: 2;
   padding: 5.5rem 1.35rem 0 1.15rem;
   transform: translate3d(0, 0, 24px);
+  /* Hard ceiling so a long attendant name or route label can never grow into the floating
+     view/edit/delete controls docked at the bottom of this fixed-height card — clip instead of
+     overlapping and making the buttons hard to hit. */
+  max-height: 224px;
+  overflow: hidden;
 }
 
 .fleet-u3__title {
@@ -123,6 +128,12 @@
 .fleet-u3__text strong {
   color: rgba(12, 74, 110, 0.95);
   font-weight: 700;
+}
+
+.fleet-u3__line--attendant {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fleet-u3__line--route {
