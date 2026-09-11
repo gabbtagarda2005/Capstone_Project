@@ -25,6 +25,10 @@
   --ops-icon-text: #94a3b8;
   --ops-empty-border: rgba(148, 163, 184, 0.35);
   --ops-empty-text: rgba(148, 163, 184, 0.9);
+  /* Opaque approximations of --ops-panel-bg / the row-hover tint, for the sticky Actions column —
+     it needs a solid fill so scrolled-under row content doesn't show through underneath it. */
+  --ops-panel-bg-solid: #070f22;
+  --ops-row-hover-solid: #16264a;
 }
 
 /* Light mode — table chrome flips to a soft white/gray SaaS surface;
@@ -52,6 +56,8 @@
   --ops-icon-text: #52607a;
   --ops-empty-border: #e2e6ec;
   --ops-empty-text: #7c8798;
+  --ops-panel-bg-solid: #ffffff;
+  --ops-row-hover-solid: #e5edfb;
 }
 
 .live-ops-table__chips {
@@ -141,6 +147,31 @@
 .live-ops-table__actions {
   text-align: center;
   vertical-align: middle;
+}
+
+/* Pin the Actions column to the right edge of the horizontal scroll area so the edit/delete
+   buttons stay visible no matter how far a long table (or a narrow viewport) needs to scroll —
+   the previous layout could push them past the visible edge with the scrollbar itself far below
+   the fold on a tall table. Own opaque-matching background prevents scrolled-under cell content
+   from showing through while sticky. */
+.live-ops-table__th-actions,
+.live-ops-table__actions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.35);
+}
+
+.live-ops-table thead .live-ops-table__th-actions {
+  background: linear-gradient(180deg, var(--ops-head-a), var(--ops-head-b));
+}
+
+.live-ops-table tbody .live-ops-table__actions {
+  background: var(--ops-panel-bg-solid);
+}
+
+.live-ops-table tbody tr:hover .live-ops-table__actions {
+  background: var(--ops-row-hover-solid);
 }
 
 .live-ops-table__action-btns {
