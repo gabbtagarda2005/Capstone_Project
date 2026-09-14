@@ -1,5 +1,6 @@
 /* Admin marketing landing: part 1 full viewport hero, part 2 content + 3.jpg */
 
+#home,
 #download-app,
 #operational-mix,
 #roadmap,
@@ -97,10 +98,19 @@ html:has(.landing-page) {
   padding-bottom: 0.2rem;
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
+  outline: none;
 }
 
 .landing-nav__link:hover {
   color: #fff !important;
+}
+
+/* Own focus ring (instead of the browser default, which can render as an odd-looking box
+   floating around the link given this nav's custom underline styling). */
+.landing-nav__link:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.55);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .landing-nav__link--active {
@@ -138,8 +148,8 @@ html:has(.landing-page) {
 
 .landing-nav__status-dot {
   position: relative;
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: var(--lp-muted);
   flex-shrink: 0;
@@ -169,10 +179,10 @@ html:has(.landing-page) {
 
 @keyframes landing-status-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
   }
   70% {
-    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
@@ -520,21 +530,6 @@ html:has(.landing-page) {
   margin-bottom: 0.15rem;
 }
 
-.landing-hero__card-head--status {
-  justify-content: space-between;
-  font-size: 0.84rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  color: #fff;
-  margin-bottom: 0.6rem;
-}
-
-.landing-hero__card-head--status svg {
-  color: var(--lp-cyan);
-  opacity: 0.85;
-}
-
 .landing-hero__card-live-dot {
   width: 6px;
   height: 6px;
@@ -594,20 +589,11 @@ html:has(.landing-page) {
   right: -2%;
 }
 
-.landing-hero__card--status {
-  bottom: 6%;
-  right: -4%;
-  min-width: 13rem;
-}
-
 @media (max-width: 1100px) {
   .landing-hero__card--gps {
     left: 0;
   }
   .landing-hero__card--eta {
-    right: 0;
-  }
-  .landing-hero__card--status {
     right: 0;
   }
 }
@@ -619,50 +605,6 @@ html:has(.landing-page) {
     max-width: 20rem;
     margin: 0.5rem auto 0;
   }
-}
-
-.landing-hero__status-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.landing-hero__status-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.76rem;
-  color: rgba(226, 232, 240, 0.85);
-}
-
-.landing-hero__status-value {
-  margin-left: auto;
-  font-weight: 700;
-  color: #fff;
-}
-
-.landing-hero__status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--lp-muted);
-  flex-shrink: 0;
-}
-
-.landing-hero__status-dot.is-ok {
-  background: #34d399;
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.65);
-}
-
-.landing-hero__status-dot.is-bad {
-  background: #f87171;
-}
-
-.landing-hero__status-dot.is-muted {
-  background: rgba(148, 163, 184, 0.5);
 }
 
 /* Part 2: 3.jpg background; pulled up slightly so overlap hides any hairline seam */

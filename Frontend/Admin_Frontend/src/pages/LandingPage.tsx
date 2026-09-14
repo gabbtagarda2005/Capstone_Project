@@ -13,6 +13,15 @@ import "./LandingPage.css";
 
 const HERO_POLL_MS = 20_000;
 
+const NAV_LINKS = [
+  { id: "home", label: "Home" },
+  { id: "download-app", label: "Download App" },
+  { id: "operational-mix", label: "Operational Mix" },
+  { id: "roadmap", label: "Roadmap" },
+  { id: "people-behind", label: "People Behind" },
+] as const;
+type NavSectionId = (typeof NAV_LINKS)[number]["id"];
+
 function IconPin() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
@@ -97,16 +106,6 @@ function IconUser() {
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
       <circle cx="12" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.8" />
       <path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconSignal() {
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden>
-      <rect x="3" y="14" width="3.2" height="7" rx="1" fill="currentColor" />
-      <rect x="10.4" y="9" width="3.2" height="12" rx="1" fill="currentColor" />
-      <rect x="17.8" y="4" width="3.2" height="17" rx="1" fill="currentColor" />
     </svg>
   );
 }
@@ -214,6 +213,7 @@ export function LandingPage() {
   const [logoFailed, setLogoFailed] = useState(false);
   const [health, setHealth] = useState<PublicHealthDto | null>(null);
   const [featuredBus, setFeaturedBus] = useState<BusLiveLogRow | null>(null);
+  const [activeSection, setActiveSection] = useState<NavSectionId>("home");
 
   useEffect(() => {
     let cancelled = false;
@@ -265,6 +265,28 @@ export function LandingPage() {
     };
   }, []);
 
+  // Moves the nav's active-link underline to whichever section is actually in view, instead of
+  // leaving it stuck on "Home" — the click handlers on each link also set this immediately so the
+  // underline doesn't wait for the scroll to catch up.
+  useEffect(() => {
+    const els = NAV_LINKS.map((link) => document.getElementById(link.id)).filter(
+      (el): el is HTMLElement => el !== null
+    );
+    if (els.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id as NavSectionId);
+          }
+        }
+      },
+      { rootMargin: "-96px 0px -70% 0px", threshold: 0 }
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   const systemOnline = health?.ok === true && health.mongo === "connected";
   const etaBadge = delayBadge(featuredBus?.delay?.tier);
 
@@ -285,21 +307,16 @@ export function LandingPage() {
           <span className="landing-logo">{companyName}</span>
         </div>
         <nav className="landing-nav__links" aria-label="Primary">
-          <a href="/" className="landing-nav__link landing-nav__link--active">
-            Home
-          </a>
-          <a href="#download-app" className="landing-nav__link">
-            Download App
-          </a>
-          <a href="#operational-mix" className="landing-nav__link">
-            Operational Mix
-          </a>
-          <a href="#roadmap" className="landing-nav__link">
-            Roadmap
-          </a>
-          <a href="#people-behind" className="landing-nav__link">
-            People Behind
-          </a>
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.id}
+              href={`#${link.id}`}
+              className={`landing-nav__link ${activeSection === link.id ? "landing-nav__link--active" : ""}`}
+              onClick={() => setActiveSection(link.id)}
+            >
+              {link.label}
+            </a>
+          ))}
         </nav>
         <div className="landing-nav__right">
           <span className={`landing-nav__status ${systemOnline ? "is-online" : "is-offline"}`}>
@@ -312,7 +329,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      <section className="landing-part landing-part--1" style={part1Bg} aria-label="Welcome">
+      <section className="landing-part landing-part--1" id="home" style={part1Bg} aria-label="Welcome">
         <div className="landing-part--1__inner">
           <div className="landing-hero__grid">
             <div className="landing-hero__copy">
@@ -398,47 +415,6 @@ export function LandingPage() {
                   </span>
                 </div>
               ) : null}
-
-              <div className="landing-hero__card landing-hero__card--status" id="hero-network-status">
-                <div className="landing-hero__card-head landing-hero__card-head--status">
-                  Network Status
-                  <IconSignal />
-                </div>
-                <ul className="landing-hero__status-list">
-                  <li>
-                    <span
-                      className={`landing-hero__status-dot ${(health?.gpsActiveLast5Min ?? 0) > 0 ? "is-ok" : "is-muted"}`}
-                      aria-hidden
-                    />
-                    GPS
-                    <span className="landing-hero__status-value">
-                      {health ? ((health.gpsActiveLast5Min ?? 0) > 0 ? "Online" : "Idle") : "—"}
-                    </span>
-                  </li>
-                  <li>
-                    <span className={`landing-hero__status-dot ${health?.mongo === "connected" ? "is-ok" : "is-bad"}`} aria-hidden />
-                    Database
-                    <span className="landing-hero__status-value">
-                      {health ? (health.mongo === "connected" ? "Online" : "Offline") : "—"}
-                    </span>
-                  </li>
-                  <li>
-                    <span
-                      className={`landing-hero__status-dot ${health?.firebaseRtdb === "connected" ? "is-ok" : "is-muted"}`}
-                      aria-hidden
-                    />
-                    Realtime sync
-                    <span className="landing-hero__status-value">
-                      {health ? (health.firebaseRtdb === "connected" ? "Online" : "Off") : "—"}
-                    </span>
-                  </li>
-                  <li>
-                    <span className={`landing-hero__status-dot ${(health?.socketConnections ?? 0) > 0 ? "is-ok" : "is-muted"}`} aria-hidden />
-                    Live connections
-                    <span className="landing-hero__status-value">{health ? health.socketConnections : "—"}</span>
-                  </li>
-                </ul>
-              </div>
             </div>
           </div>
 
