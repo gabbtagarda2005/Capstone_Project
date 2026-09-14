@@ -101,6 +101,16 @@ function IconUser() {
   );
 }
 
+function IconSignal() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden>
+      <rect x="3" y="14" width="3.2" height="7" rx="1" fill="currentColor" />
+      <rect x="10.4" y="9" width="3.2" height="12" rx="1" fill="currentColor" />
+      <rect x="17.8" y="4" width="3.2" height="17" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 function IconScroll() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="24" fill="none" aria-hidden>
@@ -390,7 +400,10 @@ export function LandingPage() {
               ) : null}
 
               <div className="landing-hero__card landing-hero__card--status" id="hero-network-status">
-                <div className="landing-hero__card-head">Network Status</div>
+                <div className="landing-hero__card-head landing-hero__card-head--status">
+                  Network Status
+                  <IconSignal />
+                </div>
                 <ul className="landing-hero__status-list">
                   <li>
                     <span
