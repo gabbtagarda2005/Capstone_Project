@@ -278,17 +278,17 @@ export function LandingPage() {
           <a href="/" className="landing-nav__link landing-nav__link--active">
             Home
           </a>
-          <Link to="/passenger" className="landing-nav__link">
-            Track Bus
-          </Link>
-          <Link to="/passenger" className="landing-nav__link">
-            Routes
-          </Link>
-          <Link to="/passenger" className="landing-nav__link">
-            Terminals
-          </Link>
-          <a href="#hero-network-status" className="landing-nav__link">
-            System Status
+          <a href="#download-app" className="landing-nav__link">
+            Download App
+          </a>
+          <a href="#operational-mix" className="landing-nav__link">
+            Operational Mix
+          </a>
+          <a href="#roadmap" className="landing-nav__link">
+            Roadmap
+          </a>
+          <a href="#people-behind" className="landing-nav__link">
+            People Behind
           </a>
         </nav>
         <div className="landing-nav__right">
@@ -438,10 +438,10 @@ export function LandingPage() {
 
       <section className="landing-part landing-part--2" style={part2Bg} aria-label="Overview and roadmap">
         <div className="landing-part--2__shell">
-          <div className="landing-app-download-wrap">
+          <div className="landing-app-download-wrap" id="download-app">
             <AppDownloadCard />
           </div>
-          <section className="landing-section landing-section--operational">
+          <section className="landing-section landing-section--operational" id="operational-mix">
             <div className="landing-section__head">
               <h2>Operational mix</h2>
               <p>How effort typically splits across the ecosystem.</p>
@@ -495,7 +495,7 @@ export function LandingPage() {
             </div>
           </section>
 
-          <section className="landing-section landing-roadmap" aria-labelledby="landing-roadmap-title">
+          <section className="landing-section landing-roadmap" id="roadmap" aria-labelledby="landing-roadmap-title">
             <div className="landing-section__head">
               <h2 id="landing-roadmap-title">Roadmap</h2>
               <p>From first ping to province-wide reliability.</p>
@@ -567,7 +567,7 @@ export function LandingPage() {
             </div>
           </section>
 
-          <section className="landing-section landing-team" aria-label="People behind the system">
+          <section className="landing-section landing-team" id="people-behind" aria-label="People behind the system">
             <TeamShowcase variant="landing" companyName={companyName} />
           </section>
 
