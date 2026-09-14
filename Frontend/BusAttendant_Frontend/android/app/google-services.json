@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1054554871040",
+    "firebase_url": "https://bustracker-2966b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "bustracker-2966b",
+    "storage_bucket": "bustracker-2966b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1054554871040:android:efb453dd9e52c6a6094fe5",
+        "android_client_info": {
+          "package_name": "com.example.bus_attendant_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1054554871040-6p4umsjaog3ff5b0p8a4gtqokhvdd89r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMjFoqoEcSFxSPS2Lsyp5kTvxwQ1HNzD8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1054554871040-6p4umsjaog3ff5b0p8a4gtqokhvdd89r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

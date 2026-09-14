@@ -65,3 +65,12 @@ flutter {
 }
 
 dependencies {}
+
+// Google Sign-In (firebase_auth) needs the Google Services Gradle plugin, which in turn needs
+// google-services.json (from the Firebase console — see Frontend/BusAttendant_Frontend/README or
+// the project setup notes). Guarded so a build still succeeds before that file is added — Google
+// Sign-In just won't work at runtime until it's in place (Firebase.initializeApp() in main.dart
+// is itself wrapped in a try/catch for exactly this case).
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}

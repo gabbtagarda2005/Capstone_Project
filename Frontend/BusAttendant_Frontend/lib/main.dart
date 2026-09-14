@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'screens/login_screen.dart';
@@ -14,6 +15,14 @@ import 'widgets/maintenance_overlay_host.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Best-effort: Google Sign-In needs this, but its absence (e.g. google-services.json not yet
+  // added — see android/app/build.gradle) must never take down the rest of the app, since
+  // existing email/password login doesn't depend on Firebase at all.
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('[Firebase] initializeApp failed — Google Sign-In will be unavailable: $e');
+  }
   final themeProvider = ThemeProvider();
   await themeProvider.restore();
   runApp(BusAttendantApp(themeProvider: themeProvider));

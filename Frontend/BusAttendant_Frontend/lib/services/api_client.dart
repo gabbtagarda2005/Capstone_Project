@@ -71,7 +71,7 @@ class ApiClient {
           )
           .timeout(const Duration(seconds: 25));
     } catch (e) {
-      return ApiAuthResult.failure(mapRequestFailure('Login', e));
+      return ApiAuthResult.failure(mapRequestFailure('Login', e), isNetworkFailure: true);
     }
     if (res.statusCode == 200) {
       final map = jsonDecode(res.body) as Map<String, dynamic>;
@@ -114,6 +114,70 @@ class ApiClient {
       return ApiAuthResult.failure(err['error']?.toString() ?? 'Login failed');
     } catch (_) {
       return ApiAuthResult.failure('Login failed (${res.statusCode})');
+    }
+  }
+
+  /// "Continue with Google" — [idToken] is a Firebase ID token from GoogleAuthService.signIn().
+  /// The backend independently verifies it and matches it against a registered attendant
+  /// account (see routes/authTicketing.js:/operator-google-login) — this app never decides who
+  /// counts as an attendant, it just forwards the token and reports whatever the server decides.
+  /// Same response shape and same rules as [login] (a missing ticketingToken is still a hard
+  /// failure), so both paths feed the same [ApiAuthResult] the caller already knows how to use.
+  Future<ApiAuthResult> loginWithGoogle({required String idToken}) async {
+    final uri = Uri.parse('$baseUrl/api/auth/operator-google-login');
+    http.Response res;
+    try {
+      res = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'idToken': idToken}),
+          )
+          .timeout(const Duration(seconds: 25));
+    } catch (e) {
+      return ApiAuthResult.failure(mapRequestFailure('Google login', e));
+    }
+    if (res.statusCode == 200) {
+      final map = jsonDecode(res.body) as Map<String, dynamic>;
+      final token = map['token'] as String?;
+      if (token == null || token.isEmpty) {
+        return ApiAuthResult.failure('Invalid response: no token');
+      }
+      final user = map['user'] as Map<String, dynamic>?;
+      final name = user != null
+          ? '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim()
+          : '';
+      final rawTicketing = map['ticketingToken'];
+      final ticketingToken =
+          rawTicketing is String && rawTicketing.trim().isNotEmpty ? rawTicketing.trim() : null;
+      if (ticketingToken == null || ticketingToken.isEmpty) {
+        return ApiAuthResult.failure(
+          'No operator token (ticketingToken) from server — live map cannot sync. '
+          'Restart Admin_Backend (4001); sign in again.',
+        );
+      }
+      return ApiAuthResult.ok(
+        token: token,
+        displayName: name.isEmpty ? 'Attendant' : name,
+        ticketingToken: ticketingToken,
+      );
+    }
+    if (res.statusCode == 503) {
+      try {
+        final err = jsonDecode(res.body) as Map<String, dynamic>;
+        if (err['maintenance'] == true) {
+          MaintenanceShield.instance.applyFrom503Body(err);
+          return ApiAuthResult.failure(
+            err['message']?.toString() ?? 'System maintenance in progress.',
+          );
+        }
+      } catch (_) {}
+    }
+    try {
+      final err = jsonDecode(res.body) as Map<String, dynamic>;
+      return ApiAuthResult.failure(err['error']?.toString() ?? 'Google login failed');
+    } catch (_) {
+      return ApiAuthResult.failure('Google login failed (${res.statusCode})');
     }
   }
 
@@ -1794,6 +1858,7 @@ class ApiAuthResult {
     this.displayName,
     this.ticketingToken,
     this.message,
+    this.isNetworkFailure = false,
   });
 
   factory ApiAuthResult.ok({
@@ -1803,7 +1868,8 @@ class ApiAuthResult {
   }) =>
       ApiAuthResult._(ok: true, token: token, displayName: displayName, ticketingToken: ticketingToken);
 
-  factory ApiAuthResult.failure(String message) => ApiAuthResult._(ok: false, message: message);
+  factory ApiAuthResult.failure(String message, {bool isNetworkFailure = false}) =>
+      ApiAuthResult._(ok: false, message: message, isNetworkFailure: isNetworkFailure);
 
   final bool ok;
   final String? token;
@@ -1811,6 +1877,11 @@ class ApiAuthResult {
   /// Admin `JWT_SECRET` operator token — required for bus assignment + live GPS ping.
   final String? ticketingToken;
   final String? message;
+  /// True only when the request never reached the server (offline, DNS, timeout, etc.) — as
+  /// opposed to the server actually rejecting the credentials. LoginScreen uses this to decide
+  /// whether an offline-credential fallback even applies (never falls back after a real
+  /// "invalid credentials" rejection from a reachable server).
+  final bool isNetworkFailure;
 }
 
 class ApiRecoveryPreview {

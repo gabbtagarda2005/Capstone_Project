@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/api_client.dart';
 import '../services/app_broadcast_controller.dart';
 import '../services/weather_advisory_controller.dart';
+import '../services/google_auth_service.dart';
 import '../services/gps_outbox_store.dart';
 import '../services/live_fleet_socket.dart';
 import '../services/network_signal_tier.dart';
@@ -1027,6 +1028,12 @@ class _MainShellState extends State<MainShell> {
     } catch (_) {}
     _liveFleet?.disconnect();
     _liveFleet = null;
+    // Best-effort, safe to call even for a password-authenticated session (no-op if there's no
+    // Google session) — clears the native Google account cache so the next "Continue with
+    // Google" shows the account picker again instead of silently reusing this one.
+    try {
+      await GoogleAuthService().signOut();
+    } catch (_) {}
     await _session.clear();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

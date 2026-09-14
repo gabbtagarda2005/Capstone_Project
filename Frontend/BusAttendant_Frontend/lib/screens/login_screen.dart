@@ -4,10 +4,39 @@ import 'dart:ui';
 
 import '../config/app_branding.dart';
 import '../services/api_client.dart';
+import '../services/google_auth_service.dart';
+import '../services/offline_credential_store.dart';
 import '../services/session_store.dart';
 import '../theme/app_colors.dart';
 import '../widgets/attendant_account_recovery_dialog.dart';
+import '../widgets/google_logo.dart';
 import 'main_shell.dart';
+
+/// "Continue with Google" button content — Google's own branding guidelines for the light
+/// button variant (white background, `#1F1F1F` text, the real multicolor "G" mark).
+class _GoogleButtonLabel extends StatelessWidget {
+  const _GoogleButtonLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        GoogleLogo(size: 20),
+        SizedBox(width: 12),
+        Text(
+          'Continue with Google',
+          style: TextStyle(
+            color: Color(0xFF1F1F1F),
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -28,7 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   final _api = ApiClient();
   final _session = SessionStore();
+  final _googleAuth = GoogleAuthService();
+  final _offlineCreds = OfflineCredentialStore();
   bool _busy = false;
+  bool _googleBusy = false;
   String? _error;
   String _companyName = kAppCompanyName;
 
@@ -78,23 +110,44 @@ class _LoginScreenState extends State<LoginScreen> {
       final r = await _api.login(email: email, password: pass);
       if (!mounted) return;
       if (r.ok && r.token != null && r.displayName != null) {
-        await _session.saveSession(
+        // Cache a verifier for this login so the same email+password can sign back in with no
+        // connection at all later (see OfflineCredentialStore) — never the password itself.
+        unawaited(_offlineCreds.saveVerifiedLogin(
+          email: email,
+          password: pass,
           token: r.token!,
           displayName: r.displayName!,
           ticketingToken: r.ticketingToken,
-        );
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => MainShell(
-              displayName: r.displayName!,
-              isDarkMode: widget.isDarkMode,
-              onToggleDarkMode: widget.onToggleDarkMode ?? () {},
-            ),
-          ),
-        );
+        ));
+        await _enterApp(token: r.token!, displayName: r.displayName!, ticketingToken: r.ticketingToken);
         return;
       }
+
+      // Only fall back to an offline-cached login when the request never reached the server —
+      // a real "invalid credentials" rejection from a reachable server must never be bypassed.
+      if (r.isNetworkFailure) {
+        final offline = await _offlineCreds.tryOfflineLogin(email: email, password: pass);
+        if (!mounted) return;
+        if (offline != null) {
+          await _enterApp(
+            token: offline.token,
+            displayName: offline.displayName,
+            ticketingToken: offline.ticketingToken,
+            offline: true,
+          );
+          return;
+        }
+        final hasCached = await _offlineCreds.hasAnyCachedAccount();
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _error = hasCached
+              ? 'No internet connection, and this email/password doesn\'t match the account saved on this device.'
+              : 'No internet connection. Sign in online at least once on this device before offline sign-in works.';
+        });
+        return;
+      }
+
       setState(() {
         _busy = false;
         _error = r.message ?? 'Login failed';
@@ -104,6 +157,89 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _busy = false;
         _error = _api.mapRequestFailure('Login', e);
+      });
+    }
+  }
+
+  Future<void> _enterApp({
+    required String token,
+    required String displayName,
+    String? ticketingToken,
+    bool offline = false,
+  }) async {
+    await _session.saveSession(token: token, displayName: displayName, ticketingToken: ticketingToken);
+    if (!mounted) return;
+    if (offline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Signed in offline — some features need a connection.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => MainShell(
+          displayName: displayName,
+          isDarkMode: widget.isDarkMode,
+          onToggleDarkMode: widget.onToggleDarkMode ?? () {},
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitGoogle() async {
+    setState(() {
+      _error = null;
+      _googleBusy = true;
+    });
+
+    final outcome = await _googleAuth.signIn();
+    if (!mounted) return;
+
+    switch (outcome.type) {
+      case GoogleAuthOutcomeType.cancelled:
+        // Not an error — the attendant closed the account picker. Just go back to idle.
+        setState(() => _googleBusy = false);
+        return;
+      case GoogleAuthOutcomeType.accountSelectionFailed:
+        setState(() {
+          _googleBusy = false;
+          _error = outcome.message ?? 'Could not open Google account selection.';
+        });
+        return;
+      case GoogleAuthOutcomeType.firebaseFailed:
+        setState(() {
+          _googleBusy = false;
+          _error = outcome.message ?? 'Google sign-in failed.';
+        });
+        return;
+      case GoogleAuthOutcomeType.success:
+        break;
+    }
+
+    try {
+      final r = await _api.loginWithGoogle(idToken: outcome.idToken!);
+      if (!mounted) return;
+      if (r.ok && r.token != null && r.displayName != null) {
+        await _enterApp(token: r.token!, displayName: r.displayName!, ticketingToken: r.ticketingToken);
+        return;
+      }
+      // Backend rejected this Google account (not a registered/active attendant) — sign it back
+      // out of the native Google session too, so a retry shows the account picker again instead
+      // of silently re-trying the same rejected account.
+      await _googleAuth.signOut();
+      if (!mounted) return;
+      setState(() {
+        _googleBusy = false;
+        _error = r.message ?? 'Google login failed';
+      });
+    } catch (e) {
+      await _googleAuth.signOut();
+      if (!mounted) return;
+      setState(() {
+        _googleBusy = false;
+        _error = _api.mapRequestFailure('Google login', e);
       });
     }
   }
@@ -394,7 +530,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _busy ? null : _submit,
+                            onPressed: (_busy || _googleBusy) ? null : _submit,
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size.fromHeight(46),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -410,10 +546,70 @@ class _LoginScreenState extends State<LoginScreen> {
                                 : const Text('Log In'),
                           ),
                         ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: AppColors.white.withValues(alpha: 0.24))),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Text(
+                                'or',
+                                style: TextStyle(color: AppColors.white.withValues(alpha: 0.65), fontSize: 12),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: AppColors.white.withValues(alpha: 0.24))),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: (_busy || _googleBusy) ? null : _submitGoogle,
+                              child: Ink(
+                                height: 46,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(color: const Color(0xFFDADCE0)),
+                                ),
+                                child: Center(
+                                  child: (_busy || _googleBusy)
+                                      ? (_googleBusy
+                                          ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Color(0xFF1F1F1F),
+                                              ),
+                                            )
+                                          : const Opacity(
+                                              opacity: 0.4,
+                                              child: _GoogleButtonLabel(),
+                                            ))
+                                      : const _GoogleButtonLabel(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         Align(
                           alignment: Alignment.center,
                           child: TextButton(
-                            onPressed: _busy ? null : _showForgotPasswordDialog,
+                            onPressed: (_busy || _googleBusy) ? null : _showForgotPasswordDialog,
                             child: const Text(
                               'Forgot password?',
                               style: TextStyle(color: AppColors.white),
