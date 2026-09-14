@@ -361,6 +361,98 @@ function createAuthTicketingRouter() {
   });
 
   /**
+   * Bus attendant app: "Continue with Google". Google/Firebase only prove which Google account
+   * signed in — they do NOT prove the caller is an authorized bus attendant. Authorization is
+   * still this route's job: the verified email must match an EXISTING PortalUser with an
+   * attendant role, with the exact same bus-assignment/active check /operator-login already
+   * enforces. Deliberately find-only (no upsert) — an unrecognized Google account is rejected,
+   * never silently turned into a new attendant account.
+   */
+  router.post("/operator-google-login", async (req, res) => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(503).json({ error: "JWT_SECRET not configured" });
+    }
+
+    const idToken = String(req.body?.idToken || "");
+    if (!idToken) return res.status(400).json({ error: "idToken is required" });
+
+    let decoded;
+    try {
+      decoded = await verifyFirebaseIdToken(idToken);
+    } catch (e) {
+      return res.status(401).json({ error: "Invalid or expired Google sign-in." });
+    }
+
+    // The email used for matching is always the one Firebase verified server-side — the client
+    // never gets to assert its own email for this decision.
+    if (decoded.email_verified !== true) {
+      return res.status(401).json({ error: "Google account email is not verified." });
+    }
+    const email = normalizeEmail(decoded.email);
+    if (!email) return res.status(400).json({ error: "Google account has no email" });
+
+    try {
+      const doc = await PortalUser.findOne({ email, role: { $in: ["BusAttendant", "Operator"] } });
+      if (!doc) {
+        return res.status(403).json({
+          error:
+            "This Google account is not registered as a bus attendant. Ask your administrator to " +
+            "add it, or sign in with your attendant email and password.",
+        });
+      }
+
+      const portal = await getPortalSettingsLean();
+      const applyLock = portal.securityPolicyApplyAttendant !== false;
+      if (applyLock) {
+        const lock = await isLockedOut(email, "attendant");
+        if (lock.locked) {
+          return res.status(403).json({
+            error: "Account temporarily locked after failed sign-in attempts. Try again later.",
+            lockedUntil: lock.lockedUntil.toISOString(),
+          });
+        }
+      }
+
+      const assignedBus = await Bus.findOne({ operatorPortalUserId: doc._id }).select("_id status").lean();
+      if (!assignedBus) {
+        return res.status(403).json({ error: BUS_ASSIGNMENT_REQUIRED_MSG });
+      }
+      if (String(assignedBus.status || "").trim() === "Inactive") {
+        return res.status(403).json({
+          error:
+            "Your assigned bus has been deactivated. You cannot sign in until an administrator reactivates the unit in Fleet management.",
+        });
+      }
+
+      // Light metadata touch only — never changes role/password, never upserts.
+      doc.authProvider = "google";
+      doc.firebaseUid = decoded.uid || doc.firebaseUid || null;
+      if (!doc.photoURL && decoded.picture) doc.photoURL = decoded.picture;
+      await doc.save();
+
+      await clearLockoutOnSuccess(email, "attendant");
+      const token = signToken(
+        { sub: doc._id.toString(), role: doc.role, email: doc.email, authStore: "mongo" },
+        secret
+      );
+      AdminAuditLog.create({
+        email,
+        module: "Authentication",
+        action: "LOGIN",
+        details: "Bus attendant signed in with Google.",
+        httpMethod: "POST",
+        path: "/api/auth/operator-google-login",
+        statusCode: 200,
+        source: "http",
+      }).catch(() => {});
+      return res.json({ token, ticketingToken: token, user: withNonAdminUser(mapMongoUser(doc)) });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  /**
    * Bus attendant app: request 6-digit OTP after verifying email + personnel ID (employee_id or legacy operator_id / Mongo id).
    */
   router.post("/operator-forgot-email", async (req, res) => {
