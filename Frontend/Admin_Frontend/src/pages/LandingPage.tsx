@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchPublicCompanyProfile } from "@/lib/api";
+import { fetchPublicCompanyProfile, fetchPublicHealth, fetchPublicLiveBuses, type PublicHealthDto } from "@/lib/api";
+import type { BusLiveLogRow } from "@/lib/types";
 import img1 from "@/Image/1.jpg";
 import img2 from "@/Image/2.jpg";
 import img3 from "@/Image/3.jpg";
@@ -9,6 +10,124 @@ import { AppDownloadCard } from "@/components/AppDownloadCard";
 import { TeamShowcase } from "@/components/TeamShowcase";
 import { Bus3DHero } from "@/components/Bus3DHero";
 import "./LandingPage.css";
+
+const HERO_POLL_MS = 20_000;
+
+function IconPin() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
+      <path
+        d="M12 22s7-6.4 7-12a7 7 0 1 0-14 0c0 5.6 7 12 7 12z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function IconMap() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
+      <path
+        d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M9 4v14M15 6v14" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function IconGps() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 2v3M12 19v3M2 12h3M19 12h3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconRoute() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden>
+      <circle cx="6" cy="6" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="18" cy="18" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M8 6h6a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4H8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconShield() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden>
+      <path
+        d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconClock() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7v5l3.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
+      <circle cx="12" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconScroll() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="24" fill="none" aria-hidden>
+      <rect x="7" y="2" width="10" height="18" rx="5" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="8" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function delayBadge(tier: string | undefined): { label: string; tone: "ok" | "warn" | "bad" | "muted" } {
+  switch (tier) {
+    case "EARLY":
+      return { label: "EARLY", tone: "ok" };
+    case "ON_TIME":
+      return { label: "ON TIME", tone: "ok" };
+    case "MINOR_DELAY":
+      return { label: "MINOR DELAY", tone: "warn" };
+    case "MODERATE_DELAY":
+      return { label: "DELAYED", tone: "warn" };
+    case "SEVERE_DELAY":
+      return { label: "SEVERE DELAY", tone: "bad" };
+    case "STOPPED":
+      return { label: "STOPPED", tone: "warn" };
+    default:
+      return { label: "—", tone: "muted" };
+  }
+}
 
 const part1Bg: CSSProperties = {
   backgroundColor: "#020617",
@@ -83,6 +202,8 @@ export function LandingPage() {
   const [companyName, setCompanyName] = useState("Bukidnon Bus Company");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [health, setHealth] = useState<PublicHealthDto | null>(null);
+  const [featuredBus, setFeaturedBus] = useState<BusLiveLogRow | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +221,43 @@ export function LandingPage() {
     };
   }, []);
 
+  // Real system status + a real live bus for the hero's floating cards — never a fabricated
+  // "always online" badge or a made-up bus reading (see services/congestionEngine.js /
+  // routes/buses.js "/live" on the backend, the same real data the fleet map itself uses).
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const h = await fetchPublicHealth();
+        if (!cancelled) setHealth(h);
+      } catch {
+        if (!cancelled) setHealth(null);
+      }
+      try {
+        const buses = await fetchPublicLiveBuses();
+        if (cancelled) return;
+        const live = (buses.items || []).find(
+          (b) =>
+            (b.gpsFreshness === "live" || b.gpsFreshness === "recent") &&
+            Number.isFinite(b.latitude) &&
+            Number.isFinite(b.longitude)
+        );
+        setFeaturedBus(live || null);
+      } catch {
+        if (!cancelled) setFeaturedBus(null);
+      }
+    };
+    void load();
+    const id = window.setInterval(() => void load(), HERO_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const systemOnline = health?.ok === true && health.mongo === "connected";
+  const etaBadge = delayBadge(featuredBus?.delay?.tier);
+
   const year = new Date().getFullYear();
 
   return (
@@ -116,32 +274,164 @@ export function LandingPage() {
           ) : null}
           <span className="landing-logo">{companyName}</span>
         </div>
-        <Link to="/login" className="landing-nav__cta">
-          Sign in
-        </Link>
+        <nav className="landing-nav__links" aria-label="Primary">
+          <a href="/" className="landing-nav__link landing-nav__link--active">
+            Home
+          </a>
+          <Link to="/passenger" className="landing-nav__link">
+            Track Bus
+          </Link>
+          <Link to="/passenger" className="landing-nav__link">
+            Routes
+          </Link>
+          <Link to="/passenger" className="landing-nav__link">
+            Terminals
+          </Link>
+          <a href="#hero-network-status" className="landing-nav__link">
+            System Status
+          </a>
+        </nav>
+        <div className="landing-nav__right">
+          <span className={`landing-nav__status ${systemOnline ? "is-online" : "is-offline"}`}>
+            <span className="landing-nav__status-dot" aria-hidden />
+            {health ? (systemOnline ? "System Online" : "System Issue") : "Checking…"}
+          </span>
+          <Link to="/login" className="landing-nav__cta">
+            <IconUser /> Sign in
+          </Link>
+        </div>
       </header>
 
       <section className="landing-part landing-part--1" style={part1Bg} aria-label="Welcome">
         <div className="landing-part--1__inner">
           <div className="landing-hero__grid">
             <div className="landing-hero__copy">
-              <p className="landing-hero__eyebrow">Real-time · IoT · Operations</p>
+              <p className="landing-hero__eyebrow">Bukidnon Mobility Network</p>
               <h1 className="landing-hero__title">
-                <span className="landing-hero__title-welcome">Welcome to</span>{" "}
-                <span className="landing-hero__title-brand">{companyName}</span>
+                <span className="landing-hero__title-line">Know Where</span>
+                <span className="landing-hero__title-line landing-hero__title-line--accent">Your Bus Is.</span>
               </h1>
+              <p className="landing-hero__desc">
+                Real-time bus tracking, route information, estimated arrival times, and transport
+                updates — built for smarter mobility across Bukidnon.
+              </p>
               <div className="landing-hero__actions">
-                <Link to="/login" className="landing-hero__go landing-hero__go--primary">
-                  Get Started ↗
+                <Link to="/passenger" className="landing-hero__go landing-hero__go--primary">
+                  <IconPin /> Track a Bus
                 </Link>
                 <Link to="/passenger" className="landing-hero__go landing-hero__go--secondary">
-                  Track Bus ↗
+                  <IconMap /> Explore Routes
                 </Link>
               </div>
+              <ul className="landing-hero__features">
+                <li>
+                  <span className="landing-hero__feature-icon">
+                    <IconGps />
+                  </span>
+                  <span>
+                    <strong>Real-Time GPS</strong>
+                    <span>Live bus locations</span>
+                  </span>
+                </li>
+                <li>
+                  <span className="landing-hero__feature-icon">
+                    <IconRoute />
+                  </span>
+                  <span>
+                    <strong>Smart Routes</strong>
+                    <span>Optimized schedules</span>
+                  </span>
+                </li>
+                <li>
+                  <span className="landing-hero__feature-icon">
+                    <IconShield />
+                  </span>
+                  <span>
+                    <strong>Safe &amp; Reliable</strong>
+                    <span>For every commuter</span>
+                  </span>
+                </li>
+              </ul>
             </div>
             <div className="landing-hero__visual">
               <Bus3DHero />
+
+              {featuredBus ? (
+                <div className="landing-hero__card landing-hero__card--gps">
+                  <div className="landing-hero__card-head">
+                    <IconPin />
+                    LIVE GPS
+                    <span className="landing-hero__card-live-dot" aria-hidden />
+                  </div>
+                  <strong className="landing-hero__card-title">{featuredBus.busId}</strong>
+                  <span className="landing-hero__card-line">
+                    {featuredBus.latitude.toFixed(4)}° N, {featuredBus.longitude.toFixed(4)}° E
+                  </span>
+                  {featuredBus.speedKph != null ? (
+                    <span className="landing-hero__card-line">{Math.round(featuredBus.speedKph)} km/h</span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {featuredBus && featuredBus.etaMinutes != null ? (
+                <div className="landing-hero__card landing-hero__card--eta">
+                  <div className="landing-hero__card-head">
+                    <IconClock />
+                    ETA
+                  </div>
+                  <strong className="landing-hero__card-title">{Math.round(featuredBus.etaMinutes)} min</strong>
+                  {featuredBus.nextTerminal ? (
+                    <span className="landing-hero__card-line">to {featuredBus.nextTerminal}</span>
+                  ) : null}
+                  <span className={`landing-hero__card-badge landing-hero__card-badge--${etaBadge.tone}`}>
+                    {etaBadge.label}
+                  </span>
+                </div>
+              ) : null}
+
+              <div className="landing-hero__card landing-hero__card--status" id="hero-network-status">
+                <div className="landing-hero__card-head">Network Status</div>
+                <ul className="landing-hero__status-list">
+                  <li>
+                    <span
+                      className={`landing-hero__status-dot ${(health?.gpsActiveLast5Min ?? 0) > 0 ? "is-ok" : "is-muted"}`}
+                      aria-hidden
+                    />
+                    GPS
+                    <span className="landing-hero__status-value">
+                      {health ? ((health.gpsActiveLast5Min ?? 0) > 0 ? "Online" : "Idle") : "—"}
+                    </span>
+                  </li>
+                  <li>
+                    <span className={`landing-hero__status-dot ${health?.mongo === "connected" ? "is-ok" : "is-bad"}`} aria-hidden />
+                    Database
+                    <span className="landing-hero__status-value">
+                      {health ? (health.mongo === "connected" ? "Online" : "Offline") : "—"}
+                    </span>
+                  </li>
+                  <li>
+                    <span
+                      className={`landing-hero__status-dot ${health?.firebaseRtdb === "connected" ? "is-ok" : "is-muted"}`}
+                      aria-hidden
+                    />
+                    Realtime sync
+                    <span className="landing-hero__status-value">
+                      {health ? (health.firebaseRtdb === "connected" ? "Online" : "Off") : "—"}
+                    </span>
+                  </li>
+                  <li>
+                    <span className={`landing-hero__status-dot ${(health?.socketConnections ?? 0) > 0 ? "is-ok" : "is-muted"}`} aria-hidden />
+                    Live connections
+                    <span className="landing-hero__status-value">{health ? health.socketConnections : "—"}</span>
+                  </li>
+                </ul>
+              </div>
             </div>
+          </div>
+
+          <div className="landing-hero__scroll">
+            <IconScroll />
+            Scroll to explore
           </div>
         </div>
       </section>

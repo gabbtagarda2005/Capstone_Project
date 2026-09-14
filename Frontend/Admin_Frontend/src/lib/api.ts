@@ -3,6 +3,7 @@ import type {
   CorridorBuilderStop,
   CorridorBuilderTerminal,
   CorridorRouteRow,
+  BusLiveLogRow,
   AdminAuditLogRowDto,
   AdminPortalSettingsDto,
   AdminRbacRole,
@@ -723,6 +724,27 @@ export type PublicCompanyProfile = {
 /** No JWT — same payload passenger/attendant apps use for company header. */
 export async function fetchPublicCompanyProfile(): Promise<PublicCompanyProfile> {
   return api<PublicCompanyProfile>("/api/public/company-profile", { authToken: null });
+}
+
+export type PublicHealthDto = {
+  ok: boolean;
+  mongo: "connected" | "disconnected";
+  firebaseRtdb: "connected" | "disabled" | "error";
+  gpsLiveBusCount: number | null;
+  gpsActiveLast5Min: number | null;
+  socketConnections: number;
+};
+
+/** No JWT — same real counters services/congestionEngine.js-adjacent Command Center diagnostics
+ *  use, reused here so the public landing page never shows a fabricated "system status". */
+export async function fetchPublicHealth(): Promise<PublicHealthDto> {
+  return api<PublicHealthDto>("/health", { authToken: null });
+}
+
+/** No JWT — same endpoint the passenger map polls; used on the landing hero to feature one real
+ *  live bus instead of a made-up example. */
+export async function fetchPublicLiveBuses(): Promise<{ items: BusLiveLogRow[] }> {
+  return api<{ items: BusLiveLogRow[] }>("/api/buses/live", { authToken: null });
 }
 
 export async function fetchManagementHubStats(): Promise<ManagementHubStatsDto> {

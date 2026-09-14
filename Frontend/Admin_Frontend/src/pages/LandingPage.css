@@ -66,7 +66,97 @@
   max-width: min(70vw, 640px);
 }
 
+.landing-nav__links {
+  display: none;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+@media (min-width: 901px) {
+  .landing-nav__links {
+    display: flex;
+  }
+}
+
+.landing-nav__link {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.8) !important;
+  text-decoration: none !important;
+  padding-bottom: 0.2rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.landing-nav__link:hover {
+  color: #fff !important;
+}
+
+.landing-nav__link--active {
+  color: #fff !important;
+  border-bottom-color: var(--lp-cyan);
+}
+
+.landing-nav__right {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-shrink: 0;
+}
+
+.landing-nav__status {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: var(--lp-muted);
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .landing-nav__status {
+    display: inline-flex;
+  }
+}
+
+.landing-nav__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--lp-muted);
+}
+
+.landing-nav__status.is-online {
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.landing-nav__status.is-online .landing-nav__status-dot {
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.65);
+}
+
+.landing-nav__status.is-offline {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.landing-nav__status.is-offline .landing-nav__status-dot {
+  background: #f87171;
+}
+
 .landing-nav__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   flex-shrink: 0;
   white-space: nowrap;
   padding: 0.5rem 1.1rem;
@@ -185,26 +275,21 @@
 
 .landing-hero__title {
   margin: 0 0 1rem;
-  font-size: clamp(2rem, 4.5vw, 3.25rem);
+  font-size: clamp(2.4rem, 5.5vw, 4rem);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.08;
   letter-spacing: -0.04em;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-hero__title-line {
   color: #fff;
 }
 
-.landing-hero__title-welcome {
-  color: #fff;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-
-/* Company name — gradient span; use headline font (not Syne) so the line doesn’t
-   break one word per column; wide wordmark + clipped gradient reads “vertical” */
-.landing-hero__title-brand {
-  font-family: inherit;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  background: linear-gradient(90deg, #fff 0%, #22d3ee 50%, #60a5fa 100%);
+.landing-hero__title-line--accent {
+  background: linear-gradient(90deg, #38bdf8 0%, #60a5fa 55%, #818cf8 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -280,9 +365,93 @@
   box-shadow: 0 0 24px rgba(34, 211, 238, 0.2);
 }
 
+.landing-hero__features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  .landing-hero__features {
+    justify-content: center;
+  }
+}
+
+.landing-hero__features li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.landing-hero__features li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.landing-hero__features strong {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.landing-hero__features li > span:last-child > span {
+  font-size: 0.76rem;
+  color: var(--lp-muted);
+}
+
+.landing-hero__feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: rgba(34, 211, 238, 0.1);
+  color: var(--lp-cyan);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+}
+
+.landing-hero__scroll {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 3rem;
+  font-size: 0.78rem;
+  color: var(--lp-muted);
+}
+
+@media (max-width: 900px) {
+  .landing-hero__scroll {
+    justify-content: center;
+    margin-top: 2rem;
+  }
+}
+
+.landing-hero__scroll svg {
+  animation: landing-scroll-bob 1.8s ease-in-out infinite;
+  opacity: 0.85;
+}
+
+@keyframes landing-scroll-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
 /* Hero visual: interactive 3D bus (right column) — see Bus3DHero.tsx/.css for the actual
-   scene; this wrapper just centers it and mirrors the old element's desktop alignment. */
+   scene; this wrapper just centers it and mirrors the old element's desktop alignment. The
+   floating cards below are absolutely positioned relative to this box. */
 .landing-hero__visual {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,6 +461,167 @@
   .landing-hero__visual {
     justify-content: flex-end;
   }
+}
+
+/* Floating glass cards over the bus image — real data only (see LandingPage.tsx), so every
+   card degrades honestly (hidden, or "—") instead of showing a placeholder reading. */
+.landing-hero__card {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 9.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.5);
+  font-size: 0.78rem;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.landing-hero__card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-cyan);
+  margin-bottom: 0.15rem;
+}
+
+.landing-hero__card-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.75);
+  margin-left: auto;
+}
+
+.landing-hero__card-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.landing-hero__card-line {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.landing-hero__card-badge {
+  align-self: flex-start;
+  margin-top: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.landing-hero__card-badge--ok {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+}
+
+.landing-hero__card-badge--warn {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+}
+
+.landing-hero__card-badge--bad {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+}
+
+.landing-hero__card-badge--muted {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--lp-muted);
+}
+
+.landing-hero__card--gps {
+  top: 8%;
+  left: -4%;
+}
+
+.landing-hero__card--eta {
+  top: 6%;
+  right: -2%;
+}
+
+.landing-hero__card--status {
+  bottom: 6%;
+  right: -4%;
+  min-width: 11.5rem;
+}
+
+@media (max-width: 1100px) {
+  .landing-hero__card--gps {
+    left: 0;
+  }
+  .landing-hero__card--eta {
+    right: 0;
+  }
+  .landing-hero__card--status {
+    right: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .landing-hero__card {
+    position: static;
+    width: 100%;
+    max-width: 20rem;
+    margin: 0.5rem auto 0;
+  }
+}
+
+.landing-hero__status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.landing-hero__status-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.landing-hero__status-value {
+  margin-left: auto;
+  font-weight: 700;
+  color: #fff;
+}
+
+.landing-hero__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--lp-muted);
+  flex-shrink: 0;
+}
+
+.landing-hero__status-dot.is-ok {
+  background: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.65);
+}
+
+.landing-hero__status-dot.is-bad {
+  background: #f87171;
+}
+
+.landing-hero__status-dot.is-muted {
+  background: rgba(148, 163, 184, 0.5);
 }
 
 /* Part 2: 3.jpg background; pulled up slightly so overlap hides any hairline seam */
