@@ -13,15 +13,6 @@ import "./LandingPage.css";
 
 const HERO_POLL_MS = 20_000;
 
-const NAV_LINKS = [
-  { id: "home", label: "Home" },
-  { id: "download-app", label: "Download App" },
-  { id: "operational-mix", label: "Operational Mix" },
-  { id: "roadmap", label: "Roadmap" },
-  { id: "people-behind", label: "People Behind" },
-] as const;
-type NavSectionId = (typeof NAV_LINKS)[number]["id"];
-
 function IconPin() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
@@ -212,7 +203,6 @@ export function LandingPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
   const [featuredBus, setFeaturedBus] = useState<BusLiveLogRow | null>(null);
-  const [activeSection, setActiveSection] = useState<NavSectionId>("home");
 
   useEffect(() => {
     let cancelled = false;
@@ -257,28 +247,6 @@ export function LandingPage() {
     };
   }, []);
 
-  // Moves the nav's active-link underline to whichever section is actually in view, instead of
-  // leaving it stuck on "Home" — the click handlers on each link also set this immediately so the
-  // underline doesn't wait for the scroll to catch up.
-  useEffect(() => {
-    const els = NAV_LINKS.map((link) => document.getElementById(link.id)).filter(
-      (el): el is HTMLElement => el !== null
-    );
-    if (els.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id as NavSectionId);
-          }
-        }
-      },
-      { rootMargin: "-96px 0px -70% 0px", threshold: 0 }
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
-
   const etaBadge = delayBadge(featuredBus?.delay?.tier);
 
   const year = new Date().getFullYear();
@@ -297,18 +265,6 @@ export function LandingPage() {
           ) : null}
           <span className="landing-logo">{companyName}</span>
         </div>
-        <nav className="landing-nav__links" aria-label="Primary">
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.id}
-              href={`#${link.id}`}
-              className={`landing-nav__link ${activeSection === link.id ? "landing-nav__link--active" : ""}`}
-              onClick={() => setActiveSection(link.id)}
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
         <div className="landing-nav__right">
           <Link to="/login" className="landing-nav__cta">
             <IconUser /> Sign in
