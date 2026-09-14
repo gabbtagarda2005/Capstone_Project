@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchPublicCompanyProfile, fetchPublicHealth, fetchPublicLiveBuses, type PublicHealthDto } from "@/lib/api";
+import { fetchPublicCompanyProfile, fetchPublicLiveBuses } from "@/lib/api";
 import type { BusLiveLogRow } from "@/lib/types";
 import img1 from "@/Image/1.jpg";
 import img2 from "@/Image/2.jpg";
@@ -211,7 +211,6 @@ export function LandingPage() {
   const [companyName, setCompanyName] = useState("Bukidnon Bus Company");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
-  const [health, setHealth] = useState<PublicHealthDto | null>(null);
   const [featuredBus, setFeaturedBus] = useState<BusLiveLogRow | null>(null);
   const [activeSection, setActiveSection] = useState<NavSectionId>("home");
 
@@ -231,18 +230,11 @@ export function LandingPage() {
     };
   }, []);
 
-  // Real system status + a real live bus for the hero's floating cards — never a fabricated
-  // "always online" badge or a made-up bus reading (see services/congestionEngine.js /
+  // A real live bus for the hero's floating cards — never a made-up bus reading (see
   // routes/buses.js "/live" on the backend, the same real data the fleet map itself uses).
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      try {
-        const h = await fetchPublicHealth();
-        if (!cancelled) setHealth(h);
-      } catch {
-        if (!cancelled) setHealth(null);
-      }
       try {
         const buses = await fetchPublicLiveBuses();
         if (cancelled) return;
@@ -287,7 +279,6 @@ export function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const systemOnline = health?.ok === true && health.mongo === "connected";
   const etaBadge = delayBadge(featuredBus?.delay?.tier);
 
   const year = new Date().getFullYear();
@@ -319,10 +310,6 @@ export function LandingPage() {
           ))}
         </nav>
         <div className="landing-nav__right">
-          <span className={`landing-nav__status ${systemOnline ? "is-online" : "is-offline"}`}>
-            <span className="landing-nav__status-dot" aria-hidden />
-            {health ? (systemOnline ? "System Online" : "System Issue") : "Checking…"}
-          </span>
           <Link to="/login" className="landing-nav__cta">
             <IconUser /> Sign in
           </Link>
@@ -340,7 +327,7 @@ export function LandingPage() {
               </h1>
               <p className="landing-hero__desc">
                 Real-time bus tracking, route information, estimated arrival times, and transport
-                updates — built for smarter mobility across Bukidnon.
+                updates, built for smarter mobility across Bukidnon.
               </p>
               <div className="landing-hero__actions">
                 <Link to="/passenger" className="landing-hero__go landing-hero__go--primary">
