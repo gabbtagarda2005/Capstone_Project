@@ -299,14 +299,30 @@
 
 /* ---------- Featured (adviser) card ---------- */
 
+/* Sized to match exactly one column of .team-page__grid below, at every breakpoint (its parent,
+   .team-page__adviser-row, shares the same max-width/padding, so this calc lands on the same
+   pixel width a real grid card gets) — the adviser card gets a glow/badge to stand out, but must
+   not simply be a bigger card. */
 .team-page__card--featured {
-  width: min(420px, 100%);
+  width: calc((100% - 3 * 1.5rem) / 4);
   overflow: visible;
   border: none;
   background: none;
   perspective: 1600px;
   cursor: pointer;
   box-shadow: 0 0 50px color-mix(in srgb, var(--tp-cyan) 14%, transparent), 0 18px 44px rgba(2, 6, 23, 0.4);
+}
+
+@media (max-width: 900px) {
+  .team-page__card--featured {
+    width: calc((100% - 1.5rem) / 2);
+  }
+}
+
+@media (max-width: 520px) {
+  .team-page__card--featured {
+    width: 100%;
+  }
 }
 
 .team-page__card--featured:focus-visible {
