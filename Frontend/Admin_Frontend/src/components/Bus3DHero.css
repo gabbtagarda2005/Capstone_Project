@@ -17,7 +17,7 @@
 .bus3d__glow {
   position: absolute;
   left: 50%;
-  bottom: 8%;
+  bottom: 3%;
   width: 68%;
   height: 36%;
   transform: translateX(-50%);
@@ -31,6 +31,9 @@
   position: absolute;
   inset: 0;
   z-index: 1;
+  /* Nudged down so the coach reads as sitting on the background's road instead of floating
+     mid-frame. */
+  transform: translateY(7%);
 }
 
 .bus3d__image-mount {
