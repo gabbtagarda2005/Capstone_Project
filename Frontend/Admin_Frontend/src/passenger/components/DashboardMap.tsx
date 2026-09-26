@@ -677,12 +677,7 @@ export function DashboardMap({
           ) : null}
         </MapContainer>
 
-        <PassengerMapBasemapDock
-          basemap={basemap}
-          onBasemapChange={setBasemap}
-          activeBuses={visibleBuses.length}
-          regionLabel="network"
-        />
+        <PassengerMapBasemapDock basemap={basemap} onBasemapChange={setBasemap} />
       </div>
     </div>
   );

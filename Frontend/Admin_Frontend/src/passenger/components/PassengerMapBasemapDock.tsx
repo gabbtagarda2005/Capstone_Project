@@ -7,8 +7,6 @@ import "./PassengerMapBasemapDock.css";
 type Props = {
   basemap: PassengerBasemapMode;
   onBasemapChange: (mode: PassengerBasemapMode) => void;
-  activeBuses: number;
-  regionLabel?: string;
 };
 
 function IconLayersMore() {
@@ -73,12 +71,7 @@ function MoreChip({
   );
 }
 
-export function PassengerMapBasemapDock({
-  basemap,
-  onBasemapChange,
-  activeBuses,
-  regionLabel = "Bukidnon",
-}: Props) {
+export function PassengerMapBasemapDock({ basemap, onBasemapChange }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreFixedPos, setMoreFixedPos] = useState<{ top: number; left: number } | null>(null);
   const morePanelId = useId().replace(/:/g, "");
@@ -183,13 +176,6 @@ export function PassengerMapBasemapDock({
               />
             </div>
           </div>
-        </div>
-
-        <div className="pmap-dock__stat pmap-dock__stat--rail">
-          <p className="pmap-dock__stat-label">Live buses</p>
-          <p className="pmap-dock__stat-value">
-            {activeBuses} <span className="pmap-dock__stat-suffix">/ {regionLabel}</span>
-          </p>
         </div>
       </aside>
 
