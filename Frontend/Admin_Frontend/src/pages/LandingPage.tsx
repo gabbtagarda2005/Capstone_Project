@@ -1,10 +1,9 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchPublicCompanyProfile, fetchPublicLiveBuses } from "@/lib/api";
+import { fetchPublicCompanyProfile, fetchPublicHealth, fetchPublicLiveBuses, type PublicHealthDto } from "@/lib/api";
 import type { BusLiveLogRow } from "@/lib/types";
-import img1 from "@/Image/1.jpg";
-import img2 from "@/Image/2.jpg";
+import heroBg from "@/Image/hero-highway-bg.png";
 import img3 from "@/Image/3.jpg";
 import { AppDownloadCard } from "@/components/AppDownloadCard";
 import { TeamShowcase } from "@/components/TeamShowcase";
@@ -110,6 +109,18 @@ function IconScroll() {
   );
 }
 
+/** Real backend health -> nav status pill. Never fakes "online": no response at all reads as
+ *  "unavailable" (gray), not green. */
+function systemStatusFromHealth(health: PublicHealthDto | null): {
+  label: string;
+  tone: "ok" | "warn" | "bad" | "muted";
+} {
+  if (!health) return { label: "Checking status…", tone: "muted" };
+  if (!health.ok || health.mongo !== "connected") return { label: "System Offline", tone: "bad" };
+  if (health.firebaseRtdb === "error") return { label: "Degraded", tone: "warn" };
+  return { label: "System Online", tone: "ok" };
+}
+
 function delayBadge(tier: string | undefined): { label: string; tone: "ok" | "warn" | "bad" | "muted" } {
   switch (tier) {
     case "EARLY":
@@ -130,19 +141,18 @@ function delayBadge(tier: string | undefined): { label: string; tone: "ok" | "wa
 }
 
 const part1Bg: CSSProperties = {
-  backgroundColor: "#020617",
+  backgroundColor: "#020817",
   backgroundImage: `linear-gradient(
-      90deg,
-      rgba(2, 6, 23, 0.82) 0%,
-      rgba(2, 6, 23, 0.42) 45%,
-      rgba(2, 6, 23, 0.42) 55%,
-      rgba(2, 6, 23, 0.82) 100%
+      100deg,
+      rgba(2, 8, 23, 0.88) 0%,
+      rgba(2, 8, 23, 0.55) 40%,
+      rgba(2, 8, 23, 0.35) 62%,
+      rgba(2, 8, 23, 0.7) 100%
     ),
-    url(${img2}),
-    url(${img1})`,
-  backgroundSize: "100% 100%, 50% 100%, 50% 100%",
-  backgroundPosition: "center, left center, right center",
-  backgroundRepeat: "no-repeat, no-repeat, no-repeat",
+    url(${heroBg})`,
+  backgroundSize: "cover, cover",
+  backgroundPosition: "center, center",
+  backgroundRepeat: "no-repeat, no-repeat",
 };
 
 const part2Bg: CSSProperties = {
@@ -203,6 +213,7 @@ export function LandingPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
   const [featuredBus, setFeaturedBus] = useState<BusLiveLogRow | null>(null);
+  const [health, setHealth] = useState<PublicHealthDto | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -247,7 +258,28 @@ export function LandingPage() {
     };
   }, []);
 
+  // Real backend health for the nav's status pill — polled independently of the bus/eta data.
+  // Never shows "System Online" from a hardcoded default; starts in the "Checking…" (gray) state.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const h = await fetchPublicHealth();
+        if (!cancelled) setHealth(h);
+      } catch {
+        if (!cancelled) setHealth(null);
+      }
+    };
+    void load();
+    const id = window.setInterval(() => void load(), HERO_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
   const etaBadge = delayBadge(featuredBus?.delay?.tier);
+  const systemStatus = systemStatusFromHealth(health);
 
   const year = new Date().getFullYear();
 
@@ -265,7 +297,28 @@ export function LandingPage() {
           ) : null}
           <span className="landing-logo">{companyName}</span>
         </div>
+        <nav className="landing-nav__links" aria-label="Primary">
+          <Link to="/" className="landing-nav__link landing-nav__link--active">
+            Home
+          </Link>
+          <Link to="/passenger" className="landing-nav__link">
+            Track Bus
+          </Link>
+          <Link to="/passenger" className="landing-nav__link">
+            Routes
+          </Link>
+          <Link to="/passenger" className="landing-nav__link">
+            Terminals
+          </Link>
+          <Link to="/passenger" className="landing-nav__link">
+            System Status
+          </Link>
+        </nav>
         <div className="landing-nav__right">
+          <span className={`landing-nav__status landing-nav__status--${systemStatus.tone}`}>
+            <span className="landing-nav__status-dot" aria-hidden />
+            <span>{systemStatus.label}</span>
+          </span>
           <Link to="/login" className="landing-nav__cta">
             <IconUser /> Sign in
           </Link>
@@ -326,38 +379,46 @@ export function LandingPage() {
             <div className="landing-hero__visual">
               <Bus3DHero />
 
-              {featuredBus ? (
-                <div className="landing-hero__card landing-hero__card--gps">
-                  <div className="landing-hero__card-head">
-                    <IconPin />
-                    LIVE GPS
-                    <span className="landing-hero__card-live-dot" aria-hidden />
-                  </div>
-                  <strong className="landing-hero__card-title">{featuredBus.busId}</strong>
-                  <span className="landing-hero__card-line">
-                    {featuredBus.latitude.toFixed(4)}° N, {featuredBus.longitude.toFixed(4)}° E
-                  </span>
-                  {featuredBus.speedKph != null ? (
-                    <span className="landing-hero__card-line">{Math.round(featuredBus.speedKph)} km/h</span>
-                  ) : null}
+              <div className="landing-hero__card landing-hero__card--gps">
+                <div className="landing-hero__card-head">
+                  <IconPin />
+                  LIVE GPS
+                  {featuredBus ? <span className="landing-hero__card-live-dot" aria-hidden /> : null}
                 </div>
-              ) : null}
+                {featuredBus ? (
+                  <>
+                    <strong className="landing-hero__card-title">{featuredBus.busId}</strong>
+                    <span className="landing-hero__card-line">
+                      {featuredBus.latitude.toFixed(4)}° N, {featuredBus.longitude.toFixed(4)}° E
+                    </span>
+                    {featuredBus.speedKph != null ? (
+                      <span className="landing-hero__card-line">{Math.round(featuredBus.speedKph)} km/h</span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span className="landing-hero__card-line">GPS unavailable — waiting for location</span>
+                )}
+              </div>
 
-              {featuredBus && featuredBus.etaMinutes != null ? (
-                <div className="landing-hero__card landing-hero__card--eta">
-                  <div className="landing-hero__card-head">
-                    <IconClock />
-                    ETA
-                  </div>
-                  <strong className="landing-hero__card-title">{Math.round(featuredBus.etaMinutes)} min</strong>
-                  {featuredBus.nextTerminal ? (
-                    <span className="landing-hero__card-line">to {featuredBus.nextTerminal}</span>
-                  ) : null}
-                  <span className={`landing-hero__card-badge landing-hero__card-badge--${etaBadge.tone}`}>
-                    {etaBadge.label}
-                  </span>
+              <div className="landing-hero__card landing-hero__card--eta">
+                <div className="landing-hero__card-head">
+                  <IconClock />
+                  ETA
                 </div>
-              ) : null}
+                {featuredBus && featuredBus.etaMinutes != null ? (
+                  <>
+                    <strong className="landing-hero__card-title">{Math.round(featuredBus.etaMinutes)} min</strong>
+                    {featuredBus.nextTerminal ? (
+                      <span className="landing-hero__card-line">to {featuredBus.nextTerminal}</span>
+                    ) : null}
+                    <span className={`landing-hero__card-badge landing-hero__card-badge--${etaBadge.tone}`}>
+                      {etaBadge.label}
+                    </span>
+                  </>
+                ) : (
+                  <span className="landing-hero__card-line">ETA unavailable</span>
+                )}
+              </div>
             </div>
           </div>
 
