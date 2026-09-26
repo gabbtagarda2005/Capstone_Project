@@ -787,6 +787,26 @@
   border-color: rgba(220, 38, 38, 0.55);
 }
 
+.att-dossier__dock-btn--green {
+  border: 1px solid rgba(74, 222, 128, 0.85);
+  color: #bbf7d0;
+  margin-left: 0;
+}
+
+:root[data-theme="light"] .att-dossier__dock-btn--green {
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.55);
+}
+
+.att-dossier__status--bad {
+  color: #f87171;
+}
+
+.att-dossier__status-dot--bad {
+  background: #ef4444;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.35);
+}
+
 @media (max-width: 640px) {
   .att-dossier__dock {
     flex-direction: column;
@@ -798,7 +818,8 @@
     align-items: stretch;
   }
 
-  .att-dossier__dock-btn--red {
+  .att-dossier__dock-btn--red,
+  .att-dossier__dock-btn--green {
     order: 10;
   }
 }

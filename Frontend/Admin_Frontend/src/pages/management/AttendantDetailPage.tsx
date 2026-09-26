@@ -718,31 +718,57 @@ export function AttendantDetailPage() {
     }
   }
 
-  async function handleRevoke() {
+  /**
+   * Toggles this attendant's login access on/off (Mongo-registry attendants only — the account,
+   * tickets, and assignment history are untouched). Deactivating blocks sign-in at both
+   * /operator-login and /operator-google-login until an admin reactivates it here, mirroring the
+   * existing bus Active/Inactive convention in Fleet management.
+   */
+  async function handleToggleAccess() {
+    const nextActive = mongoProfile?.active === false;
+    const verb = nextActive ? "Reactivate" : "Deactivate";
     if (
       !(await swalConfirm({
-        title: "Revoke access?",
-        text: "Revoke this attendant’s access? This cannot be undone.",
+        title: `${verb} access?`,
+        text: nextActive
+          ? "Restore this attendant's ability to sign in to the Bus Attendant app?"
+          : "This attendant will no longer be able to sign in to the Bus Attendant app (password or Google) until you reactivate access.",
         icon: "warning",
-        confirmButtonText: "Revoke",
+        confirmButtonText: verb,
       }))
     )
       return;
     try {
-      if (mongoProfile && !isNumericOperatorId(attendantId)) {
-        await api(`/api/attendants/registry/${encodeURIComponent(attendantId)}`, { method: "DELETE" });
-        showSuccess("Access revoked.");
-        navigate("/dashboard/management/attendants");
-        return;
-      }
-      if (isNumericOperatorId(attendantId)) {
-        await api(`/api/operators/${encodeURIComponent(attendantId)}`, { method: "DELETE" });
-        showSuccess("Operator removed.");
-        navigate("/dashboard/management/attendants");
-        return;
-      }
+      await api(`/api/attendants/registry/${encodeURIComponent(attendantId)}/access`, {
+        method: "PATCH",
+        json: { active: nextActive },
+      });
+      showSuccess(nextActive ? "Access reactivated." : "Access deactivated.");
+      const vRes = await api<{ items: AttendantVerifiedSummary[] }>("/api/attendants/verified");
+      setMongoProfile(vRes.items.find((a) => a.operatorId === attendantId) ?? null);
     } catch (e) {
-      showError(e instanceof Error ? e.message : "Revoke failed");
+      showError(e instanceof Error ? e.message : "Update failed");
+    }
+  }
+
+  /** Legacy MySQL-era operator rows have no working sign-in route at all — removing the record
+   *  (rather than deactivating it) is still the correct action for this branch only. */
+  async function handleRemoveOperator() {
+    if (
+      !(await swalConfirm({
+        title: "Remove operator?",
+        text: "Remove this legacy operator record? This cannot be undone.",
+        icon: "warning",
+        confirmButtonText: "Remove",
+      }))
+    )
+      return;
+    try {
+      await api(`/api/operators/${encodeURIComponent(attendantId)}`, { method: "DELETE" });
+      showSuccess("Operator removed.");
+      navigate("/dashboard/management/attendants");
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Remove failed");
     }
   }
 
@@ -858,8 +884,8 @@ export function AttendantDetailPage() {
                   Reassign unit
                 </button>
               </div>
-              <button type="button" className="att-dossier__dock-btn att-dossier__dock-btn--red" onClick={() => void handleRevoke()}>
-                Revoke access
+              <button type="button" className="att-dossier__dock-btn att-dossier__dock-btn--red" onClick={() => void handleRemoveOperator()}>
+                Remove operator
               </button>
             </footer>
 
@@ -987,6 +1013,12 @@ export function AttendantDetailPage() {
               />
               {onDuty ? "On-Duty" : "Off-Duty"}
             </div>
+            {mongoProfile.active === false ? (
+              <div className="att-dossier__status att-dossier__status--bad" aria-live="polite">
+                <span className="att-dossier__status-dot att-dossier__status-dot--bad" />
+                Access deactivated
+              </div>
+            ) : null}
           </header>
 
           <div className="att-dossier__grid">
@@ -1054,8 +1086,15 @@ export function AttendantDetailPage() {
                 Reassign unit
               </button>
             </div>
-            <button type="button" className="att-dossier__dock-btn att-dossier__dock-btn--red" onClick={() => void handleRevoke()}>
-              Revoke access
+            <button
+              type="button"
+              className={
+                "att-dossier__dock-btn " +
+                (mongoProfile.active === false ? "att-dossier__dock-btn--green" : "att-dossier__dock-btn--red")
+              }
+              onClick={() => void handleToggleAccess()}
+            >
+              {mongoProfile.active === false ? "Activate access" : "Deactivate access"}
             </button>
           </footer>
 

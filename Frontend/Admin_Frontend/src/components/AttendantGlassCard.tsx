@@ -44,6 +44,9 @@ export function AttendantGlassCard({ attendant, initials, onView, onEdit, onDele
             <span className="att-glass-card__meta att-glass-card__meta--role">
               {attendant.role === "Operator" ? "Bus attendant" : attendant.role}
             </span>
+            {attendant.active === false ? (
+              <span className="att-glass-card__meta att-glass-card__meta--deactivated">Access deactivated</span>
+            ) : null}
           </div>
         </div>
         <div className="att-glass-card__bottom">

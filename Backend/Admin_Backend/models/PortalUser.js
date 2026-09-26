@@ -18,6 +18,8 @@ const portalUserSchema = new mongoose.Schema(
     authProvider: { type: String, enum: ["password", "google"], default: "password" },
     /** Unique 6-digit personnel id (attendants); shared number space with drivers. */
     employeeNumber: { type: String, default: null, sparse: true, unique: true, match: /^\d{6}$/ },
+    /** false = access deactivated by an admin; blocks login (password + Google) until reactivated. */
+    active: { type: Boolean, default: true },
   },
   { timestamps: true, collection: "portal_users" }
 );

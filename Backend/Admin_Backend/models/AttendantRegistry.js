@@ -18,6 +18,8 @@ const attendantRegistrySchema = new mongoose.Schema(
     portalUserId: { type: mongoose.Schema.Types.ObjectId, ref: "PortalUser", default: null },
     /** Same value as bus_operators.employee_id when MySQL; mirrors PortalUser.employeeNumber for Mongo path. */
     employeeNumber: { type: String, default: null, sparse: true, unique: true, match: /^\d{6}$/ },
+    /** Mirrors PortalUser.active so the roster list can show status without an extra join. */
+    active: { type: Boolean, default: true },
   },
   { timestamps: true, collection: "attendant_registry" }
 );

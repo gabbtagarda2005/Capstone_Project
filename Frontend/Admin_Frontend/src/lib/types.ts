@@ -25,40 +25,69 @@ export type BusLiveLogRow = {
   attendantName?: string | null;
   /** Attendant connectivity: strong (Wi‑Fi / good data), weak (cellular / 3G class), offline. */
   signal?: "strong" | "weak" | "offline" | null;
-  /** staff/mobile = attendant app GPS, hardware = LILYGO fail-safe feed */
-  source?: "staff" | "mobile" | "hardware" | null;
-  /** When source=hardware: wifi | 4g | unknown */
-  net?: "wifi" | "4g" | "unknown" | null;
+  /** staff/mobile = attendant app GPS, hardware = LILYGO mobile-data feed, hardware_sms = LILYGO
+   *  SMS emergency fallback (active only while mobile-data telemetry is confirmed failing). */
+  source?: "staff" | "mobile" | "hardware" | "hardware_sms" | null;
+  /** When source=hardware: wifi | 4g | unknown. When source=hardware_sms: "sms". */
+  net?: "wifi" | "4g" | "sms" | "unknown" | null;
   signalStrength?: number | null;
   voltage?: number | null;
+  /** IngestDevice.deviceId that most recently reported for this bus (any source). */
+  deviceId?: string | null;
   etaMinutes?: number | null;
   etaTargetIso?: string | null;
   nextTerminal?: string | null;
   trafficDelay?: boolean;
   /** Online/unstable/offline classification from the last published fix's age (server-computed). */
   status?: "online" | "unstable" | "offline" | null;
-  /** Active GPS source in plain terms — "none" once both phone and LILYGO have gone quiet. */
-  gpsSource?: "phone" | "lilygo" | "none" | null;
+  /** Active GPS source in plain terms — "none" once phone, LILYGO mobile-data, AND LILYGO SMS have
+   *  all gone quiet. */
+  gpsSource?: "phone" | "lilygo" | "lilygo_sms" | "none" | null;
   /** LIVE/RECENT/STALE/OFFLINE — single source of truth, see config/gpsThresholds.js (backend). */
   gpsFreshness?: "live" | "recent" | "stale" | "offline" | null;
+  /** STAFF | HARDWARE_MOBILE | HARDWARE_SMS | NO_SIGNAL — see gpsSourceArbiter.deriveGpsSourceState
+   *  (backend). The UPPER_SNAKE counterpart of gpsSource, for the Command Center status displays. */
+  gpsSourceState?: "STAFF" | "HARDWARE_MOBILE" | "HARDWARE_SMS" | "NO_SIGNAL" | null;
+  /** LILYGO device-status heartbeat fields — independent of position, see deviceStatusIngest.js. */
+  cellularConnected?: boolean | null;
+  gpsFixAcquired?: boolean | null;
+  telemetryStatus?: "ok" | "failed" | "unknown" | null;
+  smsFallbackStatus?: "standby" | "active" | "failed" | null;
+  lastGpsFixAt?: string | null;
+  lastTelemetryAt?: string | null;
+  lastSmsAt?: string | null;
+  /** Device-governed SMS-fallback send cadence, echoed by the backend so the frontend never
+   *  hardcodes "15 seconds" — see config/gpsThresholds.js SMS_GPS_INTERVAL_MS. */
+  smsGpsIntervalMs?: number | null;
   /** Real road-congestion reading for this bus's corridor — see services/congestionEngine.js. */
   congestion?: BusCongestion | null;
-  /** Delay classification derived from congestion + ETA — see services/delayClassifier.js. */
+  /** Delay classification derived from expected-vs-actual schedule progress — see services/delayClassifier.js. */
   delay?: BusDelay | null;
+  /** Where the ETA's traffic input actually came from — never "live_provider" unless a real
+   *  traffic-aware routing API is configured (none is, today). See services/trafficProviders/. */
+  trafficSource?: "live_provider" | "gps_derived" | "historical" | "route_only" | "unavailable" | null;
+  /** How much to trust this reading — see services/trafficConfidence.js. Never render a HIGH-confidence
+   *  claim the backend didn't actually report. */
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN" | null;
 };
 
 export type BusCongestion = {
-  status: "ok" | "not_applicable" | "unavailable";
+  status: "ok" | "not_applicable" | "unavailable" | "insufficient_data";
   level?: "FREE_FLOW" | "MODERATE" | "SLOW" | "HEAVY" | "SEVERE";
   congestionRatio?: number;
   currentKph?: number;
   freeFlowKph?: number;
   corridorName?: string | null;
   reason?: string;
+  /** Additive — present when a segment-level reading (services/segmentTrafficStats.js) backed this. */
+  segmentId?: string | null;
+  sampleCount?: number;
+  lastObservationAt?: string | null;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
 };
 
 export type BusDelay = {
-  tier: "ON_TIME" | "MINOR_DELAY" | "MODERATE_DELAY" | "MAJOR_DELAY" | "GPS_STALE" | "UNKNOWN";
+  tier: "EARLY" | "ON_TIME" | "MINOR_DELAY" | "MODERATE_DELAY" | "SEVERE_DELAY" | "STOPPED" | "GPS_STALE" | "UNKNOWN";
   delayMinutes: number | null;
   reason: string | null;
   congestionLevel: string | null;
@@ -68,8 +97,8 @@ export type FleetHardwareStatusRow = {
   busId: string;
   busNumber: string;
   route: string | null;
-  source: "staff" | "hardware" | string;
-  activeLink: "wifi" | "lte" | "unknown" | "staff";
+  source: "staff" | "hardware" | "hardware_sms" | string;
+  activeLink: "wifi" | "lte" | "sms" | "unknown" | "staff";
   /** True when hardware uplink was assumed LTE from recent telemetry (T‑A7670E default). */
   uplinkInferred?: boolean;
   signalStrengthDbm: number | null;
@@ -84,6 +113,14 @@ export type FleetHardwareStatusRow = {
   driverName?: string | null;
   /** When source is staff: strong | weak | offline from attendant connectivity. */
   attendantSignalTier?: string | null;
+  deviceId?: string | null;
+  smsFallbackStatus?: "standby" | "active" | "failed" | null;
+  lastSmsAt?: string | null;
+  /** Computed: lastSmsAt + smsGpsIntervalMs, only when smsFallbackStatus === "active". */
+  nextSmsExpectedAt?: string | null;
+  cellularConnected?: boolean | null;
+  gpsFixAcquired?: boolean | null;
+  telemetryStatus?: "ok" | "failed" | "unknown" | null;
 };
 
 export type BusRow = {
@@ -187,6 +224,8 @@ export type AttendantVerifiedSummary = {
   otpVerified?: boolean;
   /** Data URL or HTTPS from attendant_registry / onboarding */
   profileImageUrl?: string | null;
+  /** false = an admin deactivated this attendant's sign-in access to the Bus Attendant app. */
+  active?: boolean;
 };
 
 export type AttendantAssignmentPeriod = {

@@ -24,6 +24,9 @@ const { getPortalSettingsLean } = require("../services/adminPortalSettingsServic
 const BUS_ASSIGNMENT_REQUIRED_MSG =
   "No bus assigned to your account. Ask your administrator to assign you to a bus in Management before signing in.";
 
+const ACCESS_DEACTIVATED_MSG =
+  "Your access has been deactivated by an administrator. Contact your administrator to restore access.";
+
 function mapMongoUser(doc) {
   if (!doc) return null;
   return {
@@ -332,6 +335,9 @@ function createAuthTicketingRouter() {
         return res.status(401).json({ error: "Invalid credentials" });
       }
       await clearLockoutOnSuccess(email, "attendant");
+      if (doc.active === false) {
+        return res.status(403).json({ error: ACCESS_DEACTIVATED_MSG });
+      }
       const assignedBus = await Bus.findOne({ operatorPortalUserId: doc._id }).select("_id status").lean();
       if (!assignedBus) {
         return res.status(403).json({ error: BUS_ASSIGNMENT_REQUIRED_MSG });
@@ -400,6 +406,9 @@ function createAuthTicketingRouter() {
             "This Google account is not registered as a bus attendant. Ask your administrator to " +
             "add it, or sign in with your attendant email and password.",
         });
+      }
+      if (doc.active === false) {
+        return res.status(403).json({ error: ACCESS_DEACTIVATED_MSG });
       }
 
       const portal = await getPortalSettingsLean();

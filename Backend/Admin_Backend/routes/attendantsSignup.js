@@ -12,6 +12,7 @@ const AttendantRegistry = require("../models/AttendantRegistry");
 const AttendantAssignmentHistory = require("../models/AttendantAssignmentHistory");
 const Bus = require("../models/Bus");
 const PortalUser = require("../models/PortalUser");
+const AdminAuditLog = require("../models/AdminAuditLog");
 const { sendAttendantSignupOtpEmail } = require("../services/mailer");
 const { allocateUniqueSixDigit } = require("../services/personnelSixDigit");
 const { isValidYmd, manilaDayStartUtc, manilaDayEndUtc } = require("../services/manilaTime");
@@ -118,6 +119,7 @@ function createAttendantsSignupRouter() {
             role: "Operator",
             otpVerified: true,
             profileImageUrl: r.profileImageUrl || null,
+            active: r.active !== false,
           };
         })
         .filter(Boolean);
@@ -259,6 +261,40 @@ function createAttendantsSignupRouter() {
       return res.json({ ok: true });
     } catch (e) {
       return res.status(500).json({ error: e.message || "Update failed" });
+    }
+  });
+
+  /**
+   * Deactivate/reactivate an attendant's login access without deleting their account or history.
+   * Mirrors the existing bus Active/Inactive convention (Fleet management): deactivating blocks
+   * sign-in (password and Google) at /operator-login and /operator-google-login until an admin
+   * flips it back — the attendant record, tickets, and assignment history are untouched.
+   */
+  router.patch("/registry/:operatorId/access", requireAdminJwt, async (req, res) => {
+    try {
+      const active = !!req.body?.active;
+      const reg = await findRegistryByOperatorParam(req.params.operatorId);
+      if (!reg) {
+        return res.status(404).json({ error: "Verified attendant not found" });
+      }
+      reg.active = active;
+      await reg.save();
+      if (reg.portalUserId) {
+        await PortalUser.updateOne({ _id: reg.portalUserId }, { $set: { active } });
+      }
+      AdminAuditLog.create({
+        email: req.admin?.email,
+        module: "Attendants",
+        action: active ? "ACTIVATE" : "DEACTIVATE",
+        details: `${active ? "Reactivated" : "Deactivated"} access for ${reg.email}`,
+        httpMethod: "PATCH",
+        path: req.originalUrl,
+        statusCode: 200,
+        source: "http",
+      }).catch(() => {});
+      return res.json({ ok: true, active });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Could not update access" });
     }
   });
 
