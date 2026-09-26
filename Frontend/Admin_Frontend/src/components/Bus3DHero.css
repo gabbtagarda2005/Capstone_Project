@@ -31,7 +31,6 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  animation: bus3d-float 5s ease-in-out infinite;
 }
 
 .bus3d__image-mount {
@@ -68,22 +67,6 @@
 
 .bus3d__reflection .bus3d__image {
   filter: blur(2px) drop-shadow(0 0 0 transparent);
-}
-
-@keyframes bus3d-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bus3d__float {
-    animation: none;
-  }
 }
 
 @media (max-width: 900px) {

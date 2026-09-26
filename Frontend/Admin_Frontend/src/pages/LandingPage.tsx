@@ -1,16 +1,13 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchPublicCompanyProfile, fetchPublicHealth, fetchPublicLiveBuses, type PublicHealthDto } from "@/lib/api";
-import type { BusLiveLogRow } from "@/lib/types";
+import { fetchPublicCompanyProfile } from "@/lib/api";
 import heroBg from "@/Image/hero-highway-bg.png";
 import img3 from "@/Image/3.jpg";
 import { AppDownloadCard } from "@/components/AppDownloadCard";
 import { TeamShowcase } from "@/components/TeamShowcase";
 import { Bus3DHero } from "@/components/Bus3DHero";
 import "./LandingPage.css";
-
-const HERO_POLL_MS = 20_000;
 
 function IconPin() {
   return (
@@ -82,15 +79,6 @@ function IconShield() {
   );
 }
 
-function IconClock() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M12 7v5l3.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function IconUser() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
@@ -107,37 +95,6 @@ function IconScroll() {
       <circle cx="12" cy="8" r="1.6" fill="currentColor" />
     </svg>
   );
-}
-
-/** Real backend health -> nav status pill. Never fakes "online": no response at all reads as
- *  "unavailable" (gray), not green. */
-function systemStatusFromHealth(health: PublicHealthDto | null): {
-  label: string;
-  tone: "ok" | "warn" | "bad" | "muted";
-} {
-  if (!health) return { label: "Checking status…", tone: "muted" };
-  if (!health.ok || health.mongo !== "connected") return { label: "System Offline", tone: "bad" };
-  if (health.firebaseRtdb === "error") return { label: "Degraded", tone: "warn" };
-  return { label: "System Online", tone: "ok" };
-}
-
-function delayBadge(tier: string | undefined): { label: string; tone: "ok" | "warn" | "bad" | "muted" } {
-  switch (tier) {
-    case "EARLY":
-      return { label: "EARLY", tone: "ok" };
-    case "ON_TIME":
-      return { label: "ON TIME", tone: "ok" };
-    case "MINOR_DELAY":
-      return { label: "MINOR DELAY", tone: "warn" };
-    case "MODERATE_DELAY":
-      return { label: "DELAYED", tone: "warn" };
-    case "SEVERE_DELAY":
-      return { label: "SEVERE DELAY", tone: "bad" };
-    case "STOPPED":
-      return { label: "STOPPED", tone: "warn" };
-    default:
-      return { label: "—", tone: "muted" };
-  }
 }
 
 const part1Bg: CSSProperties = {
@@ -212,9 +169,6 @@ export function LandingPage() {
   const [companyName, setCompanyName] = useState("Bukidnon Bus Company");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
-  const [featuredBus, setFeaturedBus] = useState<BusLiveLogRow | null>(null);
-  const [health, setHealth] = useState<PublicHealthDto | null>(null);
-
   useEffect(() => {
     let cancelled = false;
     void fetchPublicCompanyProfile()
@@ -230,56 +184,6 @@ export function LandingPage() {
       cancelled = true;
     };
   }, []);
-
-  // A real live bus for the hero's floating cards — never a made-up bus reading (see
-  // routes/buses.js "/live" on the backend, the same real data the fleet map itself uses).
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const buses = await fetchPublicLiveBuses();
-        if (cancelled) return;
-        const live = (buses.items || []).find(
-          (b) =>
-            (b.gpsFreshness === "live" || b.gpsFreshness === "recent") &&
-            Number.isFinite(b.latitude) &&
-            Number.isFinite(b.longitude)
-        );
-        setFeaturedBus(live || null);
-      } catch {
-        if (!cancelled) setFeaturedBus(null);
-      }
-    };
-    void load();
-    const id = window.setInterval(() => void load(), HERO_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
-
-  // Real backend health for the nav's status pill — polled independently of the bus/eta data.
-  // Never shows "System Online" from a hardcoded default; starts in the "Checking…" (gray) state.
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const h = await fetchPublicHealth();
-        if (!cancelled) setHealth(h);
-      } catch {
-        if (!cancelled) setHealth(null);
-      }
-    };
-    void load();
-    const id = window.setInterval(() => void load(), HERO_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
-
-  const etaBadge = delayBadge(featuredBus?.delay?.tier);
-  const systemStatus = systemStatusFromHealth(health);
 
   const year = new Date().getFullYear();
 
@@ -297,28 +201,7 @@ export function LandingPage() {
           ) : null}
           <span className="landing-logo">{companyName}</span>
         </div>
-        <nav className="landing-nav__links" aria-label="Primary">
-          <Link to="/" className="landing-nav__link landing-nav__link--active">
-            Home
-          </Link>
-          <Link to="/passenger" className="landing-nav__link">
-            Track Bus
-          </Link>
-          <Link to="/passenger" className="landing-nav__link">
-            Routes
-          </Link>
-          <Link to="/passenger" className="landing-nav__link">
-            Terminals
-          </Link>
-          <Link to="/passenger" className="landing-nav__link">
-            System Status
-          </Link>
-        </nav>
         <div className="landing-nav__right">
-          <span className={`landing-nav__status landing-nav__status--${systemStatus.tone}`}>
-            <span className="landing-nav__status-dot" aria-hidden />
-            <span>{systemStatus.label}</span>
-          </span>
           <Link to="/login" className="landing-nav__cta">
             <IconUser /> Sign in
           </Link>
@@ -378,47 +261,6 @@ export function LandingPage() {
             </div>
             <div className="landing-hero__visual">
               <Bus3DHero />
-
-              <div className="landing-hero__card landing-hero__card--gps">
-                <div className="landing-hero__card-head">
-                  <IconPin />
-                  LIVE GPS
-                  {featuredBus ? <span className="landing-hero__card-live-dot" aria-hidden /> : null}
-                </div>
-                {featuredBus ? (
-                  <>
-                    <strong className="landing-hero__card-title">{featuredBus.busId}</strong>
-                    <span className="landing-hero__card-line">
-                      {featuredBus.latitude.toFixed(4)}° N, {featuredBus.longitude.toFixed(4)}° E
-                    </span>
-                    {featuredBus.speedKph != null ? (
-                      <span className="landing-hero__card-line">{Math.round(featuredBus.speedKph)} km/h</span>
-                    ) : null}
-                  </>
-                ) : (
-                  <span className="landing-hero__card-line">GPS unavailable — waiting for location</span>
-                )}
-              </div>
-
-              <div className="landing-hero__card landing-hero__card--eta">
-                <div className="landing-hero__card-head">
-                  <IconClock />
-                  ETA
-                </div>
-                {featuredBus && featuredBus.etaMinutes != null ? (
-                  <>
-                    <strong className="landing-hero__card-title">{Math.round(featuredBus.etaMinutes)} min</strong>
-                    {featuredBus.nextTerminal ? (
-                      <span className="landing-hero__card-line">to {featuredBus.nextTerminal}</span>
-                    ) : null}
-                    <span className={`landing-hero__card-badge landing-hero__card-badge--${etaBadge.tone}`}>
-                      {etaBadge.label}
-                    </span>
-                  </>
-                ) : (
-                  <span className="landing-hero__card-line">ETA unavailable</span>
-                )}
-              </div>
             </div>
           </div>
 
