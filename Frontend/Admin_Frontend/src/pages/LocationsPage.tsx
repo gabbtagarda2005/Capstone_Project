@@ -1483,7 +1483,7 @@ export function LocationsPage() {
                       const delayTier = b.delay?.tier;
                       const isDelayRisk =
                         layers.delays &&
-                        (delayTier === "MODERATE_DELAY" || delayTier === "MAJOR_DELAY" || (delayTier == null && isDelayed));
+                        (delayTier === "MODERATE_DELAY" || delayTier === "SEVERE_DELAY" || (delayTier == null && isDelayed));
                       const routeAvg = averageSpeedByRoute.get(String(b.assignedRoute || "Assigned route —").trim()) ?? null;
                       const speedDropRisk =
                         b.speedKph != null && routeAvg != null && routeAvg > 0 && Number(b.speedKph) <= routeAvg * 0.7;
@@ -1774,7 +1774,7 @@ export function LocationsPage() {
                       const delayTier = b.delay?.tier;
                       const isDelayRisk =
                         layers.delays &&
-                        (delayTier === "MODERATE_DELAY" || delayTier === "MAJOR_DELAY" || (delayTier == null && isDelayed));
+                        (delayTier === "MODERATE_DELAY" || delayTier === "SEVERE_DELAY" || (delayTier == null && isDelayed));
                       const routeAvg = averageSpeedByRoute.get(String(b.assignedRoute || "Assigned route —").trim()) ?? null;
                       const speedDropRisk =
                         b.speedKph != null && routeAvg != null && routeAvg > 0 && Number(b.speedKph) <= routeAvg * 0.7;
