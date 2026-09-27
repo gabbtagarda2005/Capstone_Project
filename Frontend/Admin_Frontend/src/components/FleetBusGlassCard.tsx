@@ -22,39 +22,6 @@ function healthClass(tone: Props["healthTone"]): string {
   return "fleet-u3__health--good";
 }
 
-function IconEye() {
-  return (
-    <svg className="fleet-u3__cbtn-svg fleet-u3__cbtn-svg--eye" viewBox="1 5 22 14" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M12 5C7 5 2.73 8.11 1 12c1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"
-      />
-    </svg>
-  );
-}
-
-function IconPencil() {
-  return (
-    <svg className="fleet-u3__cbtn-svg" viewBox="0 0 24 24" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"
-      />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg className="fleet-u3__cbtn-svg" viewBox="0 0 24 24" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
-      />
-    </svg>
-  );
-}
-
 function IconBusBadge() {
   return (
     <svg className="fleet-u3__logo-svg" viewBox="0 0 24 24" aria-hidden>
@@ -109,38 +76,20 @@ export function FleetBusGlassCard({ bus, attendantLabel, healthTone, onEdit, onD
             </span>
           </div>
           <div className="fleet-u3__bottom">
-            <div className="fleet-u3__social-buttons">
-              <Link to={detailPath} className="fleet-u3__social-button" title="View" aria-label={`View ${bus.busNumber}`}>
-                <IconEye />
+            <div className="fleet-u3__pill-buttons">
+              <Link to={detailPath} className="fleet-u3__pill-btn" aria-label={`View ${bus.busNumber}`}>
+                View
               </Link>
-              <button type="button" className="fleet-u3__social-button" title="Edit" aria-label="Edit bus" disabled={busy} onClick={onEdit}>
-                <IconPencil />
+              <button type="button" className="fleet-u3__pill-btn" aria-label="Edit bus" disabled={busy} onClick={onEdit}>
+                Edit
               </button>
               <button
                 type="button"
-                className="fleet-u3__social-button fleet-u3__social-button--danger"
-                title="Remove bus from registry"
+                className="fleet-u3__pill-btn fleet-u3__pill-btn--danger"
                 aria-label={`Delete ${bus.busNumber}`}
                 disabled={busy}
                 onClick={onDelete}
               >
-                <IconTrash />
-              </button>
-            </div>
-            <div className="fleet-u3__labels">
-              <Link to={detailPath} className="fleet-u3__label-link">
-                View
-              </Link>
-              <span className="fleet-u3__label-sep" aria-hidden>
-                ·
-              </span>
-              <button type="button" className="fleet-u3__label-btn" disabled={busy} onClick={onEdit}>
-                Edit
-              </button>
-              <span className="fleet-u3__label-sep" aria-hidden>
-                ·
-              </span>
-              <button type="button" className="fleet-u3__label-btn fleet-u3__label-btn--danger" disabled={busy} onClick={onDelete}>
                 Delete
               </button>
             </div>

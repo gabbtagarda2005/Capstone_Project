@@ -272,24 +272,12 @@
 }
 
 /* mix-blend-mode: screen renders as solid white (i.e. invisible) against a light-mode
-   card background — it was only ever tuned for the dark theme's near-black card. So the
-   dark-theme globe render is swapped out for a plain photo in light mode instead of trying
-   to patch the blend mode. */
-.neo-globe-media--light {
-  display: none;
-}
-
-:root[data-theme="light"] .neo-globe-media--dark {
-  display: none;
-}
-
-:root[data-theme="light"] .neo-globe-media--light {
-  display: block;
-  opacity: 1;
-  filter: none;
-  animation: none;
+   card background — it was only ever tuned for the dark theme's near-black card. The globe
+   artwork's own backdrop is already effectively transparent against white, so light mode just
+   needs plain (non-screen) blending — the spin/breathe animation stays identical in both themes. */
+:root[data-theme="light"] .neo-globe-media {
   mix-blend-mode: normal;
-  border-radius: 16px;
+  filter: none;
 }
 
 .neo-globe-3d {

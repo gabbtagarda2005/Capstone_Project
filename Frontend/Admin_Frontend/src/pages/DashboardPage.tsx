@@ -27,7 +27,6 @@ import {
 import { shortPickupLocationLabel } from "@/lib/humanizeAdminAudit";
 import type { TicketRow } from "@/lib/types";
 import dashboardBackground from "@/Design/DashboardBackground.png";
-import dashboardBackgroundLight from "@/Design/DashboardBackgroundLight.jpg";
 import "./analytics.css";
 
 type Stats = { totalTicketCount: number; filteredCount: number; filteredRevenue: number };
@@ -378,8 +377,7 @@ export function DashboardPage() {
           onClick={() => navigate("/dashboard/locations?focus=bukidnon")}
           title="Open Bukidnon map"
         >
-          <img src={dashboardBackground} alt="Bukidnon live network" className="neo-globe-media neo-globe-media--dark" />
-          <img src={dashboardBackgroundLight} alt="Bukidnon live network" className="neo-globe-media neo-globe-media--light" />
+          <img src={dashboardBackground} alt="Bukidnon live network" className="neo-globe-media" />
           <p className="neo-globe__caption">Bukidnon transport · live network</p>
         </button>
 

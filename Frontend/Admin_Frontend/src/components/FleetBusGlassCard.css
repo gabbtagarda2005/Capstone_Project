@@ -158,26 +158,26 @@
   z-index: 2;
 }
 
-.fleet-u3__social-buttons {
+.fleet-u3__pill-buttons {
   display: flex;
-  gap: 0.55rem;
+  gap: 0.4rem;
   transform-style: preserve-3d;
-  justify-content: center;
 }
 
-.fleet-u3__social-button {
-  width: 32px;
-  height: 32px;
-  padding: 0;
+.fleet-u3__pill-btn {
+  flex: 1;
+  padding: 0.5rem 0.4rem;
   background: #fff;
-  border-radius: 50%;
+  border-radius: 999px;
   border: none;
-  display: grid;
-  place-content: center;
+  text-align: center;
   box-shadow: rgba(8, 47, 73, 0.35) 0 6px 12px -4px;
   cursor: pointer;
   text-decoration: none;
   color: #0e7490;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
   transition:
     transform 0.22s ease-in-out,
     box-shadow 0.22s ease-in-out,
@@ -185,120 +185,40 @@
     color 0.15s ease;
 }
 
-.fleet-u3__social-button:nth-child(1) {
+.fleet-u3__pill-btn:nth-child(1) {
   transition-delay: 0s, 0s, 0s, 0s;
 }
 
-.fleet-u3__social-button:nth-child(2) {
+.fleet-u3__pill-btn:nth-child(2) {
   transition-delay: 0.05s;
 }
 
-.fleet-u3__social-button:nth-child(3) {
+.fleet-u3__pill-btn:nth-child(3) {
   transition-delay: 0.1s;
 }
 
-.fleet-u3__social-button:hover:not(:disabled) {
+.fleet-u3__pill-btn:hover:not(:disabled) {
   background: #0c4a6e;
   color: #fff;
 }
 
-.fleet-u3__social-button:active:not(:disabled) {
+.fleet-u3__pill-btn:active:not(:disabled) {
   background: #fbbf24;
   color: #0f172a;
 }
 
-.fleet-u3__social-button:disabled {
+.fleet-u3__pill-btn:disabled {
   opacity: 0.38;
   cursor: not-allowed;
 }
 
-.fleet-u3__social-button--danger:not(:disabled) {
+.fleet-u3__pill-btn--danger:not(:disabled) {
   color: #b91c1c;
 }
 
-.fleet-u3__social-button--danger:hover:not(:disabled) {
+.fleet-u3__pill-btn--danger:hover:not(:disabled) {
   background: #b91c1c;
   color: #fff;
-}
-
-.fleet-u3__cbtn-svg {
-  width: 15px;
-  height: 15px;
-  display: block;
-}
-
-/* The eye glyph's own artwork only fills the middle ~58% of its 24x24 viewBox vertically
-   (the pencil/trash artwork fills ~80-90%), so matching width/height alone still renders it
-   visibly smaller — the JSX crops the eye's viewBox to its actual drawn bounding box, and this
-   size is bumped to match the pencil/trash icons' rendered weight (verified via a rendered
-   side-by-side screenshot, not eyeballed in code). */
-.fleet-u3__cbtn-svg--eye {
-  width: 21px;
-  height: 21px;
-}
-
-.fleet-u3__labels {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.35rem;
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.fleet-u3__label-link {
-  background: none;
-  border: none;
-  color: #0f766e;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-  text-decoration: none;
-  padding: 0;
-}
-
-.fleet-u3__label-link:hover {
-  text-decoration: underline;
-}
-
-.fleet-u3__label-btn {
-  background: none;
-  border: none;
-  color: #0f766e;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-  padding: 0;
-}
-
-.fleet-u3__label-btn:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.fleet-u3__label-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.fleet-u3__label-btn--danger {
-  color: #b91c1c;
-}
-
-.fleet-u3__label-btn--danger:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.fleet-u3__label-muted {
-  color: rgba(12, 74, 110, 0.45);
-  font-weight: 700;
-}
-
-.fleet-u3__label-sep {
-  color: rgba(12, 74, 110, 0.35);
-  user-select: none;
 }
 
 .fleet-u3__logo {
@@ -379,7 +299,7 @@
     rgba(8, 47, 73, 0.12) 0 22px 28px 0;
 }
 
-.fleet-u3__parent:hover .fleet-u3__social-button:not(:disabled) {
+.fleet-u3__parent:hover .fleet-u3__pill-btn:not(:disabled) {
   transform: translate3d(0, 0, 44px);
   box-shadow: rgba(8, 47, 73, 0.25) -4px 16px 10px 0;
 }
@@ -404,7 +324,7 @@
   .fleet-u3__card,
   .fleet-u3__glass,
   .fleet-u3__circle,
-  .fleet-u3__social-button {
+  .fleet-u3__pill-btn {
     transition: none;
   }
 
@@ -412,7 +332,7 @@
     transform: none;
   }
 
-  .fleet-u3__parent:hover .fleet-u3__social-button:not(:disabled) {
+  .fleet-u3__parent:hover .fleet-u3__pill-btn:not(:disabled) {
     transform: none;
   }
 
