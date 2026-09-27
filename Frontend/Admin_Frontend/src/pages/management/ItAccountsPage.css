@@ -21,7 +21,7 @@
 .it-glass__parent {
   width: 100%;
   max-width: 300px;
-  height: 320px;
+  height: 250px;
   margin: 0 auto;
   perspective: 1000px;
 }
