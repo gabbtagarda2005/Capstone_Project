@@ -16,6 +16,47 @@
   pointer-events: auto;
 }
 
+.pmap-dock__help {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 4.65rem;
+  padding: 0.4rem 0.32rem 0.45rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background: #f1f5f9;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  color: #1d4ed8;
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.pmap-dock__help:hover {
+  background: #e2ecff;
+  transform: translateY(-1px);
+}
+
+.pmap-dock__help-icon {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.pmap-dock__help-caption {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
 .pmap-dock__rail {
   align-self: stretch;
   display: flex;
@@ -349,6 +390,10 @@
   }
 
   .pmap-dock__rail {
+    width: 3.85rem;
+  }
+
+  .pmap-dock__help {
     width: 3.85rem;
   }
 

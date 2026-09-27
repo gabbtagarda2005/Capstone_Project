@@ -15,6 +15,8 @@ import { fetchPublicFleetBuses, type PublicFleetBus } from "@/passenger/lib/fetc
 import { bestEtaByBusId, fetchPublicLiveBoard, type PublicLiveBoardItem } from "@/passenger/lib/fetchPublicLiveBoard";
 import { clearPassengerLocationGate, getPassengerLocationSession } from "@/passenger/lib/passengerLocationGate";
 import { fetchPassengerNotificationFeed, type PassengerNotificationItem } from "@/passenger/lib/passengerNotifications";
+import { isPassengerOnboardingSeen, setPassengerOnboardingSeen } from "@/passenger/lib/passengerOnboarding";
+import { PassengerOnboardingGuide } from "@/passenger/components/PassengerOnboardingGuide";
 import "./PassengerLandingPage.css";
 import "./PassengerDashboardPage.css";
 
@@ -55,6 +57,16 @@ function PassengerDashboardPageInner() {
   const [logoBroken, setLogoBroken] = useState(false);
   const [mapTickerRegion, setMapTickerRegion] = useState("Malaybalay · Bukidnon");
   const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isPassengerOnboardingSeen()) setGuideOpen(true);
+  }, []);
+
+  function closeGuide() {
+    setPassengerOnboardingSeen();
+    setGuideOpen(false);
+  }
 
   function handleSelectBus(busId: string) {
     setSelectedBusId((prev) => (prev === busId ? null : busId));
@@ -257,6 +269,7 @@ function PassengerDashboardPageInner() {
               onMapRegionLabel={setMapTickerRegion}
               selectedBusId={selectedBusId}
               onClearSelection={() => setSelectedBusId(null)}
+              onHelpClick={() => setGuideOpen(true)}
             />
           </div>
           <PassengerTopBar
@@ -368,6 +381,12 @@ function PassengerDashboardPageInner() {
         </div>
       ) : null}
 
+      <PassengerOnboardingGuide
+        open={guideOpen}
+        onClose={closeGuide}
+        onStartTracking={closeGuide}
+        etaPreview={peekRow ? <PassengerQuickEtaTile row={peekRow} layout="peek" /> : null}
+      />
     </div>
   );
 }

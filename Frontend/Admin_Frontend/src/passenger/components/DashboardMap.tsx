@@ -239,6 +239,8 @@ type Props = {
   /** Bus selected from Quick ETA — when set, the map draws that bus's planned route (separate from its live GPS marker). */
   selectedBusId?: string | null;
   onClearSelection?: () => void;
+  /** Shows a "Need Help?" button above the basemap dock when set (opens the passenger quick guide). */
+  onHelpClick?: () => void;
 };
 
 export function DashboardMap({
@@ -249,6 +251,7 @@ export function DashboardMap({
   onMapRegionLabel,
   selectedBusId,
   onClearSelection,
+  onHelpClick,
 }: Props) {
   const { theme } = useAdminTheme();
   const [userSession] = useState(() => getPassengerLocationSession());
@@ -677,7 +680,7 @@ export function DashboardMap({
           ) : null}
         </MapContainer>
 
-        <PassengerMapBasemapDock basemap={basemap} onBasemapChange={setBasemap} />
+        <PassengerMapBasemapDock basemap={basemap} onBasemapChange={setBasemap} onHelpClick={onHelpClick} />
       </div>
     </div>
   );

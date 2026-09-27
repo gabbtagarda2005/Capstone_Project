@@ -7,6 +7,8 @@ import "./PassengerMapBasemapDock.css";
 type Props = {
   basemap: PassengerBasemapMode;
   onBasemapChange: (mode: PassengerBasemapMode) => void;
+  /** Shows a "Need Help?" button above the basemap rail when set (reopens the passenger quick guide). */
+  onHelpClick?: () => void;
 };
 
 function IconLayersMore() {
@@ -71,7 +73,7 @@ function MoreChip({
   );
 }
 
-export function PassengerMapBasemapDock({ basemap, onBasemapChange }: Props) {
+export function PassengerMapBasemapDock({ basemap, onBasemapChange, onHelpClick }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreFixedPos, setMoreFixedPos] = useState<{ top: number; left: number } | null>(null);
   const morePanelId = useId().replace(/:/g, "");
@@ -149,6 +151,14 @@ export function PassengerMapBasemapDock({ basemap, onBasemapChange }: Props) {
 
   return (
     <div className="pmap-dock">
+      {onHelpClick ? (
+        <button type="button" className="pmap-dock__help" onClick={onHelpClick} aria-label="Open passenger quick guide">
+          <span className="pmap-dock__help-icon" aria-hidden>
+            ?
+          </span>
+          <span className="pmap-dock__help-caption">Need Help?</span>
+        </button>
+      ) : null}
       <aside className="pmap-dock__rail" aria-label="Map type">
         <div className="pmap-dock__basemap-shell" ref={railShellRef}>
           <div className="pmap-dock__basemap-col pmap-dock__basemap-col--compact" role="group" aria-label="Map type">
