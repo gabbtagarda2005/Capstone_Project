@@ -559,13 +559,6 @@
   background: #fff;
 }
 
-.landing-app-card__qr-endpoint {
-  margin: 0;
-  color: #8faec4;
-  font-size: 0.75rem;
-  letter-spacing: 0.03em;
-}
-
 @media (max-width: 900px) {
   .landing-app-card__inner {
     grid-template-columns: 1fr;

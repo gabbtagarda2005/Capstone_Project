@@ -203,7 +203,7 @@ export function LandingPage() {
         </div>
         <div className="landing-nav__right">
           <Link to="/login" className="landing-nav__cta">
-            <IconUser /> Sign in
+            <IconUser /> Sign in as Admin
           </Link>
         </div>
       </header>

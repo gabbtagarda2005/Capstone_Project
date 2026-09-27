@@ -42,7 +42,6 @@ export function AppDownloadCard() {
           <a href={playUrl} target="_blank" rel="noopener noreferrer" className="landing-app-card__qr-link">
             <img className="landing-app-card__qr" src={qrSrc} alt="QR code for Bus Attendant app download" loading="lazy" />
           </a>
-          <p className="landing-app-card__qr-endpoint">Source: /api/download/attendant-app</p>
         </div>
       </div>
     </section>

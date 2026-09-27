@@ -463,11 +463,11 @@ export function PassengerLostFound() {
         </p>
 
         <label className="pd-fb-card__field-label" htmlFor="pd-lost-when">
-          Date &amp; time last seen <span className="pd-fb-card__optional">(optional)</span>
+          Date last seen <span className="pd-fb-card__optional">(optional)</span>
         </label>
         <input
           id="pd-lost-when"
-          type="datetime-local"
+          type="date"
           className="pd-fb-card__input pd-fb-card__input--datetime"
           value={when}
           onChange={(e) => setWhen(e.target.value)}
@@ -507,7 +507,6 @@ export function PassengerLostFound() {
           className="pd-fb-card__input"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
           autoComplete="email"
           inputMode="email"
           aria-invalid={email.length > 0 && !emailOk}
@@ -527,7 +526,6 @@ export function PassengerLostFound() {
           rows={6}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder='e.g. "I left my phone on the seat" — add color, case, seat row, and anything else that helps staff match you to the registry.'
         />
 
         <div className="pd-fb-card__toolbar" role="group" aria-label="Submit report">
