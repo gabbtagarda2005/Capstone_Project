@@ -25,6 +25,17 @@ function formatDateTime(iso?: string): string {
   });
 }
 
+function IconIdBadge() {
+  return (
+    <svg className="it-glass__logo-svg" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 3a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm5 11H7v-.75C7 14.68 9.69 13.5 12 13.5s5 1.18 5 2.75V17z"
+      />
+    </svg>
+  );
+}
+
 function ItAccountCard({
   account,
   onView,
@@ -39,32 +50,58 @@ function ItAccountCard({
   busy: boolean;
 }) {
   return (
-    <article className={"it-acct-card" + (account.active ? "" : " it-acct-card--inactive")}>
-      <div className="it-acct-card__head">
-        <span className="it-acct-card__avatar" aria-hidden>
-          {account.firstName.charAt(0).toUpperCase() || "I"}
-        </span>
-        <div className="it-acct-card__id">
-          <span className="it-acct-card__name">
-            {account.firstName} {account.lastName}
-          </span>
-          <span className="it-acct-card__email">{account.email}</span>
+    <article className="it-glass">
+      <div className="it-glass__parent">
+        <div className={"it-glass__card" + (account.active ? "" : " it-glass__card--inactive")}>
+          <div className="it-glass__logo" aria-hidden>
+            <span className="it-glass__circle it-glass__circle--1" />
+            <span className="it-glass__circle it-glass__circle--2" />
+            <span className="it-glass__circle it-glass__circle--3" />
+            <span className="it-glass__circle it-glass__circle--4" />
+            <span className="it-glass__circle it-glass__circle--5">
+              <IconIdBadge />
+            </span>
+          </div>
+          <div className="it-glass__glass" aria-hidden />
+          <div className="it-glass__content">
+            <span className="it-glass__title">
+              {account.firstName} {account.lastName}
+            </span>
+            <div className="it-glass__email-row">
+              <span className="it-glass__email-label">EMAIL</span>
+              <span className="it-glass__email-value" title={account.email}>
+                {account.email}
+              </span>
+            </div>
+            <span className={"it-glass__status" + (account.active ? " it-glass__status--active" : "")}>
+              {account.active ? "Active" : "Deactivated"}
+            </span>
+            <span className="it-glass__text">
+              <span className="it-glass__line">
+                <strong>Created</strong> {formatDateTime(account.createdAt)}
+              </span>
+            </span>
+          </div>
+          <div className="it-glass__bottom">
+            <div className="it-glass__pill-buttons">
+              <button type="button" className="it-glass__pill-btn" aria-label={`View ${account.email}`} disabled={busy} onClick={onView}>
+                View
+              </button>
+              <button type="button" className="it-glass__pill-btn" aria-label="Edit account" disabled={busy} onClick={onEdit}>
+                Edit
+              </button>
+              <button
+                type="button"
+                className="it-glass__pill-btn it-glass__pill-btn--danger"
+                aria-label={`Delete ${account.email}`}
+                disabled={busy}
+                onClick={onDelete}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-      <span className={"it-acct-card__status" + (account.active ? " it-acct-card__status--active" : "")}>
-        {account.active ? "Active" : "Deactivated"}
-      </span>
-      <p className="it-acct-card__meta">Created {formatDateTime(account.createdAt)}</p>
-      <div className="it-acct-card__actions">
-        <button type="button" className="it-acct-card__btn" onClick={onView} disabled={busy}>
-          View
-        </button>
-        <button type="button" className="it-acct-card__btn" onClick={onEdit} disabled={busy}>
-          Edit
-        </button>
-        <button type="button" className="it-acct-card__btn it-acct-card__btn--danger" onClick={onDelete} disabled={busy}>
-          Delete
-        </button>
       </div>
     </article>
   );
