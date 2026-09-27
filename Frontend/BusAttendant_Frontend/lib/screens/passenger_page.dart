@@ -26,10 +26,19 @@ class PassengerPage extends StatefulWidget {
   State<PassengerPage> createState() => _PassengerPageState();
 }
 
+enum _SortMode { newestFirst, oldestFirst, fareHighLow, fareLowHigh }
+
 class _PassengerPageState extends State<PassengerPage> {
   final _api = ApiClient();
   final _search = TextEditingController();
   late Future<List<ApiIssuedTicket>> _ticketsFuture;
+
+  _SortMode _sortMode = _SortMode.newestFirst;
+  String? _categoryFilter;
+  String? _routeHubFilter;
+
+  bool get _hasActiveFilters =>
+      _sortMode != _SortMode.newestFirst || _categoryFilter != null || _routeHubFilter != null;
 
   static const Color _kMint = Color(0xFF5EE396);
 
@@ -72,6 +81,171 @@ class _PassengerPageState extends State<PassengerPage> {
   }
 
   static const List<String> _routeHubs = ['Malaybalay', 'Valencia', 'Maramag', 'Don Carlos'];
+  static const List<String> _categories = ['regular', 'student', 'pwd', 'senior'];
+
+  static String _sortLabel(_SortMode m) {
+    switch (m) {
+      case _SortMode.newestFirst:
+        return 'Newest first';
+      case _SortMode.oldestFirst:
+        return 'Oldest first';
+      case _SortMode.fareHighLow:
+        return 'Fare: high to low';
+      case _SortMode.fareLowHigh:
+        return 'Fare: low to high';
+    }
+  }
+
+  Future<void> _openSortFilterSheet() async {
+    var sortMode = _sortMode;
+    String? categoryFilter = _categoryFilter;
+    String? routeHubFilter = _routeHubFilter;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            Widget sectionTitle(String t) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10, top: 18),
+                  child: Text(
+                    t,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                );
+
+            Widget chip(String label, bool selected, VoidCallback onTap) {
+              return ChoiceChip(
+                label: Text(label),
+                selected: selected,
+                onSelected: (_) => onTap(),
+                selectedColor: _kMint,
+                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                labelStyle: TextStyle(
+                  color: selected ? MintObsidian.textOnMint : Colors.white.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              );
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(ctx).bottom),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xF20F172A), Color(0xEE020817)],
+                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Sort & filter',
+                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setModal(() {
+                              sortMode = _SortMode.newestFirst;
+                              categoryFilter = null;
+                              routeHubFilter = null;
+                            });
+                          },
+                          child: const Text('Reset'),
+                        ),
+                      ],
+                    ),
+                    sectionTitle('SORT BY'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final m in _SortMode.values)
+                          chip(_sortLabel(m), sortMode == m, () => setModal(() => sortMode = m)),
+                      ],
+                    ),
+                    sectionTitle('CATEGORY'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        chip('All', categoryFilter == null, () => setModal(() => categoryFilter = null)),
+                        for (final c in _categories)
+                          chip(
+                            c[0].toUpperCase() + c.substring(1),
+                            categoryFilter == c,
+                            () => setModal(() => categoryFilter = c),
+                          ),
+                      ],
+                    ),
+                    sectionTitle('ROUTE'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        chip('All', routeHubFilter == null, () => setModal(() => routeHubFilter = null)),
+                        for (final h in _routeHubs)
+                          chip(h, routeHubFilter == h, () => setModal(() => routeHubFilter = h)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _kMint,
+                        foregroundColor: MintObsidian.textOnMint,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _sortMode = sortMode;
+      _categoryFilter = categoryFilter;
+      _routeHubFilter = routeHubFilter;
+    });
+  }
 
   String? _hubNameIn(String raw) {
     final lower = raw.toLowerCase();
@@ -361,9 +535,24 @@ class _PassengerPageState extends State<PassengerPage> {
                 hintText: 'Search ticket code, route, or category',
                 hintStyle: TextStyle(color: MintObsidian.textSecondary.withValues(alpha: 0.85)),
                 prefixIcon: const Icon(Icons.search_rounded, color: MintObsidian.ocean),
-                suffixIcon: IconButton(
-                  onPressed: _runSearch,
-                  icon: const Icon(Icons.tune_rounded, color: MintObsidian.ocean),
+                suffixIcon: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      onPressed: _openSortFilterSheet,
+                      icon: const Icon(Icons.tune_rounded, color: MintObsidian.ocean),
+                    ),
+                    if (_hasActiveFilters)
+                      Positioned(
+                        right: 10,
+                        top: 10,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(color: _kMint, shape: BoxShape.circle),
+                        ),
+                      ),
+                  ],
                 ),
                 filled: true,
                 fillColor: MintObsidian.surfaceElevated,
@@ -426,14 +615,36 @@ class _PassengerPageState extends State<PassengerPage> {
                   }
                   final q = _search.text.trim().toLowerCase();
                   final all = snap.data ?? [];
-                  final items = q.isEmpty
-                      ? all
-                      : all.where((t) {
-                          final code = t.ticketCode.toLowerCase();
-                          final route = '${t.from} ${t.to}'.toLowerCase();
-                          final category = t.category.toLowerCase();
-                          return code.contains(q) || route.contains(q) || category.contains(q);
-                        }).toList();
+                  final items = all.where((t) {
+                    if (q.isNotEmpty) {
+                      final code = t.ticketCode.toLowerCase();
+                      final route = '${t.from} ${t.to}'.toLowerCase();
+                      final category = t.category.toLowerCase();
+                      if (!(code.contains(q) || route.contains(q) || category.contains(q))) return false;
+                    }
+                    if (_categoryFilter != null && t.category.toLowerCase() != _categoryFilter) {
+                      return false;
+                    }
+                    if (_routeHubFilter != null) {
+                      final route = '${t.from} ${t.to}'.toLowerCase();
+                      if (!route.contains(_routeHubFilter!.toLowerCase())) return false;
+                    }
+                    return true;
+                  }).toList();
+                  switch (_sortMode) {
+                    case _SortMode.newestFirst:
+                      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                      break;
+                    case _SortMode.oldestFirst:
+                      items.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+                      break;
+                    case _SortMode.fareHighLow:
+                      items.sort((a, b) => b.fare.compareTo(a.fare));
+                      break;
+                    case _SortMode.fareLowHigh:
+                      items.sort((a, b) => a.fare.compareTo(b.fare));
+                      break;
+                  }
                   if (items.isEmpty) {
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
