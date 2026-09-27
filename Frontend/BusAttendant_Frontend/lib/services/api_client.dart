@@ -541,8 +541,8 @@ class ApiClient {
     final body = <String, dynamic>{
       'passengerId': passengerId.trim(),
       'passengerName': passengerName.trim(),
-      'from': from.trim(),
-      'to': to.trim(),
+      'startLocation': from.trim(),
+      'destination': to.trim(),
       'category': category.trim().toLowerCase(),
       'fare': fare,
       if (busNumber != null && busNumber.trim().isNotEmpty) 'busNumber': busNumber.trim(),
