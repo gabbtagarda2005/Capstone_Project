@@ -268,7 +268,6 @@ function PassengerDashboardPageInner() {
               suppressBrandChrome
               onMapRegionLabel={setMapTickerRegion}
               selectedBusId={selectedBusId}
-              onClearSelection={() => setSelectedBusId(null)}
               onHelpClick={() => setGuideOpen(true)}
             />
           </div>

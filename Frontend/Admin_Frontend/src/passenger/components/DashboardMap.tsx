@@ -238,7 +238,6 @@ type Props = {
   onMapRegionLabel?: (label: string) => void;
   /** Bus selected from Quick ETA — when set, the map draws that bus's planned route (separate from its live GPS marker). */
   selectedBusId?: string | null;
-  onClearSelection?: () => void;
   /** Shows a "Need Help?" button above the basemap dock when set (opens the passenger quick guide). */
   onHelpClick?: () => void;
 };
@@ -250,7 +249,6 @@ export function DashboardMap({
   suppressBrandChrome,
   onMapRegionLabel,
   selectedBusId,
-  onClearSelection,
   onHelpClick,
 }: Props) {
   const { theme } = useAdminTheme();
@@ -521,11 +519,6 @@ export function DashboardMap({
           ) : null}
         </div>
         <div className="dashboard-map__chrome-actions">
-          {selectedBusId ? (
-            <button type="button" className="dashboard-map__nearby-btn" onClick={onClearSelection}>
-              ✕ Clear route
-            </button>
-          ) : null}
           {userSession ? (
             <button
               type="button"
