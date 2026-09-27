@@ -3075,9 +3075,7 @@ a.pd-card:hover {
 .pd-spa-eta-tile__status-pill--on {
   color: #e8f1ff;
   background: rgba(29, 107, 255, 0.22);
-  box-shadow:
-    0 0 28px rgba(0, 85, 255, 0.35),
-    0 6px 22px rgba(0, 0, 0, 0.28);
+  box-shadow: none;
 }
 
 :root[data-theme="light"] .pd-spa-eta-tile__status-pill--on {
@@ -3088,7 +3086,7 @@ a.pd-card:hover {
 
 .pd-spa-eta-tile__status-pill--on .pd-spa-eta-tile__status-pill-dot {
   background: var(--eta-cyan);
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.9);
+  box-shadow: none;
 }
 
 .pd-spa-eta-tile__hero {
@@ -3157,8 +3155,8 @@ a.pd-card:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
   font-size: 0.72rem;
   font-weight: 600;
   color: rgba(248, 250, 252, 0.94);
@@ -3180,16 +3178,17 @@ a.pd-card:hover {
 }
 
 .pd-spa-eta-tile__journey-end {
-  max-width: 38%;
+  flex: 1 1 0;
+  min-width: 0;
   text-align: center;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pd-spa-eta-tile__journey-track {
-  flex: 1 1 12px;
-  min-width: 8px;
-  max-width: 48px;
+  flex: 0 0 10px;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
   border-radius: 1px;
@@ -3213,6 +3212,7 @@ a.pd-card:hover {
 }
 
 .pd-spa-eta-tile__journey-arrow {
+  flex-shrink: 0;
   font-size: 0.55rem;
   color: rgba(125, 211, 252, 0.95);
   line-height: 1;
