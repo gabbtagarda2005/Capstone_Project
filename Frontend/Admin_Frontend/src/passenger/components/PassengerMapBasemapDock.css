@@ -1,8 +1,15 @@
-/* Passenger map: right rail (Satellite / Map / More) — aligned with admin View Location dock */
+/* Passenger map: bottom-right dock — a single collapsed "More" trigger that expands upward into
+   a connected Satellite/Map/Terrain/Dark list, positioned clear of the floating section nav. */
 
 .pmap-dock {
   position: absolute;
-  inset: auto 0.55rem 0.55rem auto;
+  right: 0.55rem;
+  /* Clears the floating "Quick ETA / Trip Planner / Support / Station" pill (own bottom offset +
+     measured height, see PassengerDashboardPage.css .pd-spa-float-nav) plus a safety gap — rem-based
+     and safe-area aware so it holds across phones, tablets, and desktop, not just one screenshot.
+     Measured nav footprint from the shared containing block's bottom edge: ~4.63rem (mobile,
+     shrunk chip padding) to ~4.98rem (desktop/tablet, unshrunk) — 6rem clears both with margin. */
+  bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
   z-index: 600;
   display: flex;
   flex-direction: column;
@@ -38,6 +45,25 @@
   transform: translateY(-1px);
 }
 
+/* Steps out of the way while the basemap options panel is expanding into the same space above
+   the rail — collapses its own footprint too, so the panel isn't fighting it for room. */
+.pmap-dock__help--hidden {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, max-height 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pmap-dock__help--hidden {
+    transition: none;
+  }
+}
+
 .pmap-dock__help-icon {
   display: grid;
   place-items: center;
@@ -58,318 +84,141 @@
 }
 
 .pmap-dock__rail {
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.45rem;
+  position: relative;
   width: 4.65rem;
 }
 
-.pmap-dock__basemap-shell {
-  position: relative;
-  align-self: stretch;
-}
-
-.pmap-dock__more-anchor {
-  position: relative;
-  width: 100%;
-  flex-shrink: 0;
-}
-
-.pmap-dock__basemap-col {
+.pmap-dock__trigger {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.12rem;
+  gap: 0.2rem;
+  width: 100%;
   padding: 0.4rem 0.32rem 0.45rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 14px;
   background: #f1f5f9;
-  border: 1px solid rgba(15, 23, 42, 0.08);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
-}
-
-.pmap-dock__basemap-col--compact {
-  max-height: none;
-  overflow: visible;
-}
-
-.pmap-dock__basemap-mini {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.18rem;
-  width: 100%;
-  padding: 0.15rem 0.1rem 0.22rem;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  color: #64748b;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.pmap-dock__basemap-mini:hover {
-  background: rgba(59, 130, 246, 0.08);
   color: #334155;
-}
-
-.pmap-dock__basemap-mini--active {
-  background: rgba(59, 130, 246, 0.14);
-  color: #1d4ed8;
-}
-
-.pmap-dock__basemap-mini-thumb {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 9px;
-  border: 2px solid rgba(148, 163, 184, 0.45);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  background-size: cover;
-  background-position: center;
-}
-
-.pmap-dock__basemap-mini--active .pmap-dock__basemap-mini-thumb {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35), 0 4px 14px rgba(37, 99, 235, 0.25);
-}
-
-.pmap-dock__basemap-mini-thumb--sat {
-  background-image: linear-gradient(155deg, #3d4a2f 0%, #6b5c3e 42%, #2d4a3a 100%);
-}
-
-.pmap-dock__basemap-mini-thumb--road {
-  background-image: linear-gradient(145deg, #e2e8f0 0%, #cbd5e1 40%, #94a3b8 100%);
-}
-
-.pmap-dock__basemap-mini-thumb--terrain {
-  background-image:
-    linear-gradient(90deg, transparent 48%, rgba(255, 255, 255, 0.35) 50%, transparent 52%),
-    linear-gradient(165deg, #64748b 0%, #86efac 45%, #475569 100%);
-}
-
-.pmap-dock__basemap-mini-thumb--dark {
-  background-image: linear-gradient(145deg, #0c1222 0%, #1e3a5f 45%, #0f766e 100%);
-}
-
-.pmap-dock__basemap-mini-caption {
-  font-size: 0.52rem;
-  font-weight: 700;
-  line-height: 1.15;
-  text-align: center;
-  letter-spacing: 0.02em;
-  max-width: 100%;
-  word-break: break-word;
-}
-
-.pmap-dock__basemap-mini--active .pmap-dock__basemap-mini-caption {
-  color: #1e40af;
-}
-
-.pmap-dock__chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.28rem;
-  min-width: 3.1rem;
-  max-width: 4.5rem;
-  padding: 0.35rem 0.28rem 0.4rem;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
   cursor: pointer;
-  color: #64748b;
   font: inherit;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.pmap-dock__basemap-col .pmap-dock__chip {
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  padding: 0.28rem 0.15rem 0.32rem;
-  gap: 0.2rem;
+.pmap-dock__trigger:hover {
+  background: #e9eef4;
 }
 
-.pmap-dock__basemap-col .pmap-dock__chip-icon {
-  width: 2rem;
-  height: 2rem;
-}
-
-.pmap-dock__basemap-col .pmap-dock__chip-svg {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
-.pmap-dock__basemap-col .pmap-dock__chip-label {
-  font-size: 0.5rem;
-}
-
-.pmap-dock__chip:hover {
-  background: rgba(59, 130, 246, 0.08);
-  color: #334155;
-}
-
-.pmap-dock__chip--active {
-  background: rgba(59, 130, 246, 0.12);
+.pmap-dock__trigger--active {
+  background: #e2ecff;
   color: #1d4ed8;
 }
 
-.pmap-dock__chip--active .pmap-dock__chip-label {
-  font-weight: 700;
-  color: #1e40af;
-}
-
-.pmap-dock__chip--more-btn {
-  cursor: pointer;
-  opacity: 1;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  padding: 0.28rem 0.15rem 0.32rem;
-  gap: 0.2rem;
-}
-
-.pmap-dock__chip--more-btn .pmap-dock__chip-icon {
-  width: 2rem;
-  height: 2rem;
-}
-
-.pmap-dock__chip--more-btn .pmap-dock__chip-svg {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
-.pmap-dock__chip--more-btn .pmap-dock__chip-label {
+.pmap-dock__trigger-caption {
   font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
 }
 
-.pmap-dock__more-panel {
-  position: fixed;
-  right: auto;
-  bottom: auto;
-  margin: 0;
-  z-index: 25000;
-  min-width: 7.25rem;
+/* Expands upward in place (never shifts the trigger, never gets clipped by the map edge). */
+.pmap-dock__options {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.4rem);
   width: max-content;
-  max-width: min(10.5rem, calc(100vw - 2.25rem));
-  max-height: min(42vh, 300px);
-  padding: 0.55rem 0.55rem 0.6rem;
-  border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-    0 16px 48px rgba(0, 0, 0, 0.38),
-    0 4px 16px rgba(0, 0, 0, 0.22);
-  pointer-events: auto;
+  min-width: 100%;
+  max-width: min(9.5rem, calc(100vw - 1.6rem));
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  animation: pmap-dock-more-in 0.16s ease-out;
+  border-radius: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: min(15rem, 45vh);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+  background: #f8fafc;
+  transform-origin: bottom center;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  opacity: 0;
+  transform: translateY(6px) scaleY(0.92);
+  visibility: hidden;
 }
 
-@keyframes pmap-dock-more-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
+.pmap-dock__options--open {
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pmap-dock__options {
+    transition: opacity 0.12s linear, visibility 0.12s;
+    transform: none;
   }
-  to {
-    opacity: 1;
+  .pmap-dock__options--open {
     transform: none;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pmap-dock__more-panel {
-    animation: none;
-  }
-}
-
-.pmap-dock__more-panel-title {
-  flex-shrink: 0;
-  margin: 0 0 0.5rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #334155;
-  text-align: center;
-}
-
-.pmap-dock__more-panel-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 0.15rem;
-  scrollbar-width: thin;
-}
-
-.pmap-dock__more-panel-scroll::-webkit-scrollbar {
-  width: 5px;
-}
-
-.pmap-dock__more-panel-scroll::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.45);
-  border-radius: 4px;
-}
-
-.pmap-dock__more-panel .pmap-dock__basemap-mini {
-  padding: 0.25rem 0.2rem 0.3rem;
-}
-
-.pmap-dock__more-panel .pmap-dock__basemap-mini-thumb {
-  width: 3.15rem;
-  height: 3.15rem;
-  border-radius: 10px;
-}
-
-.pmap-dock__more-panel .pmap-dock__basemap-mini-caption {
-  font-size: 0.68rem;
-  line-height: 1.2;
-}
-
-.pmap-dock__chip-icon {
-  width: 2.25rem;
-  height: 2.25rem;
+.pmap-dock__option {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  background: rgba(241, 245, 249, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.pmap-dock__chip--active .pmap-dock__chip-icon {
-  border-color: rgba(59, 130, 246, 0.45);
-  background: #eff6ff;
-}
-
-.pmap-dock__chip-svg {
-  width: 1.35rem;
-  height: 1.35rem;
-  display: block;
-}
-
-.pmap-dock__chip-label {
-  font-size: 0.58rem;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
   font-weight: 600;
-  line-height: 1.15;
-  text-align: center;
-  color: #475569;
-  letter-spacing: 0.01em;
+  color: #334155;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pmap-dock__option:last-child {
+  border-bottom: none;
+}
+
+.pmap-dock__option:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.pmap-dock__option--active {
+  background: rgba(59, 130, 246, 0.13);
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.pmap-dock__option-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background-size: cover;
+  background-position: center;
+}
+
+.pmap-dock__option-swatch--sat {
+  background-image: linear-gradient(155deg, #3d4a2f 0%, #6b5c3e 42%, #2d4a3a 100%);
+}
+
+.pmap-dock__option-swatch--road {
+  background-image: linear-gradient(145deg, #e2e8f0 0%, #cbd5e1 40%, #94a3b8 100%);
+}
+
+.pmap-dock__option-swatch--terrain {
+  background-image: linear-gradient(90deg, transparent 48%, rgba(255, 255, 255, 0.35) 50%, transparent 52%),
+    linear-gradient(165deg, #64748b 0%, #86efac 45%, #475569 100%);
+}
+
+.pmap-dock__option-swatch--dark {
+  background-image: linear-gradient(145deg, #0c1222 0%, #1e3a5f 45%, #0f766e 100%);
 }
 
 .pmap-dock__attr {
@@ -395,10 +244,5 @@
 
   .pmap-dock__help {
     width: 3.85rem;
-  }
-
-  .pmap-dock__basemap-mini-thumb {
-    width: 2.25rem;
-    height: 2.25rem;
   }
 }

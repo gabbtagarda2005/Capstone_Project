@@ -547,6 +547,7 @@ export function DashboardMap({
             "dashboard-map__leaflet" + (photoBasemap ? " dashboard-map__leaflet--photo" : "")
           }
           scrollWheelZoom
+          zoomControl={false}
         >
           {userSession ? <EnsureUserMapView lat={userSession.lat} lng={userSession.lng} zoom={15} /> : null}
           <RecenterWhenConfigChanges
