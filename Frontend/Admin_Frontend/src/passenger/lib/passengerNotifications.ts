@@ -6,7 +6,20 @@ export type PassengerNotificationItem = {
   body: string;
   timeLabel: string;
   kind: "broadcast" | "arrival" | "schedule" | "delay";
+  /** True origin time from the server, when the item carries one (e.g. the admin broadcast's
+   *  own updatedAt) — used for 24h expiry instead of per-device "first seen" tracking, since the
+   *  broadcast's id never changes even when its content does, so a device visiting for the first
+   *  time long after the message was set would otherwise treat it as freshly sent today. Items
+   *  synthesized from live trip conditions (arrival/delay/schedule) have no such origin and stay
+   *  null, so they keep using first-seen tracking. */
+  sentAtMs: number | null;
 };
+
+function parseMs(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : null;
+}
 
 function fmtTime(iso: string | null | undefined): string {
   if (!iso) return "Now";
@@ -71,6 +84,7 @@ export async function fetchPassengerNotificationFeed(): Promise<PassengerNotific
       body: msg,
       timeLabel: fmtTime(broadcast.updatedAt),
       kind: "broadcast",
+      sentAtMs: parseMs(broadcast.updatedAt),
     });
   }
 
@@ -82,6 +96,7 @@ export async function fetchPassengerNotificationFeed(): Promise<PassengerNotific
       body: banner,
       timeLabel: "Today",
       kind: "schedule",
+      sentAtMs: null,
     });
   }
 
@@ -101,6 +116,7 @@ export async function fetchPassengerNotificationFeed(): Promise<PassengerNotific
         body: `${busLabel} on ${route} is running behind the published time. Check the live departures board for updates.`,
         timeLabel: trip.departureTime || "Live board",
         kind: "delay",
+        sentAtMs: null,
       });
     }
 
@@ -111,6 +127,7 @@ export async function fetchPassengerNotificationFeed(): Promise<PassengerNotific
         body: `${busLabel} — GPS signal is weak or paused. Arrival times may update when the bus reconnects.`,
         timeLabel: "Live board",
         kind: "schedule",
+        sentAtMs: null,
       });
     }
 
@@ -126,6 +143,7 @@ export async function fetchPassengerNotificationFeed(): Promise<PassengerNotific
         body: `${busLabel} · ${route} — ${etaBit}${terminal ? ` toward ${terminal}.` : "."}`,
         timeLabel: trip.departureTime || fmtTime(board.serverTime),
         kind: "arrival",
+        sentAtMs: null,
       });
     }
   }

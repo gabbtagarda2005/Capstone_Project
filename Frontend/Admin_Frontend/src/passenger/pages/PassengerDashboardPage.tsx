@@ -229,8 +229,11 @@ function PassengerDashboardPageInner() {
     const now = Date.now();
     return notifications.filter((n) => {
       if (notifDismissedAt[n.id] != null) return false;
-      const firstSeen = notifFirstSeenAt[n.id];
-      if (firstSeen != null && isNotificationExpired(firstSeen, now)) return false;
+      // Prefer the item's own server-provided origin time (e.g. the admin broadcast's
+      // updatedAt) when it has one — its id stays stable even when its content changes, so
+      // per-device "first seen" would otherwise restart the 24h clock for every new visitor.
+      const originAt = n.sentAtMs ?? notifFirstSeenAt[n.id];
+      if (originAt != null && isNotificationExpired(originAt, now)) return false;
       return true;
     });
   }, [notifications, notifDismissedAt, notifFirstSeenAt]);
