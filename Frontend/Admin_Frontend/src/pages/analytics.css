@@ -241,19 +241,6 @@
   }
 }
 
-/* Same rotation as neo-globe-spin, but scaled up — the light-mode photo has a lot of empty
-   backdrop framing the globe itself (unlike the dark asset, which is already tightly cropped
-   to the orb), so without this the circular crop shows a visible flat disc around a small
-   globe instead of the globe filling the frame edge-to-edge. */
-@keyframes neo-globe-spin-zoomed {
-  from {
-    transform: rotate(0deg) scale(2.6);
-  }
-  to {
-    transform: rotate(360deg) scale(2.6);
-  }
-}
-
 @keyframes neo-globe-breathe {
   0%,
   100% {
@@ -272,8 +259,10 @@
 }
 
 .neo-globe-media {
-  width: min(240px, 70%);
-  height: min(240px, 70%);
+  width: 240px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  height: auto;
   margin: 0 auto;
   object-fit: contain;
   object-position: center center;
@@ -287,10 +276,13 @@
 
 /* mix-blend-mode: screen renders as solid white (i.e. invisible) against a light-mode
    card background — it was only ever tuned for the dark theme's near-black card, so light
-   mode swaps in a plain white-globe photo instead. It's a rectangular photo (not a
-   transparent-background render like the dark asset), so it's clipped to a circle before the
-   same spin/breathe animation is applied — otherwise the photo's corners would sweep visibly
-   into view as it rotates. */
+   mode swaps in a plain white-globe photo instead. The photo is pre-cropped (zoomed square,
+   see DashboardBackgroundLight.jpg) so it fills a circle with no grey backdrop margin — the
+   zoom is baked into the file rather than done with a live CSS transform:scale, because a
+   transform inflates the element's on-screen size beyond its 240px layout box, which is what
+   made this image visually much larger than the dark globe despite both being "240px". With
+   the crop baked in, this uses the exact same 240px box and the same plain spin/breathe
+   animation as the dark globe, so the two are guaranteed to render at an identical size. */
 .neo-globe-media--light {
   display: none;
 }
@@ -301,17 +293,18 @@
 
 :root[data-theme="light"] .neo-globe-media--light {
   display: block;
-  width: min(240px, 70%);
-  height: min(240px, 70%);
-  min-height: 0;
+  width: 240px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  height: auto;
   margin: 0 auto;
   border-radius: 50%;
   object-fit: cover;
-  object-position: 50% 42%;
+  object-position: center center;
   opacity: 1;
   mix-blend-mode: normal;
   filter: drop-shadow(0 0 24px rgba(34, 211, 238, 0.28));
-  animation: neo-globe-spin-zoomed 26s linear infinite, neo-globe-breathe 3.8s ease-in-out infinite;
+  animation: neo-globe-spin 26s linear infinite, neo-globe-breathe 3.8s ease-in-out infinite;
 }
 
 .neo-globe-3d {
