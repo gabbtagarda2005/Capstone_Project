@@ -2913,6 +2913,9 @@ function AdminManagementActivityPanel() {
         <button type="button" className="mgmt-admins__add-it-btn" onClick={() => setAddAdminOpen(true)}>
           Add IT Account
         </button>
+        <Link to="/dashboard/management/admins/it-accounts" className="mgmt-admins__manage-it-btn">
+          Manage IT Account
+        </Link>
         <p className="mgmt-admins__it-hint">
           Emails a 6-digit code to verify the address, then lets you set a password — the account can sign in right
           away, restricted to System Health only.

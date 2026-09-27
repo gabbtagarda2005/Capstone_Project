@@ -199,7 +199,7 @@
   border-radius: 14px;
   border: 1px solid rgba(31, 88, 133, 0.45);
   background: rgba(2, 8, 23, 0.82);
-  padding: 0.75rem 0.85rem;
+  padding: 0.95rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -234,6 +234,8 @@
 }
 
 .sch-card__time {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
   font-size: 0.95rem;
   font-weight: 800;

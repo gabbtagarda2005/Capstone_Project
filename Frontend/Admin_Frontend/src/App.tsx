@@ -26,6 +26,7 @@ import { AdminAuditEntryPage } from "@/pages/management/AdminAuditEntryPage";
 import { AdminOpsGuidePage } from "@/pages/management/AdminOpsGuidePage";
 import { AttendantDetailPage } from "@/pages/management/AttendantDetailPage";
 import { BusDetailPage } from "@/pages/management/BusDetailPage";
+import { ItAccountsPage } from "@/pages/management/ItAccountsPage";
 import { DriverDetailPage } from "@/pages/management/DriverDetailPage";
 import { LocationDetailPage } from "@/pages/management/LocationDetailPage";
 import { RouteDetailPage } from "@/pages/management/RouteDetailPage";
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="management/routes/:routeId" element={<RouteDetailPage />} />
           <Route path="management/schedules/:scheduleSlug" element={<ScheduleGuidePage />} />
           <Route path="management/admins/overview" element={<AdminOpsGuidePage />} />
+          <Route path="management/admins/it-accounts" element={<ItAccountsPage />} />
           <Route path="management/admins/audit/:logId" element={<AdminAuditEntryPage />} />
           <Route path="management/:moduleId" element={<ManagementModulePage />} />
           <Route path="reports" element={<ReportsPage />} />

@@ -840,3 +840,31 @@ export async function createItAccount(
     json: { token, password, confirmPassword },
   });
 }
+
+export type ItAccountDto = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  active: boolean;
+  createdAt?: string;
+};
+
+/** Manage IT Account (Settings → Admins) — self-service accounts created via the OTP flow above. */
+export async function fetchItAccounts(): Promise<{ items: ItAccountDto[] }> {
+  return api("/api/admin/it-accounts");
+}
+
+export async function fetchItAccountLogs(email: string): Promise<{ items: AdminAuditLogRowDto[] }> {
+  return api(`/api/admin/it-accounts/${encodeURIComponent(email)}/logs`);
+}
+
+export async function updateItAccount(
+  email: string,
+  body: { firstName?: string; lastName?: string; active?: boolean }
+): Promise<ItAccountDto> {
+  return api(`/api/admin/it-accounts/${encodeURIComponent(email)}`, { method: "PATCH", json: body });
+}
+
+export async function deleteItAccount(email: string): Promise<void> {
+  await api(`/api/admin/it-accounts/${encodeURIComponent(email)}`, { method: "DELETE" });
+}

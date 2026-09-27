@@ -458,6 +458,137 @@ function createAdminPortalRouter() {
     }
   });
 
+  /**
+   * Manage IT account (Settings → Admins → Manage IT Account): the self-service accounts created
+   * above are otherwise invisible after creation — this lists them, keyed by the it_support RBAC
+   * assignment (source of truth for "is this an IT account"), joined with PortalUser for the
+   * login credential's name/active state.
+   */
+  router.get("/it-accounts", requireAdminJwt, requireSuperAdmin, async (_req, res) => {
+    try {
+      const assignments = await AdminRbacAssignment.find({ role: "it_support" }).sort({ email: 1 }).lean();
+      const emails = assignments.map((a) => a.email);
+      const users = emails.length
+        ? await PortalUser.find({ email: { $in: emails }, role: "Admin" })
+            .select("email firstName lastName active createdAt")
+            .lean()
+        : [];
+      const byEmail = new Map(users.map((u) => [u.email, u]));
+      const items = assignments
+        .map((a) => {
+          const u = byEmail.get(a.email);
+          if (!u) return null; // RBAC row pre-assigned but the OTP+password flow was never finished
+          return {
+            email: u.email,
+            firstName: u.firstName || "IT",
+            lastName: u.lastName || "Support",
+            active: u.active !== false,
+            createdAt: u.createdAt,
+          };
+        })
+        .filter(Boolean);
+      return res.json({ items });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Could not load IT accounts" });
+    }
+  });
+
+  /** Recent LOGIN activity for one IT account — powers the "View" logs list. */
+  router.get("/it-accounts/:email/logs", requireAdminJwt, requireSuperAdmin, async (req, res) => {
+    try {
+      const email = normalizeEmail(req.params.email);
+      const rows = await AdminAuditLog.find({ email, action: "LOGIN" })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean();
+      return res.json({
+        items: rows.map((r) => ({
+          id: String(r._id),
+          email: r.email,
+          module: r.module,
+          action: r.action,
+          details: r.details,
+          timestamp: r.createdAt,
+          source: r.source,
+        })),
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Could not load login history" });
+    }
+  });
+
+  /** Edit name and/or deactivate/reactivate sign-in access — the account, tickets/audit history,
+   *  and RBAC assignment are untouched; deactivating just blocks /login (see isAuthorizedAdminEmailDynamic). */
+  router.patch("/it-accounts/:email", requireAdminJwt, requireSuperAdmin, async (req, res) => {
+    try {
+      const email = normalizeEmail(req.params.email);
+      const assignment = await AdminRbacAssignment.findOne({ email, role: "it_support" }).select("_id").lean();
+      if (!assignment) return res.status(404).json({ error: "IT account not found" });
+
+      const $set = {};
+      if (req.body?.firstName !== undefined) $set.firstName = String(req.body.firstName).trim() || "IT";
+      if (req.body?.lastName !== undefined) $set.lastName = String(req.body.lastName).trim() || "Support";
+      if (req.body?.active !== undefined) $set.active = Boolean(req.body.active);
+      if (!Object.keys($set).length) return res.status(400).json({ error: "No fields to update" });
+
+      const doc = await PortalUser.findOneAndUpdate(
+        { email, role: "Admin" },
+        { $set },
+        { new: true }
+      ).select("email firstName lastName active");
+      if (!doc) return res.status(404).json({ error: "IT account not found" });
+
+      if (req.body?.active !== undefined) {
+        AdminAuditLog.create({
+          email: req.admin?.email,
+          module: "Admins",
+          action: doc.active ? "ACTIVATE" : "DEACTIVATE",
+          details: `${doc.active ? "Reactivated" : "Deactivated"} IT account ${email}`,
+          httpMethod: "PATCH",
+          path: req.originalUrl,
+          statusCode: 200,
+          source: "http",
+        }).catch(() => {});
+      }
+
+      return res.json({
+        email: doc.email,
+        firstName: doc.firstName,
+        lastName: doc.lastName,
+        active: doc.active !== false,
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Could not update IT account" });
+    }
+  });
+
+  /** Permanently removes the login (PortalUser) and its it_support RBAC assignment. */
+  router.delete("/it-accounts/:email", requireAdminJwt, requireSuperAdmin, async (req, res) => {
+    try {
+      const email = normalizeEmail(req.params.email);
+      const assignment = await AdminRbacAssignment.findOne({ email, role: "it_support" }).select("_id").lean();
+      if (!assignment) return res.status(404).json({ error: "IT account not found" });
+
+      await PortalUser.deleteOne({ email, role: "Admin" });
+      await AdminRbacAssignment.deleteOne({ email, role: "it_support" });
+
+      AdminAuditLog.create({
+        email: req.admin?.email,
+        module: "Admins",
+        action: "DELETE",
+        details: `Deleted IT account ${email}`,
+        httpMethod: "DELETE",
+        path: req.originalUrl,
+        statusCode: 204,
+        source: "http",
+      }).catch(() => {});
+
+      return res.status(204).send();
+    } catch (e) {
+      return res.status(500).json({ error: e.message || "Could not delete IT account" });
+    }
+  });
+
   /** Real backend events (Mongo state changes, uncaught route errors) — powers System Health's Recent Errors panel. */
   router.get("/system-events", requireAdminJwt, (req, res) => {
     const { level, service, limit } = req.query;

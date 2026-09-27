@@ -41,8 +41,9 @@ async function isAuthorizedAdminEmailDynamic(rawEmail) {
   if (isAuthorizedAdminEmail(email)) return true;
   const assignment = await AdminRbacAssignment.findOne({ email, role: "it_support" }).select("_id").lean();
   if (!assignment) return false;
-  const user = await PortalUser.findOne({ email, role: "Admin" }).select("password").lean();
-  return Boolean(user?.password);
+  const user = await PortalUser.findOne({ email, role: "Admin" }).select("password active").lean();
+  if (!user?.password) return false;
+  return user.active !== false;
 }
 
 module.exports = {

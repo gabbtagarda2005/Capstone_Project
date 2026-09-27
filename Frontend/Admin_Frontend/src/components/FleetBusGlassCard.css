@@ -227,6 +227,13 @@
   display: block;
 }
 
+/* The eye glyph's own artwork sits shorter within its viewBox than the pencil/trash icons do,
+   so at equal width/height it reads visibly smaller — bump it slightly to match their weight. */
+.fleet-u3__cbtn-svg--eye {
+  width: 18px;
+  height: 18px;
+}
+
 .fleet-u3__labels {
   display: flex;
   align-items: center;

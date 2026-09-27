@@ -403,13 +403,17 @@
 }
 
 .att-dossier__assign-search input[type="date"] {
-  padding: 0.4rem 0.55rem;
+  width: 11rem;
+  max-width: 100%;
+  height: 2.15rem;
+  padding: 0 0.55rem;
   border-radius: 8px;
   border: 1px solid var(--att-border);
   background: var(--att-well);
   color: var(--att-text);
   font-size: 0.8rem;
   color-scheme: dark;
+  box-sizing: border-box;
 }
 
 :root[data-theme="light"] .att-dossier__assign-search input[type="date"] {
@@ -417,7 +421,8 @@
 }
 
 .att-dossier__assign-search button {
-  padding: 0.45rem 0.9rem;
+  height: 2.15rem;
+  padding: 0 0.9rem;
   border-radius: 8px;
   border: 1px solid var(--att-cyan);
   background: rgba(34, 211, 238, 0.14);
@@ -425,6 +430,7 @@
   font-size: 0.75rem;
   font-weight: 800;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .att-dossier__assign-search button:disabled {
