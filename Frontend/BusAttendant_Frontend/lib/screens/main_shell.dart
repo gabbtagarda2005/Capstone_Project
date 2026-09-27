@@ -101,6 +101,13 @@ class _MainShellState extends State<MainShell> {
   /// Passenger web “Left something?” — shown in tactical feed (socket `commandAlert` / `lost_item`).
   final List<TacticalNotificationItem> _lostItemAlerts = [];
 
+  /// IDs of notification-feed items already shown to the attendant (opening the bell marks the
+  /// current set as seen) — the bell's red dot only lights up for items not in this set, so it
+  /// clears on view and only reappears once a genuinely new alert arrives.
+  final Set<String> _seenAlertKeys = {};
+
+  bool get _hasUnseenAlerts => _notificationItems().any((n) => !_seenAlertKeys.contains(n.id));
+
   /// Gates `_onGoLive` until the tactical tracking intro has run (or permission was already granted).
   bool _locationIntroComplete = false;
 
@@ -245,7 +252,7 @@ class _MainShellState extends State<MainShell> {
       }
       items.add(
         TacticalNotificationItem(
-          id: 'broadcast-${DateTime.now().millisecondsSinceEpoch}',
+          id: 'broadcast-${s.message}',
           title: 'Admin broadcast',
           body: s.message,
           at: DateTime.now(),
@@ -1059,27 +1066,6 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  /// Maps Admin_Backend `notified.email` / `notified.sms` codes for the SOS confirmation dialog.
-  static String _sosChannelLabel(String? code) {
-    switch (code) {
-      case 'sent':
-        return 'Sent (IPROG)';
-      case 'trial_limit':
-        return 'Not sent';
-      case 'failed':
-        return 'Failed';
-      case 'not_configured':
-      case 'skipped_unconfigured':
-        return 'Not configured';
-      case 'skipped_invalid':
-        return 'Invalid number';
-      case 'settings_error':
-        return 'Settings error';
-      default:
-        return (code == null || code.isEmpty) ? '—' : code;
-    }
-  }
-
   Future<void> _sendSos(
     BuildContext context, {
     required String level,
@@ -1128,30 +1114,7 @@ class _MainShellState extends State<MainShell> {
             ),
             title: const Text('SOS sent'),
             content: Text(
-              () {
-                final b = StringBuffer(
-                  smsOk
-                      ? 'SOS Sent. Admin notified via IPROG SMS.'
-                      : 'SOS Sent. Help is on the way.',
-                );
-                if (r.emailNotify != null || r.smsNotify != null) {
-                  b.write(
-                    '\n\nStatus — email: ${_sosChannelLabel(r.emailNotify)}, SMS: ${_sosChannelLabel(r.smsNotify)}.',
-                  );
-                }
-                if (emailOk && !smsOk) {
-                  b.write(
-                    '\n\nOperators were also emailed when mail is configured; they can respond from the dashboard even if IPROG SMS did not go through.',
-                  );
-                }
-                if (r.smsDetail != null && r.smsDetail!.trim().isNotEmpty) {
-                  b.write('\n\n${r.smsDetail!.trim()}');
-                }
-                if (r.hint != null && r.hint!.trim().isNotEmpty) {
-                  b.write('\n\n${r.hint!.trim()}');
-                }
-                return b.toString();
-              }(),
+              'SOS sent — help is on the way.',
               style: GoogleFonts.plusJakartaSans(fontSize: 15, height: 1.4),
             ),
             actions: [
@@ -1259,13 +1222,16 @@ class _MainShellState extends State<MainShell> {
           ),
           actions: [
             TacticalNotificationAction(
-              hasActiveAlert: (_broadcastState?.visible == true) ||
-                  WeatherAdvisoryController.instance.hasAlerts ||
-                  _lostItemAlerts.isNotEmpty,
-              onPressed: () => TacticalNotificationPanel.open(
-                context,
-                items: _notificationItems(),
-              ),
+              hasActiveAlert: _hasUnseenAlerts,
+              onPressed: () {
+                final items = _notificationItems();
+                setState(() {
+                  _seenAlertKeys
+                    ..clear()
+                    ..addAll(items.map((n) => n.id));
+                });
+                TacticalNotificationPanel.open(context, items: items);
+              },
             ),
           ],
         ),
