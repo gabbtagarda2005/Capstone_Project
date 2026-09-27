@@ -227,11 +227,14 @@
   display: block;
 }
 
-/* The eye glyph's own artwork sits shorter within its viewBox than the pencil/trash icons do,
-   so at equal width/height it reads visibly smaller — bump it slightly to match their weight. */
+/* The eye glyph's own artwork only fills the middle ~58% of its 24x24 viewBox vertically
+   (the pencil/trash artwork fills ~80-90%), so matching width/height alone still renders it
+   visibly smaller — the JSX crops the eye's viewBox to its actual drawn bounding box, and this
+   size is bumped to match the pencil/trash icons' rendered weight (verified via a rendered
+   side-by-side screenshot, not eyeballed in code). */
 .fleet-u3__cbtn-svg--eye {
-  width: 18px;
-  height: 18px;
+  width: 21px;
+  height: 21px;
 }
 
 .fleet-u3__labels {

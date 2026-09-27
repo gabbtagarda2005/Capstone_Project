@@ -271,6 +271,27 @@
   mix-blend-mode: screen;
 }
 
+/* mix-blend-mode: screen renders as solid white (i.e. invisible) against a light-mode
+   card background — it was only ever tuned for the dark theme's near-black card. So the
+   dark-theme globe render is swapped out for a plain photo in light mode instead of trying
+   to patch the blend mode. */
+.neo-globe-media--light {
+  display: none;
+}
+
+:root[data-theme="light"] .neo-globe-media--dark {
+  display: none;
+}
+
+:root[data-theme="light"] .neo-globe-media--light {
+  display: block;
+  opacity: 1;
+  filter: none;
+  animation: none;
+  mix-blend-mode: normal;
+  border-radius: 16px;
+}
+
 .neo-globe-3d {
   width: 100%;
   height: 100%;

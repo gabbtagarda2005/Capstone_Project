@@ -24,7 +24,7 @@ function healthClass(tone: Props["healthTone"]): string {
 
 function IconEye() {
   return (
-    <svg className="fleet-u3__cbtn-svg fleet-u3__cbtn-svg--eye" viewBox="0 0 24 24" aria-hidden>
+    <svg className="fleet-u3__cbtn-svg fleet-u3__cbtn-svg--eye" viewBox="1 5 22 14" aria-hidden>
       <path
         fill="currentColor"
         d="M12 5C7 5 2.73 8.11 1 12c1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"
