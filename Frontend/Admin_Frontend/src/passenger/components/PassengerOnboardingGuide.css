@@ -49,29 +49,6 @@
   outline: none;
 }
 
-.pog-panel__close {
-  position: absolute;
-  top: 0.85rem;
-  right: 0.85rem;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--pw-text);
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.pog-panel__close:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.pog-panel__close:focus-visible {
-  box-shadow: var(--pw-focus-ring);
-}
-
 .pog-eyebrow {
   margin: 0 0 0.5rem;
   font-size: 0.72rem;

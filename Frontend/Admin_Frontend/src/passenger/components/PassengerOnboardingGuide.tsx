@@ -294,10 +294,6 @@ export function PassengerOnboardingGuide({
         ref={panelRef}
         tabIndex={-1}
       >
-        <button type="button" className="pog-panel__close" onClick={onClose} aria-label="Close quick guide">
-          ×
-        </button>
-
         {phase === "welcome" ? (
           <div className="pog-welcome">
             <p className="pog-eyebrow">Passenger Quick Guide</p>
