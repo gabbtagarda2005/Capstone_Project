@@ -17,6 +17,14 @@ import { clearPassengerLocationGate, getPassengerLocationSession } from "@/passe
 import { fetchPassengerNotificationFeed, type PassengerNotificationItem } from "@/passenger/lib/passengerNotifications";
 import { isPassengerOnboardingSeen, setPassengerOnboardingSeen } from "@/passenger/lib/passengerOnboarding";
 import { PassengerOnboardingGuide } from "@/passenger/components/PassengerOnboardingGuide";
+import {
+  isNotificationExpired,
+  loadDismissedAt,
+  loadFirstSeenAt,
+  pruneToActiveIds,
+  saveDismissedAt,
+  saveFirstSeenAt,
+} from "@/passenger/lib/passengerNotificationState";
 import "./PassengerLandingPage.css";
 import "./PassengerDashboardPage.css";
 
@@ -50,7 +58,10 @@ function PassengerDashboardPageInner() {
   const [liveBoardError, setLiveBoardError] = useState<string | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<PassengerNotificationItem[]>([]);
-  const [dismissedNotifIds, setDismissedNotifIds] = useState<Set<string>>(new Set());
+  /** id -> first time this device observed the notification (persisted; drives the 24h auto-expiry). */
+  const [notifFirstSeenAt, setNotifFirstSeenAt] = useState<Record<string, number>>(() => loadFirstSeenAt());
+  /** id -> when it was dismissed (persisted, so "Clear all" / per-item dismiss survives closing the app). */
+  const [notifDismissedAt, setNotifDismissedAt] = useState<Record<string, number>>(() => loadDismissedAt());
   const [seenNotifIds, setSeenNotifIds] = useState<Set<string>>(new Set());
   const [companyName, setCompanyName] = useState("Bukidnon Transit");
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
@@ -109,7 +120,31 @@ function PassengerDashboardPageInner() {
     const poll = async () => {
       try {
         const items = await fetchPassengerNotificationFeed();
-        if (!cancelled) setNotifications(items);
+        if (cancelled) return;
+        setNotifications(items);
+        const activeIds = new Set(items.map((n) => n.id));
+        setNotifFirstSeenAt((prev) => {
+          const now = Date.now();
+          const next = pruneToActiveIds(prev, activeIds);
+          for (const n of items) {
+            if (next[n.id] == null) next[n.id] = now;
+          }
+          const prevKeys = Object.keys(prev);
+          const nextKeys = Object.keys(next);
+          if (prevKeys.length === nextKeys.length && prevKeys.every((k) => prev[k] === next[k])) {
+            return prev;
+          }
+          saveFirstSeenAt(next);
+          return next;
+        });
+        setNotifDismissedAt((prev) => {
+          const next = pruneToActiveIds(prev, activeIds);
+          const prevKeys = Object.keys(prev);
+          const nextKeys = Object.keys(next);
+          if (prevKeys.length === nextKeys.length) return prev;
+          saveDismissedAt(next);
+          return next;
+        });
       } catch {
         if (!cancelled) setNotifications([]);
       }
@@ -190,10 +225,15 @@ function PassengerDashboardPageInner() {
   const quickEtaRows = useMemo(() => buildQuickEtaRows(fleetBuses, liveBoard), [fleetBuses, liveBoard]);
   const peekRow = quickEtaRows[0];
 
-  const visibleNotifications = useMemo(
-    () => notifications.filter((n) => !dismissedNotifIds.has(n.id)),
-    [notifications, dismissedNotifIds]
-  );
+  const visibleNotifications = useMemo(() => {
+    const now = Date.now();
+    return notifications.filter((n) => {
+      if (notifDismissedAt[n.id] != null) return false;
+      const firstSeen = notifFirstSeenAt[n.id];
+      if (firstSeen != null && isNotificationExpired(firstSeen, now)) return false;
+      return true;
+    });
+  }, [notifications, notifDismissedAt, notifFirstSeenAt]);
   const unseenNotifCount = useMemo(
     () => visibleNotifications.filter((n) => !seenNotifIds.has(n.id)).length,
     [visibleNotifications, seenNotifIds]
@@ -209,13 +249,19 @@ function PassengerDashboardPageInner() {
   }
 
   function dismissNotification(id: string) {
-    setDismissedNotifIds((prev) => new Set(prev).add(id));
+    setNotifDismissedAt((prev) => {
+      const next = { ...prev, [id]: Date.now() };
+      saveDismissedAt(next);
+      return next;
+    });
   }
 
   function clearAllNotifications() {
-    setDismissedNotifIds((prev) => {
-      const next = new Set(prev);
-      for (const n of visibleNotifications) next.add(n.id);
+    setNotifDismissedAt((prev) => {
+      const now = Date.now();
+      const next = { ...prev };
+      for (const n of visibleNotifications) next[n.id] = now;
+      saveDismissedAt(next);
       return next;
     });
   }

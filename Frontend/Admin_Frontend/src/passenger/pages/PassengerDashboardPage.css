@@ -3046,16 +3046,16 @@ a.pd-card:hover {
 .pd-spa-eta-tile__status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.28rem 0.65rem;
+  gap: 0.25rem;
+  padding: 0.14rem 0.45rem;
   border-radius: 999px;
-  font-size: 0.58rem;
+  font-size: 0.5rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(226, 232, 240, 0.88);
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 :root[data-theme="light"] .pd-spa-eta-tile__status-pill {
@@ -3065,8 +3065,8 @@ a.pd-card:hover {
 }
 
 .pd-spa-eta-tile__status-pill-dot {
-  width: 7px;
-  height: 7px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: currentColor;
   opacity: 0.85;
@@ -3365,8 +3365,8 @@ a.pd-card:hover {
 }
 
 .pd-spa-eta-tile--peek .pd-spa-eta-tile__status-pill {
-  font-size: 0.48rem;
-  padding: 0.18rem 0.45rem;
+  font-size: 0.44rem;
+  padding: 0.1rem 0.38rem;
 }
 
 .pd-spa-eta-tile--peek .pd-spa-eta-tile__hero-val {
