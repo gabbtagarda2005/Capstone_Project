@@ -769,18 +769,16 @@ export function DashboardMap({
 
           {weatherMode
             ? weatherSpots.map((spot) => (
+                // No <Popup> here on purpose — tapping a weather marker opens the fuller
+                // PassengerWeatherPanel bottom sheet/side panel instead, which already shows this
+                // same name/condition/temperature plus rainfall, wind, and humidity. A small
+                // native Leaflet popup on top of that was redundant clutter.
                 <Marker
                   key={`weather-${spot.locationName}-${spot.lat}-${spot.lon}`}
                   position={[spot.lat, spot.lon]}
                   icon={weatherDivIcon(spot.code)}
                   eventHandlers={{ click: () => setSelectedWeatherSpot(spot) }}
-                >
-                  <Popup>
-                    <strong>{spot.locationName}</strong>
-                    <div>{spot.summary}</div>
-                    {spot.tempC != null ? <div>{Math.round(spot.tempC)}°C</div> : null}
-                  </Popup>
-                </Marker>
+                />
               ))
             : null}
         </MapContainer>
