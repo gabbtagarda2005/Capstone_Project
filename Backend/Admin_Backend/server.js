@@ -65,6 +65,13 @@ const { getProcessMetrics } = require("./services/processMetrics");
 const app = express();
 const server = http.createServer(app);
 
+// Every request arrives through the Cloudflare Tunnel, which always sets X-Forwarded-For.
+// express-rate-limit v7+ throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every request when that
+// header is present but Express's default "trust proxy: false" hasn't been overridden — this
+// isn't a config nicety, it crashed the rate-limiter middleware on every single request in
+// production (502s on every route, including /health) until this was set.
+app.set("trust proxy", 1);
+
 /**
  * CORS: comma-separated origins in CORS_ORIGIN, or "*" for all.
  * CORS_ALLOW_LOCALHOST=true also allows any http(s)://localhost:* and 127.0.0.1:* (Flutter web uses random ports).
