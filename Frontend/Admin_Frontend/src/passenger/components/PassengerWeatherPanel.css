@@ -9,7 +9,9 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(2, 6, 23, 0.35);
+  /* Near-opaque, not a dim scrim — whatever bottom sheet (e.g. Quick ETA) was open underneath
+     must not show/bleed through while the weather panel is open. */
+  background: rgba(2, 6, 23, 0.94);
 }
 
 .pwx-panel {
