@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -14,10 +15,12 @@ import {
 } from "@/passenger/lib/fetchPassengerMapData";
 import { fetchPublicFleetBuses, type PublicFleetBus } from "@/passenger/lib/fetchPublicFleetBuses";
 import { fetchPublicOperationsDeck } from "@/passenger/lib/fetchPublicOperationsDeck";
+import { fetchPublicWeatherMap, type WeatherSpot } from "@/passenger/lib/fetchPublicWeatherMap";
 import { passengerTileLayer, type PassengerBasemapMode } from "@/passenger/lib/passengerMapTiles";
 import { haversineKm } from "@/passenger/lib/passengerGeo";
 import { getPassengerLocationSession } from "@/passenger/lib/passengerLocationGate";
 import { useAdminTheme } from "@/context/ThemeContext";
+import { PassengerWeatherPanel, weatherEmojiForCode } from "@/passenger/components/PassengerWeatherPanel";
 
 type MapConfig = {
   center: { lat: number; lng: number };
@@ -34,6 +37,48 @@ const defaultConfig: MapConfig = {
   tileUrl: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   attribution: '&copy; OpenStreetMap',
 };
+
+/** Honest traffic-source label — never claims "Live traffic" unless the backend actually says
+ *  trafficSource === "live_provider" (it won't, until a real traffic-aware routing API is
+ *  configured; see Backend/Admin_Backend/services/trafficProviders/). */
+function trafficSourceLabel(source: LiveBusPosition["trafficSource"]): string | null {
+  switch (source) {
+    case "live_provider":
+      return "Live traffic";
+    case "gps_derived":
+      return "GPS-derived traffic";
+    case "historical":
+      return "Historical estimate";
+    case "route_only":
+      return "Route estimate (no traffic data)";
+    case "unavailable":
+      return "Limited data";
+    default:
+      return null;
+  }
+}
+
+function delayLabel(delay: LiveBusPosition["delay"] | null | undefined): string | null {
+  if (!delay || !delay.tier) return null;
+  switch (delay.tier) {
+    case "EARLY":
+      return delay.delayMinutes != null ? `Early by ${Math.abs(delay.delayMinutes)} min` : "Early";
+    case "ON_TIME":
+      return "On time";
+    case "MINOR_DELAY":
+      return delay.delayMinutes != null ? `Minor delay: +${delay.delayMinutes} min` : "Minor delay";
+    case "MODERATE_DELAY":
+      return delay.delayMinutes != null ? `Moderate delay: +${delay.delayMinutes} min` : "Moderate delay";
+    case "SEVERE_DELAY":
+      return delay.delayMinutes != null ? `Severe delay: +${delay.delayMinutes} min` : "Severe delay";
+    case "STOPPED":
+      return "Stopped";
+    case "GPS_STALE":
+      return "GPS stale — delay unknown";
+    default:
+      return null;
+  }
+}
 
 const LEAFLET_TERMINAL_ICON = L.divIcon({
   className: "dashboard-map__marker-terminal",
@@ -100,6 +145,22 @@ const ROUTE_DESTINATION_ICON = L.divIcon({
   iconSize: [26, 26],
   iconAnchor: [13, 26],
 });
+
+/** One divIcon per distinct weather code actually seen, cached so repeated spots with the same
+ *  condition (common — most of a corridor shares one weather system) reuse the same icon instance. */
+const weatherIconCache = new Map<number, L.DivIcon>();
+function weatherDivIcon(code: number): L.DivIcon {
+  const cached = weatherIconCache.get(code);
+  if (cached) return cached;
+  const icon = L.divIcon({
+    className: "dashboard-map__marker-weather",
+    html: `<div class="dashboard-map__weather-pin" aria-hidden="true">${weatherEmojiForCode(code)}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+  weatherIconCache.set(code, icon);
+  return icon;
+}
 
 const NEARBY_BUS_RADIUS_KM = 40;
 
@@ -267,6 +328,9 @@ export function DashboardMap({
   const [routeState, setRouteState] = useState<RouteLoadState>({ status: "idle", data: null });
   const [routeRetryNonce, setRouteRetryNonce] = useState(0);
   const routeCacheRef = useRef<Map<string, BusRouteGeometry>>(new Map());
+  const [weatherMode, setWeatherMode] = useState(false);
+  const [weatherSpots, setWeatherSpots] = useState<WeatherSpot[]>([]);
+  const [selectedWeatherSpot, setSelectedWeatherSpot] = useState<WeatherSpot | null>(null);
 
   const busIcon = useMemo(() => busDivIcon(), []);
 
@@ -295,6 +359,29 @@ export function DashboardMap({
       cancelled = true;
     };
   }, [selectedBusId, routeRetryNonce]);
+
+  // Only poll while Weather Mode is actually on — the backend cache refreshes every ~10 min
+  // regardless, so there is nothing to gain (and rate-limit budget to lose) by polling while the
+  // passenger hasn't opened Weather Mode.
+  useEffect(() => {
+    if (!weatherMode) return;
+    let cancelled = false;
+    const load = () => {
+      fetchPublicWeatherMap()
+        .then((feed) => {
+          if (!cancelled) setWeatherSpots(feed.spots);
+        })
+        .catch(() => {
+          if (!cancelled) setWeatherSpots([]);
+        });
+    };
+    load();
+    const id = window.setInterval(load, 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [weatherMode]);
 
   const selectedRoutePositions = useMemo<[number, number][]>(() => {
     const coords = routeState.data?.geometry?.coordinates;
@@ -628,6 +715,13 @@ export function DashboardMap({
                   {b.etaMinutes != null && Number.isFinite(b.etaMinutes) ? (
                     <div>ETA ~{Math.max(1, Math.round(b.etaMinutes))} min</div>
                   ) : null}
+                  {delayLabel(b.delay) ? <div>{delayLabel(b.delay)}</div> : null}
+                  {trafficSourceLabel(b.trafficSource) ? (
+                    <div className="dashboard-map__traffic-source">
+                      {trafficSourceLabel(b.trafficSource)}
+                      {b.confidence ? ` · ${b.confidence.charAt(0)}${b.confidence.slice(1).toLowerCase()} confidence` : ""}
+                    </div>
+                  ) : null}
                 </Popup>
               </Marker>
             );
@@ -672,10 +766,43 @@ export function DashboardMap({
               ) : null}
             </>
           ) : null}
+
+          {weatherMode
+            ? weatherSpots.map((spot) => (
+                <Marker
+                  key={`weather-${spot.locationName}-${spot.lat}-${spot.lon}`}
+                  position={[spot.lat, spot.lon]}
+                  icon={weatherDivIcon(spot.code)}
+                  eventHandlers={{ click: () => setSelectedWeatherSpot(spot) }}
+                >
+                  <Popup>
+                    <strong>{spot.locationName}</strong>
+                    <div>{spot.summary}</div>
+                    {spot.tempC != null ? <div>{Math.round(spot.tempC)}°C</div> : null}
+                  </Popup>
+                </Marker>
+              ))
+            : null}
         </MapContainer>
 
-        <PassengerMapBasemapDock basemap={basemap} onBasemapChange={setBasemap} onHelpClick={onHelpClick} />
+        <PassengerMapBasemapDock
+          basemap={basemap}
+          onBasemapChange={setBasemap}
+          onHelpClick={onHelpClick}
+          onWeatherClick={() => {
+            setWeatherMode((v) => !v);
+            setSelectedWeatherSpot(null);
+          }}
+          weatherActive={weatherMode}
+        />
       </div>
+
+      {selectedWeatherSpot
+        ? createPortal(
+            <PassengerWeatherPanel spot={selectedWeatherSpot} onClose={() => setSelectedWeatherSpot(null)} />,
+            document.body
+          )
+        : null}
     </div>
   );
 }

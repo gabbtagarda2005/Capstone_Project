@@ -7,6 +7,9 @@ type Props = {
   onBasemapChange: (mode: PassengerBasemapMode) => void;
   /** Shows a "Need Help?" button above the basemap rail when set (reopens the passenger quick guide). */
   onHelpClick?: () => void;
+  /** Shows a "Weather" toggle above Need Help when set (turns Weather Mode markers on/off). */
+  onWeatherClick?: () => void;
+  weatherActive?: boolean;
 };
 
 function IconLayers() {
@@ -31,7 +34,13 @@ const OPTIONS: { mode: PassengerBasemapMode; label: string; swatchClass: string 
  * list (Satellite / Map / Terrain / Dark) upward, in place, so it can never be clipped by the
  * viewport edge and never shifts the trigger's own position.
  */
-export function PassengerMapBasemapDock({ basemap, onBasemapChange, onHelpClick }: Props) {
+export function PassengerMapBasemapDock({
+  basemap,
+  onBasemapChange,
+  onHelpClick,
+  onWeatherClick,
+  weatherActive,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const railRef = useRef<HTMLDivElement>(null);
 
@@ -55,6 +64,26 @@ export function PassengerMapBasemapDock({ basemap, onBasemapChange, onHelpClick 
 
   return (
     <div className="pmap-dock">
+      {onWeatherClick ? (
+        <button
+          type="button"
+          className={
+            "pmap-dock__weather" +
+            (expanded ? " pmap-dock__weather--hidden" : "") +
+            (weatherActive ? " pmap-dock__weather--active" : "")
+          }
+          onClick={onWeatherClick}
+          aria-label="Show weather map"
+          aria-pressed={Boolean(weatherActive)}
+          tabIndex={expanded ? -1 : 0}
+        >
+          <span className="pmap-dock__weather-icon" aria-hidden>
+            {weatherActive ? "🌤️" : "⛅"}
+          </span>
+          <span className="pmap-dock__weather-caption">Weather</span>
+        </button>
+      ) : null}
+
       {onHelpClick ? (
         <button
           type="button"

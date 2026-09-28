@@ -115,7 +115,9 @@ async function collectAllMonitoredSpots() {
 async function fetchWeatherForSpot(s) {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(s.lat)}` +
-    `&longitude=${encodeURIComponent(s.lon)}&current=weather_code&timezone=auto`;
+    `&longitude=${encodeURIComponent(s.lon)}` +
+    `&current=weather_code,temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation` +
+    `&timezone=auto`;
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 10_000);
   try {
@@ -126,12 +128,20 @@ async function fetchWeatherForSpot(s) {
     const code = Number(data?.current?.weather_code);
     if (!Number.isFinite(code)) return null;
     const summary = needsPassengerAdvisory(code) ? labelForCode(code) : summaryForAnyWeatherCode(code);
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
     return {
       locationName: s.name,
+      lat: s.lat,
+      lon: s.lon,
       code,
       summary,
       isRain: isRainRelatedCode(code),
       isFog: isFogRelatedCode(code),
+      tempC: num(data?.current?.temperature_2m),
+      humidityPct: num(data?.current?.relative_humidity_2m),
+      windKph: num(data?.current?.wind_speed_10m),
+      precipitationMm: num(data?.current?.precipitation),
+      observedAt: typeof data?.current?.time === "string" ? data.current.time : null,
     };
   } catch {
     clearTimeout(to);

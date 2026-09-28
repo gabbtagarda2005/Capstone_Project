@@ -83,6 +83,63 @@
   text-align: center;
 }
 
+.pmap-dock__weather {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 4.65rem;
+  padding: 0.4rem 0.32rem 0.45rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background: #f1f5f9;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.pmap-dock__weather:hover {
+  background: #e9eef4;
+  transform: translateY(-1px);
+}
+
+.pmap-dock__weather--active {
+  background: #e2ecff;
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.pmap-dock__weather--hidden {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, max-height 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pmap-dock__weather--hidden {
+    transition: none;
+  }
+}
+
+.pmap-dock__weather-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.pmap-dock__weather-caption {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
 .pmap-dock__rail {
   position: relative;
   width: 4.65rem;
@@ -243,6 +300,10 @@
   }
 
   .pmap-dock__help {
+    width: 3.85rem;
+  }
+
+  .pmap-dock__weather {
     width: 3.85rem;
   }
 }

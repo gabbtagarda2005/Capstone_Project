@@ -309,9 +309,28 @@
 .dashboard-map__marker-terminal,
 .dashboard-map__marker-stop,
 .dashboard-map__marker-waypoint,
-.dashboard-map__marker-user {
+.dashboard-map__marker-user,
+.dashboard-map__marker-weather {
   background: transparent !important;
   border: none !important;
+}
+
+.dashboard-map__weather-pin {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 1.05rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid rgba(96, 165, 250, 0.8);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="light"] .dashboard-map__weather-pin {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 4px 14px rgba(16, 24, 40, 0.25);
 }
 
 .dashboard-map__user-dot-wrap {
@@ -441,4 +460,12 @@
     transform: scale(1);
     opacity: 0;
   }
+}
+
+/** Honest traffic-source line in the bus popup — see trafficSourceLabel() in DashboardMap.tsx.
+ *  Deliberately muted/small: a caveat, not a headline claim. */
+.dashboard-map__traffic-source {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  margin-top: 2px;
 }
