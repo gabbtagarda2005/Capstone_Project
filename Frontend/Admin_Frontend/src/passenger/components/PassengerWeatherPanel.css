@@ -9,16 +9,18 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  /* Near-opaque, not a dim scrim — when a weather marker is tapped, this panel is meant to
-     replace what's showing (e.g. the Quick ETA bottom sheet), not layer thinly on top of it. */
-  background: rgba(2, 6, 23, 0.94);
+  background: rgba(2, 6, 23, 0.35);
 }
 
 .pwx-panel {
   width: 100%;
   max-width: 26rem;
-  max-height: 68vh;
+  height: 90vh;
+  max-height: 90vh;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding: 0.6rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
   border-radius: 20px 20px 0 0;
   background: rgba(15, 23, 42, 0.96);
