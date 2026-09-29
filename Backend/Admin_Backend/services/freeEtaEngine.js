@@ -4,6 +4,19 @@ const RouteCoverage = require("../models/RouteCoverage");
 const { smoothEtaWithKalman, resetEtaFilter } = require("./kalmanFilterEta");
 const { applyWeatherAdjustment } = require("./weatherEtaMultiplier");
 const { getOsrmEta, snapGpsToRoad } = require("./osrmTrafficService");
+const { getCorridorSegments, matchPointToSegment } = require("./corridorSegments");
+const { getTrafficForSegment } = require("./trafficProviders");
+const { progressAlongPolyline } = require("./corridorGeometry");
+
+const CONFIDENCE_RANK = { UNKNOWN: 0, LOW: 1, MEDIUM: 2, HIGH: 3 };
+const CONFIDENCE_LABELS = ["UNKNOWN", "LOW", "MEDIUM", "HIGH"];
+
+/** Clamp a possibly-missing/noisy speed reading to a plausible driving range, with an honest
+ *  neutral default (matches getFreeEtaMinutes's own fallback) when there's nothing usable. */
+function clampSegmentSpeedKph(speedKph, fallback = 35) {
+  const s = Number(speedKph);
+  return Number.isFinite(s) && s > 3 ? Math.min(90, Math.max(5, s)) : fallback;
+}
 
 function toRad(v) {
   return (Number(v) * Math.PI) / 180;
@@ -64,8 +77,68 @@ function getFreeEtaMinutes(lat1, lon1, lat2, lon2, speedKph) {
 }
 
 /**
- * Strategy 1: Advanced ETA calculation with real-time traffic & all optimizations.
- * Tries OSRM first, falls back to Haversine with speed clamping.
+ * Strategy 1 (preferred): remaining travel time computed from real road segments
+ * (services/corridorSegments.js) instead of a fresh OSRM point-to-point call. Sums the bus's
+ * remaining distance on its *current* segment (at that segment's real current/historical speed,
+ * via services/trafficProviders) plus every downstream segment to the destination. This replaces
+ * the old "ask OSRM for lat1,lon1 -> lat2,lon2 on every ~3s ping" approach, which almost never hit
+ * osrmTrafficService's 2-minute/~11m-precision cache for a moving bus and was hitting the public
+ * OSRM router on nearly every ping. It also means traffic is folded into the ETA exactly once, at
+ * the segment level — not as a second multiplier layered on an OSRM number that may already be
+ * traffic-flavored.
+ *
+ * Returns null (caller falls back to OSRM/Haversine) when the bus has no resolvable corridor,
+ * isn't within SEGMENT_PROXIMITY_M of any of its segments (off-route), or lat2/lon2 doesn't match
+ * that corridor's own destination — never assumes segment math applies to an arbitrary two points.
+ */
+async function computeSegmentBasedEta({ lat1, lon1, lat2, lon2, busId }) {
+  if (!busId) return null;
+  const corridor = await matchCorridorForBus(busId).catch(() => null);
+  if (!corridor) return null;
+  const destination = corridor?.destinationCoverageId?.terminal;
+  if (!destination || !Number.isFinite(destination.latitude) || !Number.isFinite(destination.longitude)) {
+    return null;
+  }
+  if (haversineKm(lat2, lon2, destination.latitude, destination.longitude) * 1000 > 300) return null;
+
+  const segments = await getCorridorSegments(corridor).catch(() => []);
+  if (!segments.length) return null;
+
+  const match = await matchPointToSegment(corridor, lat1, lon1).catch(() => null);
+  if (!match) return null;
+
+  const currentSegment = match.segment;
+  const progress = progressAlongPolyline(lat1, lon1, currentSegment.polyline);
+  if (!progress) return null;
+  const remainingMetersOnSegment = Math.max(0, progress.totalDistanceMeters - progress.distanceTraveledMeters);
+
+  const currentTraffic = await getTrafficForSegment(currentSegment.segmentId, corridor).catch(() => null);
+  const currentSpeedKph = clampSegmentSpeedKph(currentTraffic?.speedKph);
+  let totalMinutes = (remainingMetersOnSegment / 1000 / currentSpeedKph) * 60;
+
+  let confidenceRank = CONFIDENCE_RANK[currentTraffic?.confidence] ?? 0;
+  const trafficSource = currentTraffic?.trafficSource || "unavailable";
+
+  for (const seg of segments) {
+    if (seg.sequence <= currentSegment.sequence) continue;
+    const traffic = await getTrafficForSegment(seg.segmentId, corridor).catch(() => null);
+    const speedKph = clampSegmentSpeedKph(traffic?.speedKph);
+    totalMinutes += (seg.distanceMeters / 1000 / speedKph) * 60;
+    const rank = CONFIDENCE_RANK[traffic?.confidence] ?? 0;
+    if (rank < confidenceRank) confidenceRank = rank;
+  }
+
+  return {
+    etaMinutes: totalMinutes,
+    trafficSource,
+    confidence: CONFIDENCE_LABELS[confidenceRank] || "UNKNOWN",
+  };
+}
+
+/**
+ * Advanced ETA calculation with real-time traffic & all optimizations. Prefers the segment-based
+ * calculation above; falls back to OSRM point-to-point, then Haversine, only when segments aren't
+ * resolvable for this bus right now (e.g. off-route).
  *
  * @param {object} options - Configuration object
  * @param {number} options.lat1 - Current bus latitude
@@ -79,7 +152,7 @@ function getFreeEtaMinutes(lat1, lon1, lat2, lon2, speedKph) {
  * @param {string} options.currentLocation - Current location name (for weather)
  * @param {string} options.nextLocation - Next stop name (for weather)
  * @param {string[]} options.stops - Array of upcoming stops
- * @returns {Promise<number>} ETA in minutes
+ * @returns {Promise<{etaMinutes:number, trafficSource:"live_provider"|"gps_derived"|"historical"|"route_only"|"unavailable", confidence:"HIGH"|"MEDIUM"|"LOW"|"UNKNOWN"}>}
  */
 async function getAdvancedEtaMinutes(options = {}) {
   const {
@@ -100,41 +173,45 @@ async function getAdvancedEtaMinutes(options = {}) {
   if (
     ![lat1, lon1, lat2, lon2].every((x) => Number.isFinite(x))
   ) {
-    return 1;
+    return { etaMinutes: 1, trafficSource: "unavailable", confidence: "UNKNOWN" };
   }
 
   let etaMinutes = 1;
+  let trafficSource = "unavailable";
+  let confidence = "UNKNOWN";
 
-  try {
-    // Try Strategy 1: Use OSRM for real-time traffic-aware routing
-    const osrmEta = await getOsrmEta(lat1, lon1, lat2, lon2);
-    if (osrmEta) {
-      etaMinutes = osrmEta;
-      console.log(
-        `[ETA] OSRM route available: ${etaMinutes} mins for bus ${busId}`
-      );
-    } else {
-      // Fallback to Haversine
+  const segmentEta = await computeSegmentBasedEta({ lat1, lon1, lat2, lon2, busId }).catch(() => null);
+  if (segmentEta) {
+    etaMinutes = segmentEta.etaMinutes;
+    trafficSource = segmentEta.trafficSource;
+    confidence = segmentEta.confidence;
+  } else {
+    // Fallback: bus isn't matched to a segment right now (off-route, or no usable corridor
+    // geometry yet). Neither OSRM's static routing nor a Haversine estimate is a real traffic
+    // signal — label honestly rather than implying either is "live" or "GPS-derived".
+    try {
+      const osrmEta = await getOsrmEta(lat1, lon1, lat2, lon2);
+      if (osrmEta) {
+        etaMinutes = osrmEta;
+        trafficSource = "route_only";
+        confidence = "LOW";
+      } else {
+        etaMinutes = getFreeEtaMinutes(lat1, lon1, lat2, lon2, speedKph);
+      }
+    } catch (err) {
       etaMinutes = getFreeEtaMinutes(lat1, lon1, lat2, lon2, speedKph);
-      console.log(
-        `[ETA] OSRM unavailable, using Haversine: ${etaMinutes} mins for bus ${busId}`
-      );
     }
-  } catch (err) {
-    // Silent fallback on error
-    etaMinutes = getFreeEtaMinutes(lat1, lon1, lat2, lon2, speedKph);
   }
 
-  // Strategy 2: Add terminal dwell time (boarding buffer)
+  // Terminal dwell time (boarding buffer) — unchanged.
   const dwellBuffer = getTerminalDwellBuffer(passengerCount, seatCapacity);
   if (dwellBuffer > 0) {
     etaMinutes += dwellBuffer;
-    console.log(
-      `[ETA] Added dwell buffer (+${dwellBuffer} mins): passengers ${passengerCount}/${seatCapacity}`
-    );
   }
 
-  // Strategy 4: Apply weather adjustments
+  // Weather adjustment — unchanged, still capped 1.45x, applied exactly once (never re-applied
+  // downstream — see delayClassifier.js, which no longer re-multiplies this ETA by a congestion
+  // ratio the way it used to).
   if (currentLocation && nextLocation) {
     try {
       const beforeWeather = etaMinutes;
@@ -154,22 +231,17 @@ async function getAdvancedEtaMinutes(options = {}) {
     }
   }
 
-  // Strategy 5: Apply Kalman smoothing (if busId provided)
+  // Confidence-adaptive Kalman smoothing: reacts faster for HIGH-confidence readings, smooths
+  // harder for thin/stale/fallback ones (see kalmanFilterEta.js's CONFIDENCE_MEASUREMENT_NOISE).
   if (busId) {
     try {
-      const smoothedEta = smoothEtaWithKalman(busId, etaMinutes);
-      if (smoothedEta !== etaMinutes) {
-        console.log(
-          `[ETA] Kalman smoothing: ${etaMinutes} → ${smoothedEta} mins`
-        );
-      }
-      etaMinutes = smoothedEta;
+      etaMinutes = smoothEtaWithKalman(busId, etaMinutes, { confidence });
     } catch (err) {
       console.warn(`[ETA] Kalman smoothing failed: ${err.message}`);
     }
   }
 
-  return Math.max(1, Math.round(etaMinutes));
+  return { etaMinutes: Math.max(1, Math.round(etaMinutes)), trafficSource, confidence };
 }
 
 function routeLikeName(name) {
@@ -181,24 +253,39 @@ function routeLikeName(name) {
 }
 
 /** Shared by resolveNextTerminalForBus() and getCorridorPolylineForBus() — same fuzzy match. */
+const corridorForBusCache = new Map();
+const CORRIDOR_FOR_BUS_CACHE_TTL_MS = 30 * 1000;
+
+/** A single GPS ping now triggers several independent matchCorridorForBus lookups (ETA, congestion,
+ *  delay classification, segment history tagging) — this short cache collapses those into one real
+ *  DB round trip per bus per ~30s instead of one per caller per ping, without going stale enough to
+ *  miss a genuine route reassignment for more than a few seconds. */
 async function matchCorridorForBus(busId) {
-  const bus = await Bus.findOne({ busId: String(busId) }).select("route").lean();
+  const key = String(busId);
+  const cached = corridorForBusCache.get(key);
+  if (cached && Date.now() - cached.ts < CORRIDOR_FOR_BUS_CACHE_TTL_MS) {
+    return cached.corridor;
+  }
+  const bus = await Bus.findOne({ busId: key }).select("route").lean();
   const routeLabel = String(bus?.route || "").trim();
-  if (!routeLabel) return null;
-  const low = routeLikeName(routeLabel);
-  const routes = await CorridorRoute.find({ suspended: { $ne: true } })
-    .populate("originCoverageId", "locationName terminal")
-    .populate("destinationCoverageId", "locationName terminal")
-    .lean();
-  return (
-    routes.find((r) => routeLikeName(r.displayName || "").includes(low) || low.includes(routeLikeName(r.displayName || ""))) ||
-    routes.find((r) => {
-      const o = String(r.originCoverageId?.locationName || r.originCoverageId?.terminal?.name || "").toLowerCase();
-      const d = String(r.destinationCoverageId?.locationName || r.destinationCoverageId?.terminal?.name || "").toLowerCase();
-      return low.includes(o) && low.includes(d);
-    }) ||
-    null
-  );
+  let corridor = null;
+  if (routeLabel) {
+    const low = routeLikeName(routeLabel);
+    const routes = await CorridorRoute.find({ suspended: { $ne: true } })
+      .populate("originCoverageId", "locationName terminal")
+      .populate("destinationCoverageId", "locationName terminal")
+      .lean();
+    corridor =
+      routes.find((r) => routeLikeName(r.displayName || "").includes(low) || low.includes(routeLikeName(r.displayName || ""))) ||
+      routes.find((r) => {
+        const o = String(r.originCoverageId?.locationName || r.originCoverageId?.terminal?.name || "").toLowerCase();
+        const d = String(r.destinationCoverageId?.locationName || r.destinationCoverageId?.terminal?.name || "").toLowerCase();
+        return low.includes(o) && low.includes(d);
+      }) ||
+      null;
+  }
+  corridorForBusCache.set(key, { ts: Date.now(), corridor });
+  return corridor;
 }
 
 const corridorPolylineCache = new Map();

@@ -14,6 +14,9 @@ const {
   ingestAttendantGps,
   ingestDeviceGps,
 } = require("../services/attendantGpsIngest");
+const { ingestDeviceStatus } = require("../services/deviceStatusIngest");
+const { deriveGpsSourceState } = require("../services/gpsSourceArbiter");
+const { SMS_GPS_INTERVAL_MS } = require("../config/gpsThresholds");
 const {
   getFreeEtaMinutes,
   getAdvancedEtaMinutes,
@@ -399,13 +402,15 @@ function createBusesRouter(io) {
           const busData = busDataMap.get(String(doc.busId || "").trim());
           
           let etaMinutes = null;
+          let trafficSource = "unavailable";
+          let confidence = "UNKNOWN";
           if (
             terminal &&
             Number.isFinite(Number(doc.latitude)) &&
             Number.isFinite(Number(doc.longitude))
           ) {
             try {
-              etaMinutes = await getAdvancedEtaMinutes({
+              const etaResult = await getAdvancedEtaMinutes({
                 lat1: Number(doc.latitude),
                 lon1: Number(doc.longitude),
                 lat2: Number(terminal.latitude),
@@ -418,6 +423,9 @@ function createBusesRouter(io) {
                 nextLocation: terminal.name || "Terminal",
                 stops: [],
               });
+              etaMinutes = etaResult.etaMinutes;
+              trafficSource = etaResult.trafficSource;
+              confidence = etaResult.confidence;
             } catch (err) {
               // Fallback to simple ETA if advanced calculation fails
               etaMinutes = getFreeEtaMinutes(
@@ -434,7 +442,16 @@ function createBusesRouter(io) {
           const ageMs = Number.isFinite(recordedAtMs) ? Date.now() - recordedAtMs : null;
           const status = gpsStatusFromAgeMs(ageMs);
           const gpsFreshness = gpsFreshnessFromAgeMs(ageMs);
-          const gpsSource = status === "offline" ? "none" : String(doc.source) === "hardware" ? "lilygo" : "phone";
+          const docSource = doc.source != null ? String(doc.source) : "staff";
+          const gpsSource =
+            status === "offline"
+              ? "none"
+              : docSource === "hardware"
+                ? "lilygo"
+                : docSource === "hardware_sms"
+                  ? "lilygo_sms"
+                  : "phone";
+          const gpsSourceState = deriveGpsSourceState(docSource, ageMs);
 
           // Same congestion/delay engine the Socket.IO ingest path uses (services/congestionEngine.js,
           // services/delayClassifier.js) — one shared computation instead of two divergent heuristics.
@@ -447,7 +464,17 @@ function createBusesRouter(io) {
                   longitude: Number(doc.longitude),
                   speedKph: doc.speedKph,
                 }).catch(() => ({ status: "unavailable", reason: "Congestion engine error" }));
-          const delay = classifyDelay({ gpsFreshness, etaMinutes, congestion });
+          const delay =
+            gpsFreshness === "stale" || gpsFreshness === "offline"
+              ? { tier: "GPS_STALE", delayMinutes: null, reason: null, congestionLevel: null }
+              : await classifyDelay({
+                  busId: String(doc.busId),
+                  gpsFreshness,
+                  latitude: Number(doc.latitude),
+                  longitude: Number(doc.longitude),
+                  speedKph: doc.speedKph,
+                  congestion,
+                }).catch(() => ({ tier: "UNKNOWN", delayMinutes: null, reason: "Delay reason unavailable", congestionLevel: null }));
 
           // Raw device GPS drifts off the road centerline (satellite geometry, foliage,
           // mountainous terrain). Prefer snapping onto the bus's own assigned corridor
@@ -481,14 +508,25 @@ function createBusesRouter(io) {
             doc.signal != null && ["strong", "weak", "offline"].includes(String(doc.signal))
               ? String(doc.signal)
               : null,
-          source: doc.source != null ? String(doc.source) : "staff",
-          sourceFlag: String(doc.source) === "hardware" ? "hardware" : "mobile",
-          /** Live status classification (online/unstable/offline) and phone/lilygo/none label —
-           * see config/gpsThresholds.js for the configurable cutoffs. */
+          source: docSource,
+          sourceFlag: docSource === "hardware" ? "hardware" : docSource === "hardware_sms" ? "hardware_sms" : "mobile",
+          /** Live status classification (online/unstable/offline) and phone/lilygo/lilygo_sms/none
+           * label — see config/gpsThresholds.js for the configurable cutoffs. */
           status,
           /** Real LIVE/RECENT/STALE/OFFLINE tiers — see config/gpsThresholds.js. */
           gpsFreshness,
           gpsSource,
+          /** STAFF | HARDWARE_MOBILE | HARDWARE_SMS | NO_SIGNAL — see gpsSourceArbiter.deriveGpsSourceState. */
+          gpsSourceState,
+          deviceId: doc.deviceId != null ? String(doc.deviceId) : null,
+          cellularConnected: doc.cellularConnected != null ? Boolean(doc.cellularConnected) : null,
+          gpsFixAcquired: doc.gpsFixAcquired != null ? Boolean(doc.gpsFixAcquired) : null,
+          telemetryStatus: doc.telemetryStatus != null ? String(doc.telemetryStatus) : null,
+          smsFallbackStatus: doc.smsFallbackStatus != null ? String(doc.smsFallbackStatus) : null,
+          lastGpsFixAt: doc.lastGpsFixAt ? new Date(doc.lastGpsFixAt).toISOString() : null,
+          lastTelemetryAt: doc.lastTelemetryAt ? new Date(doc.lastTelemetryAt).toISOString() : null,
+          lastSmsAt: doc.lastSmsAt ? new Date(doc.lastSmsAt).toISOString() : null,
+          smsGpsIntervalMs: SMS_GPS_INTERVAL_MS,
           net: doc.network != null ? String(doc.network) : null,
           signalStrength:
             doc.signalStrength != null && Number.isFinite(Number(doc.signalStrength))
@@ -499,10 +537,13 @@ function createBusesRouter(io) {
           etaTargetIso:
             etaMinutes != null ? new Date(Date.now() + Number(etaMinutes) * 60_000).toISOString() : null,
           nextTerminal: terminal?.name || null,
-          trafficDelay: delay.tier === "MODERATE_DELAY" || delay.tier === "MAJOR_DELAY",
+          trafficDelay: delay.tier === "MODERATE_DELAY" || delay.tier === "SEVERE_DELAY",
           delayThresholdMinutes: delayThreshold,
           congestion,
           delay,
+          // Additive — see services/trafficProviders/ and services/trafficConfidence.js.
+          trafficSource,
+          confidence,
           recordedAt: doc.recordedAt ? new Date(doc.recordedAt).toISOString() : new Date().toISOString(),
           };
         })
@@ -1014,11 +1055,60 @@ function createBusesRouter(io) {
         net: body.net ?? body.network ?? "unknown",
         signal_strength: body.signal_strength ?? body.signalStrength ?? body.rssi ?? null,
         voltage: body.voltage ?? body.vbat ?? body.batteryVoltage ?? null,
+        recordedAt: body.recordedAt ?? null,
+        deviceId: body.deviceId ?? null,
       });
       res.status(204).send();
     } catch (e) {
       const code = e.statusCode || 500;
       res.status(code >= 400 && code < 600 ? code : 500).json({ error: e.message || "hardware telemetry failed" });
+    }
+  });
+
+  /**
+   * LILYGO device-status heartbeat — separate from position ingestion (see
+   * services/deviceStatusIngest.js). Body: { deviceId?, busId?, imei?, cellularConnected?,
+   * gpsFixAcquired?, telemetryStatus?, smsFallbackStatus?, network?, signal_strength?, voltage? }.
+   * Same auth as /ping and /hardware-telemetry.
+   */
+  router.post("/device-status", deviceIngestLimiter, async (req, res) => {
+    const body = req.body || {};
+    let busId = body.busId != null ? String(body.busId).trim() : body.bus_id != null ? String(body.bus_id).trim() : "";
+    const imei = body.imei != null ? String(body.imei).replace(/\D/g, "") : "";
+    if (!busId && imei.length === 15) {
+      try {
+        const b = await Bus.findOne({ imei }).select("busId").lean();
+        if (b?.busId) busId = String(b.busId).trim();
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!busId) {
+      return res.status(400).json({ error: "busId or registered imei required" });
+    }
+    try {
+      const deviceVerifiedBusId = await authenticateDeviceIngest(req, busId);
+      if (deviceVerifiedBusId) busId = deviceVerifiedBusId;
+    } catch (authErr) {
+      const code = authErr.statusCode || 401;
+      return res.status(code).json({ error: authErr.message });
+    }
+    try {
+      await ingestDeviceStatus({
+        busId,
+        deviceId: body.deviceId ?? null,
+        cellularConnected: body.cellularConnected ?? null,
+        gpsFixAcquired: body.gpsFixAcquired ?? null,
+        telemetryStatus: body.telemetryStatus ?? null,
+        smsFallbackStatus: body.smsFallbackStatus ?? null,
+        network: body.network ?? body.net ?? null,
+        signalStrength: body.signal_strength ?? body.signalStrength ?? body.rssi ?? null,
+        voltage: body.voltage ?? body.vbat ?? body.batteryVoltage ?? null,
+      });
+      res.status(204).send();
+    } catch (e) {
+      const code = e.statusCode || 500;
+      res.status(code >= 400 && code < 600 ? code : 500).json({ error: e.message || "device status ingest failed" });
     }
   });
 

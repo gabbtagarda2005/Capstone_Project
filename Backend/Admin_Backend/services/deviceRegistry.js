@@ -5,11 +5,24 @@ const IngestDevice = require("../models/IngestDevice");
 /** Registers a new device, bound to one busId. Returns the plaintext secret ONCE — it is never
  *  stored or retrievable again, only its bcrypt hash is. Caller must hand this to whoever is
  *  flashing the physical unit and never log/persist it elsewhere. */
-async function createDevice({ deviceId, busId, label }) {
+/** E.164, e.g. +639171234567 — matches the format the LILYGO SMS gateway reports as `sender`. */
+function normalizeE164OrNull(raw) {
+  const s = raw != null ? String(raw).trim() : "";
+  if (!s) return null;
+  if (!/^\+\d{8,15}$/.test(s)) {
+    throw Object.assign(new Error(`smsSenderNumber must be E.164 (e.g. +639171234567), got "${s}"`), {
+      statusCode: 400,
+    });
+  }
+  return s;
+}
+
+async function createDevice({ deviceId, busId, label, smsSenderNumber }) {
   const id = String(deviceId || "").trim();
   const bid = String(busId || "").trim();
   if (!id) throw Object.assign(new Error("deviceId is required"), { statusCode: 400 });
   if (!bid) throw Object.assign(new Error("busId is required"), { statusCode: 400 });
+  const smsNum = normalizeE164OrNull(smsSenderNumber);
 
   const existing = await IngestDevice.findOne({ deviceId: id }).lean();
   if (existing) {
@@ -18,16 +31,32 @@ async function createDevice({ deviceId, busId, label }) {
 
   const secret = crypto.randomBytes(24).toString("hex");
   const secretHash = await bcrypt.hash(secret, 12);
-  await IngestDevice.create({ deviceId: id, busId: bid, label: label ? String(label).trim() : null, secretHash });
-  return { deviceId: id, busId: bid, secret };
+  await IngestDevice.create({
+    deviceId: id,
+    busId: bid,
+    label: label ? String(label).trim() : null,
+    secretHash,
+    smsSenderNumber: smsNum,
+  });
+  return { deviceId: id, busId: bid, secret, smsSenderNumber: smsNum };
 }
 
 async function listDevices() {
   const rows = await IngestDevice.find()
-    .select("deviceId busId label revoked lastSeenAt createdAt")
+    .select("deviceId busId label revoked lastSeenAt createdAt smsSenderNumber")
     .sort({ createdAt: -1 })
     .lean();
   return rows;
+}
+
+/** Set/clear the device's own SIM number used to authorize inbound SMS-fallback GPS. */
+async function updateDeviceSmsSender(deviceId, smsSenderNumber) {
+  const id = String(deviceId || "").trim();
+  if (!id) throw Object.assign(new Error("deviceId is required"), { statusCode: 400 });
+  const smsNum = normalizeE164OrNull(smsSenderNumber);
+  const res = await IngestDevice.updateOne({ deviceId: id }, { $set: { smsSenderNumber: smsNum } });
+  if (res.matchedCount === 0) throw Object.assign(new Error("Device not found"), { statusCode: 404 });
+  return { deviceId: id, smsSenderNumber: smsNum };
 }
 
 async function revokeDevice(deviceId) {
@@ -66,4 +95,10 @@ async function verifyDeviceCredential({ deviceId, secret, claimedBusId }) {
   }
 }
 
-module.exports = { createDevice, listDevices, revokeDevice, verifyDeviceCredential };
+module.exports = {
+  createDevice,
+  listDevices,
+  revokeDevice,
+  verifyDeviceCredential,
+  updateDeviceSmsSender,
+};

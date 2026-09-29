@@ -216,6 +216,8 @@ app.post("/api/hardware-telemetry", require("./middleware/rateLimiters").deviceI
       net: body.net ?? body.network ?? "unknown",
       signal_strength: body.signal_strength ?? body.signalStrength ?? body.rssi ?? null,
       voltage: body.voltage ?? body.vbat ?? body.batteryVoltage ?? null,
+      recordedAt: body.recordedAt ?? null,
+      deviceId: body.deviceId ?? null,
     });
     return res.status(204).send();
   } catch (e) {
@@ -387,6 +389,8 @@ app.get("/health", async (_req, res) => {
 });
 
 app.use("/api/buses", createBusesRouter(io));
+const { createTrafficRouter } = require("./routes/traffic");
+app.use("/api/traffic", createTrafficRouter());
 /* Driver OTP signup: dedicated prefix + same router on /api/drivers for backward compatibility */
 const driverSignupRouter = createDriversSignupRouter();
 app.use("/api/driver-signup", driverSignupRouter);
@@ -979,6 +983,12 @@ mongoose
       console.warn("[weather-advisories] poller failed to start:", e.message || e);
     }
     const stopProximity = startProximityWorker(io);
+    try {
+      const { startSmsGpsReceiver } = require("./services/smsGpsReceiver");
+      startSmsGpsReceiver(io, broadcastLocationUpdate);
+    } catch (e) {
+      console.warn("[sms-gateway] failed to start SMS fallback receiver:", e.message || e);
+    }
 
     const port = Number(process.env.PORT) || 4001;
     server.listen(port, () => {

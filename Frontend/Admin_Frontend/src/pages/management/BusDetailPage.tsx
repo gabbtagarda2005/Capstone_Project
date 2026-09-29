@@ -363,21 +363,24 @@ export function BusDetailPage() {
       busId?: string;
       latitude?: number;
       longitude?: number;
-      source?: "phone" | "lilygo";
+      source?: "phone" | "lilygo" | "lilygo_sms";
       timestamp?: string;
+      gpsSourceState?: "STAFF" | "HARDWARE_MOBILE" | "HARDWARE_SMS" | "NO_SIGNAL";
     };
     const onCanonicalLocation = (p: CanonicalLocationEvent) => {
       if (!p || String(p.busId) !== targetBusId) return;
       const lat = Number(p.latitude);
       const lng = Number(p.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const mappedSource = p.source === "lilygo" ? "hardware" : p.source === "lilygo_sms" ? "hardware_sms" : "staff";
       setLive((prev) => ({
         ...(prev ?? { busId: targetBusId, latitude: lat, longitude: lng }),
         busId: targetBusId,
         latitude: lat,
         longitude: lng,
-        source: p.source === "lilygo" ? "hardware" : "staff",
-        gpsSource: p.source === "lilygo" ? "lilygo" : "phone",
+        source: mappedSource,
+        gpsSource: p.source === "lilygo" ? "lilygo" : p.source === "lilygo_sms" ? "lilygo_sms" : "phone",
+        ...(p.gpsSourceState ? { gpsSourceState: p.gpsSourceState } : {}),
         recordedAt: p.timestamp || new Date().toISOString(),
         status: "online",
       }));
@@ -448,6 +451,7 @@ export function BusDetailPage() {
 
   const gpsSourceLabel = useMemo(() => {
     if (gpsStatus === "offline" || !effectiveLive) return "⚠ None";
+    if (effectiveLive.source === "hardware_sms") return "📶 SMS Fallback (LILYGO)";
     return effectiveLive.source === "hardware" ? "📡 LILYGO Hardware" : "📱 Bus Attendant Phone";
   }, [effectiveLive, gpsStatus]);
 
@@ -742,6 +746,48 @@ export function BusDetailPage() {
               GPS Source
               <strong>{gpsSourceLabel}</strong>
             </span>
+          </div>
+          <div className="bus-hub__live-status" style={{ marginTop: 8 }}>
+            <span
+              className={`bus-hub__live-status-badge bus-hub__live-status-badge--${
+                effectiveLive?.gpsSourceState === "STAFF" ? "online" : "offline"
+              }`}
+            >
+              {effectiveLive?.gpsSourceState === "STAFF" ? "🟢 Staff GPS — Online" : "🔴 Staff GPS — Offline"}
+            </span>
+            <span
+              className={`bus-hub__live-status-badge bus-hub__live-status-badge--${
+                effectiveLive?.gpsSourceState === "HARDWARE_MOBILE"
+                  ? "online"
+                  : effectiveLive?.cellularConnected
+                    ? "unstable"
+                    : "offline"
+              }`}
+            >
+              {effectiveLive?.gpsSourceState === "HARDWARE_MOBILE"
+                ? "🟢 Hardware Mobile — Online"
+                : effectiveLive?.cellularConnected
+                  ? "🟠 Hardware Mobile — Standby"
+                  : "🔴 Hardware Mobile — Offline"}
+            </span>
+            {effectiveLive?.smsFallbackStatus != null ? (
+              <>
+                <span
+                  className={`bus-hub__live-status-badge bus-hub__live-status-badge--${
+                    effectiveLive?.gpsSourceState === "HARDWARE_SMS" ? "online" : "unstable"
+                  }`}
+                >
+                  {effectiveLive?.gpsSourceState === "HARDWARE_SMS" ? "🟢 SMS Fallback — ACTIVE" : "🟡 SMS Fallback — Standby"}
+                </span>
+                {effectiveLive?.gpsSourceState === "HARDWARE_SMS" ? (
+                  <span className="bus-hub__live-status-age">
+                    Last SMS GPS: {formatAgeShort(effectiveLive?.lastSmsAt ? nowTick - new Date(effectiveLive.lastSmsAt).getTime() : null)}
+                    {" · "}
+                    SMS GPS interval: {effectiveLive?.smsGpsIntervalMs ? Math.round(effectiveLive.smsGpsIntervalMs / 1000) : "—"} seconds
+                  </span>
+                ) : null}
+              </>
+            ) : null}
           </div>
           {congestionSegments.length > 0 ? (
             <div className="bus-hub__congestion-bar">

@@ -1,7 +1,8 @@
 const express = require("express");
 const Bus = require("../models/Bus");
 const GpsLog = require("../models/GpsLog");
-const { createDevice, listDevices, revokeDevice } = require("../services/deviceRegistry");
+const { createDevice, listDevices, revokeDevice, updateDeviceSmsSender } = require("../services/deviceRegistry");
+const { SMS_GPS_INTERVAL_MS } = require("../config/gpsThresholds");
 
 function classifyVoltage(v) {
   if (!Number.isFinite(v)) return { level: "unknown", label: "Unknown" };
@@ -34,6 +35,9 @@ function resolveActiveLinkAndSignal(source, lg, voltage, signalStrength, hardwar
   const recentHardware =
     Number.isFinite(hwMs) && hwMs > 0 && now - hwMs < 15 * 60 * 1000 && src === "hardware";
 
+  if (src === "hardware_sms") {
+    return { activeLink: "sms", effectiveDbm: null };
+  }
   if (src !== "hardware") {
     const dbm = signalStrength != null && Number.isFinite(Number(signalStrength)) ? Number(signalStrength) : staffSignalTierToDbm(signalEnum);
     return { activeLink: "staff", effectiveDbm: dbm };
@@ -75,7 +79,8 @@ function createFleetHardwareRouter() {
         Bus.find().select("busId busNumber route driverId").populate("driverId", "firstName lastName").lean(),
         GpsLog.find()
           .select(
-            "busId source network signal signalStrength voltage hardwareRecordedAt recordedAt attendantRecordedAt"
+            "busId source network signal signalStrength voltage hardwareRecordedAt recordedAt attendantRecordedAt " +
+              "deviceId smsFallbackStatus lastSmsAt cellularConnected gpsFixAcquired telemetryStatus"
           )
           .lean(),
       ]);
@@ -109,6 +114,11 @@ function createFleetHardwareRouter() {
             b.driverId && typeof b.driverId === "object"
               ? `${String(b.driverId.firstName || "").trim()} ${String(b.driverId.lastName || "").trim()}`.trim() || null
               : null;
+          const lastSmsAtIso = lg?.lastSmsAt ? new Date(lg.lastSmsAt).toISOString() : null;
+          const nextSmsExpectedAt =
+            lg?.smsFallbackStatus === "active" && lg?.lastSmsAt
+              ? new Date(new Date(lg.lastSmsAt).getTime() + SMS_GPS_INTERVAL_MS).toISOString()
+              : null;
           return {
             busId: bid,
             busNumber: b.busNumber || bid,
@@ -126,7 +136,14 @@ function createFleetHardwareRouter() {
             lastSeenAt: lastSeenIso,
             staleSeconds: staleSec,
             driverName,
-            attendantSignalTier: source !== "hardware" && lg?.signal != null ? String(lg.signal) : null,
+            attendantSignalTier: source !== "hardware" && source !== "hardware_sms" && lg?.signal != null ? String(lg.signal) : null,
+            deviceId: lg?.deviceId != null ? String(lg.deviceId) : null,
+            smsFallbackStatus: lg?.smsFallbackStatus != null ? String(lg.smsFallbackStatus) : null,
+            lastSmsAt: lastSmsAtIso,
+            nextSmsExpectedAt,
+            cellularConnected: lg?.cellularConnected != null ? Boolean(lg.cellularConnected) : null,
+            gpsFixAcquired: lg?.gpsFixAcquired != null ? Boolean(lg.gpsFixAcquired) : null,
+            telemetryStatus: lg?.telemetryStatus != null ? String(lg.telemetryStatus) : null,
           };
         })
         .sort((a, b) => a.busId.localeCompare(b.busId));
@@ -149,15 +166,30 @@ function createFleetHardwareRouter() {
     }
   });
 
-  /** Returns the plaintext secret ONCE — the caller must copy it into the device's config now. */
+  /** Returns the plaintext secret ONCE — the caller must copy it into the device's config now.
+   *  smsSenderNumber (E.164, this device's own SIM) is optional — set it here or later via PATCH
+   *  to authorize this device to report GPS via SMS fallback (see services/smsGpsReceiver.js). */
   router.post("/devices", async (req, res) => {
     try {
-      const { deviceId, busId, label } = req.body || {};
-      const result = await createDevice({ deviceId, busId, label });
+      const { deviceId, busId, label, smsSenderNumber } = req.body || {};
+      const result = await createDevice({ deviceId, busId, label, smsSenderNumber });
       res.status(201).json(result);
     } catch (e) {
       const code = e.statusCode || 500;
       res.status(code >= 400 && code < 600 ? code : 500).json({ error: e.message || "Failed to create device" });
+    }
+  });
+
+  /** Set/clear a registered device's SMS-fallback sender number (E.164). Pass smsSenderNumber:
+   *  null to clear it (disallows SMS-fallback GPS from this device until set again). */
+  router.patch("/devices/:deviceId", async (req, res) => {
+    try {
+      const { smsSenderNumber } = req.body || {};
+      const result = await updateDeviceSmsSender(req.params.deviceId, smsSenderNumber);
+      res.json(result);
+    } catch (e) {
+      const code = e.statusCode || 500;
+      res.status(code >= 400 && code < 600 ? code : 500).json({ error: e.message || "Failed to update device" });
     }
   });
 

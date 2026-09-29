@@ -34,6 +34,48 @@ const defaultConfig: MapConfig = {
   attribution: '&copy; OpenStreetMap',
 };
 
+/** Honest traffic-source label — never claims "Live traffic" unless the backend actually says
+ *  trafficSource === "live_provider" (it won't, until a real traffic-aware routing API is
+ *  configured; see Backend/Admin_Backend/services/trafficProviders/). */
+function trafficSourceLabel(source: LiveBusPosition["trafficSource"]): string | null {
+  switch (source) {
+    case "live_provider":
+      return "Live traffic";
+    case "gps_derived":
+      return "GPS-derived traffic";
+    case "historical":
+      return "Historical estimate";
+    case "route_only":
+      return "Route estimate (no traffic data)";
+    case "unavailable":
+      return "Limited data";
+    default:
+      return null;
+  }
+}
+
+function delayLabel(delay: LiveBusPosition["delay"] | null | undefined): string | null {
+  if (!delay || !delay.tier) return null;
+  switch (delay.tier) {
+    case "EARLY":
+      return delay.delayMinutes != null ? `Early by ${Math.abs(delay.delayMinutes)} min` : "Early";
+    case "ON_TIME":
+      return "On time";
+    case "MINOR_DELAY":
+      return delay.delayMinutes != null ? `Minor delay: +${delay.delayMinutes} min` : "Minor delay";
+    case "MODERATE_DELAY":
+      return delay.delayMinutes != null ? `Moderate delay: +${delay.delayMinutes} min` : "Moderate delay";
+    case "SEVERE_DELAY":
+      return delay.delayMinutes != null ? `Severe delay: +${delay.delayMinutes} min` : "Severe delay";
+    case "STOPPED":
+      return "Stopped";
+    case "GPS_STALE":
+      return "GPS stale — delay unknown";
+    default:
+      return null;
+  }
+}
+
 const LEAFLET_TERMINAL_ICON = L.divIcon({
   className: "dashboard-map__marker-terminal",
   html:
@@ -625,6 +667,13 @@ export function DashboardMap({
                   {b.nextTerminal ? <div>Next: {b.nextTerminal}</div> : null}
                   {b.etaMinutes != null && Number.isFinite(b.etaMinutes) ? (
                     <div>ETA ~{Math.max(1, Math.round(b.etaMinutes))} min</div>
+                  ) : null}
+                  {delayLabel(b.delay) ? <div>{delayLabel(b.delay)}</div> : null}
+                  {trafficSourceLabel(b.trafficSource) ? (
+                    <div className="dashboard-map__traffic-source">
+                      {trafficSourceLabel(b.trafficSource)}
+                      {b.confidence ? ` · ${b.confidence.charAt(0)}${b.confidence.slice(1).toLowerCase()} confidence` : ""}
+                    </div>
                   ) : null}
                 </Popup>
               </Marker>

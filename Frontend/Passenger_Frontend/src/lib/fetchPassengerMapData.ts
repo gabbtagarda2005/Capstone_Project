@@ -34,6 +34,22 @@ export type DeployedPointItem = {
   stops: DeployedStop[];
 };
 
+/** Real road-congestion reading for this bus's corridor — see services/congestionEngine.js
+ *  (Admin_Backend). Never render `level` as "live traffic"; see `trafficSource` below. */
+export type LiveBusCongestion = {
+  status: "ok" | "not_applicable" | "unavailable" | "insufficient_data";
+  level?: "FREE_FLOW" | "MODERATE" | "SLOW" | "HEAVY" | "SEVERE";
+  reason?: string;
+};
+
+/** Delay classification derived from expected-vs-actual schedule progress — see
+ *  services/delayClassifier.js (Admin_Backend). */
+export type LiveBusDelay = {
+  tier: "EARLY" | "ON_TIME" | "MINOR_DELAY" | "MODERATE_DELAY" | "SEVERE_DELAY" | "STOPPED" | "GPS_STALE" | "UNKNOWN";
+  delayMinutes: number | null;
+  reason: string | null;
+};
+
 export type LiveBusPosition = {
   busId: string;
   latitude: number;
@@ -43,6 +59,13 @@ export type LiveBusPosition = {
   recordedAt: string;
   nextTerminal: string | null;
   etaMinutes: number | null;
+  /** Already returned by GET /api/buses/live today — previously unused by this page. Never
+   *  "live_provider" unless a real traffic-aware routing API is configured (none is, today):
+   *  render honestly as "GPS-derived traffic" / "Historical estimate" / "Limited data". */
+  trafficSource?: "live_provider" | "gps_derived" | "historical" | "route_only" | "unavailable" | null;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN" | null;
+  congestion?: LiveBusCongestion | null;
+  delay?: LiveBusDelay | null;
 };
 
 export async function fetchDeployedPoints(): Promise<DeployedPointItem[]> {

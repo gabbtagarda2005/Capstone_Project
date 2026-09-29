@@ -67,6 +67,8 @@ const GPS_STALE_MS = 8 * 60 * 1000;
 /** How often to reconcile map pins with MongoDB gps_logs while View Location is open */
 const LIVE_GPS_POLL_MS = 2_000;
 const DISPATCH_POLL_MS = 15_000;
+/** Matches the heat-map endpoint's own ~15-20s server-side cache — no point polling faster. */
+const HEATMAP_POLL_MS = 20_000;
 const DELAY_HIGHLIGHT_MINUTES = 10;
 const MAX_REASONABLE_DELAY_MINUTES = 180;
 const TERMINAL_ARRIVAL_DISTANCE_M = 500;
@@ -102,8 +104,8 @@ type SocketLocationPayload = {
   recordedAt?: string;
   attendantName?: string | null;
   signal?: GpsSignalTier | null;
-  source?: "staff" | "hardware" | "mobile" | null;
-  net?: "wifi" | "4g" | "unknown" | null;
+  source?: "staff" | "hardware" | "hardware_sms" | "mobile" | null;
+  net?: "wifi" | "4g" | "sms" | "unknown" | null;
   signalStrength?: number | null;
   voltage?: number | null;
   etaMinutes?: number | null;
@@ -112,6 +114,8 @@ type SocketLocationPayload = {
   trafficDelay?: boolean;
   congestion?: BusCongestion | null;
   delay?: BusDelay | null;
+  trafficSource?: "live_provider" | "gps_derived" | "historical" | "route_only" | "unavailable" | null;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN" | null;
 };
 
 function parseSocketSignal(raw: unknown): GpsSignalTier | null {
@@ -120,15 +124,15 @@ function parseSocketSignal(raw: unknown): GpsSignalTier | null {
   return null;
 }
 
-function parseSocketSource(raw: unknown): "staff" | "hardware" | "mobile" | null {
+function parseSocketSource(raw: unknown): "staff" | "hardware" | "hardware_sms" | "mobile" | null {
   const s = raw != null ? String(raw).trim().toLowerCase() : "";
-  if (s === "staff" || s === "hardware" || s === "mobile") return s;
+  if (s === "staff" || s === "hardware" || s === "hardware_sms" || s === "mobile") return s;
   return null;
 }
 
-function parseSocketNet(raw: unknown): "wifi" | "4g" | "unknown" | null {
+function parseSocketNet(raw: unknown): "wifi" | "4g" | "sms" | "unknown" | null {
   const s = raw != null ? String(raw).trim().toLowerCase() : "";
-  if (s === "wifi" || s === "4g" || s === "unknown") return s;
+  if (s === "wifi" || s === "4g" || s === "sms" || s === "unknown") return s;
   return null;
 }
 
@@ -150,6 +154,23 @@ function congestionColor(level: BusCongestion["level"] | null | undefined): stri
       return null;
   }
 }
+
+/** One row of GET /api/traffic/heatmap — see Backend/Admin_Backend/routes/traffic.js. */
+type HeatmapSegmentRow = {
+  segmentId: string;
+  routeId: string | null;
+  fromName: string | null;
+  toName: string | null;
+  polyline: { latitude: number; longitude: number }[];
+  status: "ok" | "insufficient_data" | "unavailable";
+  currentSpeed: number | null;
+  referenceSpeed: number | null;
+  speedRatio: number | null;
+  congestionLevel: BusCongestion["level"] | null;
+  sampleCount: number;
+  lastObservationAt: string | null;
+  confidence: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+};
 
 function formatCorridorDisplay(routeLabel: string): string {
   const t = routeLabel.trim();
@@ -193,6 +214,8 @@ function mergeLiveLogRow(prev: BusLiveLogRow[], p: SocketLocationPayload): BusLi
     ...(p.trafficDelay !== undefined ? { trafficDelay: p.trafficDelay } : {}),
     ...(p.congestion !== undefined ? { congestion: p.congestion } : {}),
     ...(p.delay !== undefined ? { delay: p.delay } : {}),
+    ...(p.trafficSource !== undefined ? { trafficSource: p.trafficSource } : {}),
+    ...(p.confidence !== undefined ? { confidence: p.confidence } : {}),
   };
   const idx = prev.findIndex((x) => x.busId === busId);
   if (idx >= 0) {
@@ -217,6 +240,8 @@ function mergeLiveLogRow(prev: BusLiveLogRow[], p: SocketLocationPayload): BusLi
       trafficDelay: p.trafficDelay !== undefined ? p.trafficDelay : existing.trafficDelay,
       congestion: p.congestion !== undefined ? p.congestion : existing.congestion,
       delay: p.delay !== undefined ? p.delay : existing.delay,
+      trafficSource: p.trafficSource !== undefined ? p.trafficSource : existing.trafficSource,
+      confidence: p.confidence !== undefined ? p.confidence : existing.confidence,
     };
     return next;
   }
@@ -516,6 +541,8 @@ export function LocationsPage() {
   const [basemap, setBasemap] = useState<BasemapMode>(() => (theme === "dark" ? "dark" : "roadmap"));
   const overlayTransit = false;
   const overlayBiking = false;
+  /** Segment-based traffic heat map rows — see the polling effect below and routes/traffic.js. */
+  const [heatmapSegments, setHeatmapSegments] = useState<HeatmapSegmentRow[]>([]);
   const [layers, setLayers] = useState<MapLayerState>({
     geofence: true,
     traffic: false,
@@ -791,6 +818,31 @@ export function LocationsPage() {
     };
   }, [adminToken, syncFleetFromApi]);
 
+  /**
+   * Segment-based traffic heat map (GET /api/traffic/heatmap — see
+   * Backend/Admin_Backend/routes/traffic.js / services/corridorSegments.js). Real road segments
+   * colored by observed-vs-reference speed ratio — never circles drawn around bus icons. Polled
+   * independently of the per-bus fleet sync since it's a fleet-wide, not per-bus, computation.
+   */
+  useEffect(() => {
+    if (!adminToken || !layers.traffic) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api<{ items: HeatmapSegmentRow[] }>("/api/traffic/heatmap");
+        if (!cancelled) setHeatmapSegments(res.items ?? []);
+      } catch {
+        /* keep last-known segments rather than clearing the layer on a transient error */
+      }
+    };
+    void load();
+    const id = window.setInterval(() => void load(), HEATMAP_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [adminToken, layers.traffic]);
+
   useEffect(() => {
     if (!adminToken) return;
 
@@ -866,6 +918,10 @@ export function LocationsPage() {
         ...("etaTargetIso" in raw ? { etaTargetIso: String(raw.etaTargetIso) } : {}),
         ...("nextTerminal" in raw ? { nextTerminal: String(raw.nextTerminal) } : {}),
         ...("trafficDelay" in raw ? { trafficDelay: raw.trafficDelay === true } : {}),
+        ...("congestion" in raw ? { congestion: raw.congestion as BusCongestion | null } : {}),
+        ...("delay" in raw ? { delay: raw.delay as BusDelay | null } : {}),
+        ...("trafficSource" in raw ? { trafficSource: raw.trafficSource as SocketLocationPayload["trafficSource"] } : {}),
+        ...("confidence" in raw ? { confidence: raw.confidence as SocketLocationPayload["confidence"] } : {}),
         ...("signal" in raw ? { signal: parseSocketSignal(raw.signal) } : {}),
       });
     };
@@ -890,6 +946,10 @@ export function LocationsPage() {
         ...("etaTargetIso" in raw ? { etaTargetIso: String(raw.etaTargetIso) } : {}),
         ...("nextTerminal" in raw ? { nextTerminal: String(raw.nextTerminal) } : {}),
         ...("trafficDelay" in raw ? { trafficDelay: raw.trafficDelay === true } : {}),
+        ...("congestion" in raw ? { congestion: raw.congestion as BusCongestion | null } : {}),
+        ...("delay" in raw ? { delay: raw.delay as BusDelay | null } : {}),
+        ...("trafficSource" in raw ? { trafficSource: raw.trafficSource as SocketLocationPayload["trafficSource"] } : {}),
+        ...("confidence" in raw ? { confidence: raw.confidence as SocketLocationPayload["confidence"] } : {}),
         ...("signal" in raw ? { signal: parseSocketSignal(raw.signal) } : {}),
       });
     };
@@ -922,6 +982,10 @@ export function LocationsPage() {
           ...("etaTargetIso" in raw ? { etaTargetIso: String(raw.etaTargetIso) } : {}),
           ...("nextTerminal" in raw ? { nextTerminal: String(raw.nextTerminal) } : {}),
           ...("trafficDelay" in raw ? { trafficDelay: raw.trafficDelay === true } : {}),
+          ...("congestion" in raw ? { congestion: raw.congestion as BusCongestion | null } : {}),
+          ...("delay" in raw ? { delay: raw.delay as BusDelay | null } : {}),
+          ...("trafficSource" in raw ? { trafficSource: raw.trafficSource as SocketLocationPayload["trafficSource"] } : {}),
+          ...("confidence" in raw ? { confidence: raw.confidence as SocketLocationPayload["confidence"] } : {}),
           ...("signal" in raw ? { signal: parseSocketSignal(raw.signal) } : {}),
         });
         if (forceSync) {
@@ -1255,8 +1319,16 @@ export function LocationsPage() {
           out.set(b.busId, b.delay.reason || "Delay reason unavailable");
           continue;
         }
+        if (b.delay.tier === "EARLY") {
+          out.set(b.busId, b.delay.delayMinutes != null ? `Early by ${Math.abs(b.delay.delayMinutes)} min` : "Early");
+          continue;
+        }
+        if (b.delay.tier === "STOPPED") {
+          out.set(b.busId, "Stopped (not at a known stop)");
+          continue;
+        }
         const label =
-          b.delay.tier === "MINOR_DELAY" ? "Minor delay" : b.delay.tier === "MODERATE_DELAY" ? "Moderate delay" : "Major delay";
+          b.delay.tier === "MINOR_DELAY" ? "Minor delay" : b.delay.tier === "MODERATE_DELAY" ? "Moderate delay" : "Severe delay";
         const reasonText = b.delay.reason ? ` — ${b.delay.reason}` : "";
         out.set(b.busId, b.delay.delayMinutes != null ? `${label}: +${b.delay.delayMinutes} min${reasonText}` : `${label}${reasonText}`);
         continue;
@@ -1430,6 +1502,27 @@ export function LocationsPage() {
                         pathOptions={{ stroke: false, fillColor: h.loadColor, fillOpacity: 0.2 }}
                       />
                     ))
+                  : null}
+
+                {/* Real, segment-based traffic heat map (GET /api/traffic/heatmap) — road pieces
+                    colored by this fleet's own observed-vs-reference speed ratio, never circles
+                    around bus icons. Only rendered once a segment has enough real data to classify
+                    (status "ok"); insufficient/unavailable segments draw nothing rather than a
+                    fabricated color. */}
+                {layers.traffic
+                  ? heatmapSegments
+                      .filter((s) => s.status === "ok" && s.congestionLevel && s.polyline.length >= 2)
+                      .map((s) => (
+                        <LeafletPolyline
+                          key={`heat-l-${s.segmentId}`}
+                          positions={s.polyline.map((p) => [p.latitude, p.longitude] as [number, number])}
+                          pathOptions={{
+                            color: congestionColor(s.congestionLevel) || "#64748b",
+                            weight: 6,
+                            opacity: 0.55,
+                          }}
+                        />
+                      ))
                   : null}
 
                 {stopsList.map((s) => {
@@ -1634,6 +1727,25 @@ export function LocationsPage() {
                 }}
               >
                 {layers.traffic ? <TrafficLayer /> : null}
+                {/* Real, segment-based traffic heat map (GET /api/traffic/heatmap) — see the
+                    Leaflet-view rendering above for the full explanation. Google's own TrafficLayer
+                    above is a separate, display-only overlay (no data this app can read back);
+                    this is our fleet's own GPS-derived/historical reading, drawn as colored road
+                    segments. */}
+                {layers.traffic &&
+                  heatmapSegments
+                    .filter((s) => s.status === "ok" && s.congestionLevel && s.polyline.length >= 2)
+                    .map((s) => (
+                    <PolylineF
+                      key={`heat-g-${s.segmentId}`}
+                      path={s.polyline.map((p) => ({ lat: p.latitude, lng: p.longitude }))}
+                      options={{
+                        strokeColor: congestionColor(s.congestionLevel) || "#64748b",
+                        strokeWeight: 6,
+                        strokeOpacity: 0.55,
+                      }}
+                    />
+                  ))}
                 {overlayTransit ? <TransitLayer /> : null}
                 {overlayBiking ? <BicyclingLayer /> : null}
                 {corridorRoutes

@@ -1,3 +1,5 @@
+const { deriveGpsSourceState } = require("../services/gpsSourceArbiter");
+
 /** @type {null | (() => Promise<unknown>)} */
 let getLiveBoardPayload = null;
 
@@ -122,9 +124,11 @@ function broadcastLocationUpdate(io, payload) {
     sourceFlag:
       payload.sourceFlag != null
         ? String(payload.sourceFlag)
-        : payload.source != null && String(payload.source) === "hardware"
+        : String(payload.source) === "hardware"
           ? "hardware"
-          : "mobile",
+          : String(payload.source) === "hardware_sms"
+            ? "hardware_sms"
+            : "mobile",
     net: payload.net != null ? String(payload.net) : null,
     signalStrength:
       payload.signalStrength != null && Number.isFinite(Number(payload.signalStrength))
@@ -149,18 +153,25 @@ function broadcastLocationUpdate(io, payload) {
   }
   broadcastBusLocationUpdate(io, payload);
 
-  // Canonical phone-primary/LILYGO-backup event — additive, does not replace the legacy events above.
+  // Canonical phone-primary/LILYGO-backup(/SMS-emergency-backup) event — additive, does not
+  // replace the legacy events above.
   const canonicalBusId = payload.busId != null ? String(payload.busId) : "";
   const canonicalLat = Number(payload.latitude);
   const canonicalLng = Number(payload.longitude);
   if (canonicalBusId && Number.isFinite(canonicalLat) && Number.isFinite(canonicalLng)) {
+    const canonicalSource =
+      String(payload.source) === "hardware" ? "lilygo" : String(payload.source) === "hardware_sms" ? "lilygo_sms" : "phone";
     const canonicalEnvelope = {
       busId: canonicalBusId,
       latitude: canonicalLat,
       longitude: canonicalLng,
-      source: String(payload.source) === "hardware" ? "lilygo" : "phone",
+      source: canonicalSource,
       timestamp: ts,
       status: "online",
+      // This event is emitted at the moment of a fresh publish, so age is ~0 — deriveGpsSourceState
+      // just maps the source string to the UPPER_SNAKE contract other clients read from GET
+      // /api/buses/live, so listeners never need a second lookup for this event alone.
+      gpsSourceState: deriveGpsSourceState(String(payload.source || ""), 0),
     };
     io.to("buses").emit("bus:location:update", canonicalEnvelope);
     io.emit("bus:location:update", canonicalEnvelope);

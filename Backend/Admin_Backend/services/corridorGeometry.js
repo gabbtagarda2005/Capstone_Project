@@ -38,9 +38,15 @@ function buildOrderedRouteWaypoints(origin, stops, destination) {
  * Stitches consecutive OSRM driving legs between ordered waypoints into one continuous path.
  * Returns GeoJSON-order coordinates ([lng, lat] pairs), matching OSRM's own convention, plus
  * summed distance/duration. Falls back to a straight 2-point segment for any leg OSRM can't route.
+ *
+ * Also returns `legs`: the same per-waypoint-pair breakdown before concatenation — each entry is
+ * one real road segment between two consecutive waypoints (origin/stop/destination). This is the
+ * natural, already-computed segmentation used by services/corridorSegments.js for segment-level
+ * traffic stats — nothing here changes for existing callers, `legs` is additive.
  */
 async function stitchRouteGeometry(waypoints) {
   const coordinates = [];
+  const legs = [];
   let totalDistanceM = 0;
   let totalDurationS = 0;
   for (let i = 0; i < waypoints.length - 1; i++) {
@@ -53,17 +59,31 @@ async function stitchRouteGeometry(waypoints) {
       leg = null;
     }
     let legCoords;
+    let legDistanceM;
+    let legDurationS;
     if (leg && leg.geometry && Array.isArray(leg.geometry.coordinates) && leg.geometry.coordinates.length > 1) {
       legCoords = leg.geometry.coordinates;
-      totalDistanceM += leg.distanceMeters || 0;
-      totalDurationS += leg.durationSeconds || 0;
+      legDistanceM = leg.distanceMeters || 0;
+      legDurationS = leg.durationSeconds || 0;
     } else {
       legCoords = [
         [a.longitude, a.latitude],
         [b.longitude, b.latitude],
       ];
-      totalDistanceM += haversineMeters(a, b);
+      legDistanceM = haversineMeters(a, b);
+      legDurationS = 0;
     }
+    totalDistanceM += legDistanceM;
+    totalDurationS += legDurationS;
+    legs.push({
+      fromIndex: i,
+      toIndex: i + 1,
+      fromName: a.name || null,
+      toName: b.name || null,
+      coordinates: legCoords.map(([lng, lat]) => ({ latitude: lat, longitude: lng })),
+      distanceMeters: legDistanceM,
+      durationSeconds: legDurationS,
+    });
     if (
       coordinates.length &&
       legCoords.length &&
@@ -75,7 +95,7 @@ async function stitchRouteGeometry(waypoints) {
       coordinates.push(...legCoords);
     }
   }
-  return { coordinates, distanceMeters: totalDistanceM, durationSeconds: totalDurationS };
+  return { coordinates, distanceMeters: totalDistanceM, durationSeconds: totalDurationS, legs };
 }
 
 /** First non-suspended CorridorRoute that references this RouteCoverage _id anywhere in its geometry. */
@@ -174,6 +194,56 @@ function nearestPointOnPolyline(lat, lon, polyline) {
   return best;
 }
 
+/**
+ * How far along a polyline (from its start) the nearest point to (lat, lon) is, plus the
+ * polyline's total length — i.e. "this bus has driven X of Y meters of this corridor/segment".
+ * Used by delayClassifier.js's expected-vs-actual progress comparison and by the ETA engine's
+ * "remaining distance on the current segment" calculation. Same flat-plane projection approach as
+ * nearestPointOnPolyline (fine at road-corridor scale), just accumulating segment lengths as it goes.
+ * Returns null for a degenerate (<2 point) polyline.
+ */
+function progressAlongPolyline(lat, lon, polyline) {
+  if (!Array.isArray(polyline) || polyline.length < 2) return null;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(toRad(lat));
+  const px = lon * mPerDegLon;
+  const py = lat * mPerDegLat;
+
+  let cumulative = 0;
+  let best = null;
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = polyline[i];
+    const b = polyline[i + 1];
+    const ax = a.longitude * mPerDegLon;
+    const ay = a.latitude * mPerDegLat;
+    const bx = b.longitude * mPerDegLon;
+    const by = b.latitude * mPerDegLat;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const segLen = Math.hypot(dx, dy);
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq > 0 ? ((px - ax) * dx + (py - ay) * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx;
+    const cy = ay + t * dy;
+    const dMeters = Math.hypot(px - cx, py - cy);
+    const distanceTraveledMeters = cumulative + t * segLen;
+    if (!best || dMeters < best.distanceMeters) {
+      best = { distanceMeters: dMeters, distanceTraveledMeters };
+    }
+    cumulative += segLen;
+  }
+  const totalDistanceMeters = cumulative;
+  if (!best || totalDistanceMeters <= 0) return null;
+  return {
+    distanceTraveledMeters: best.distanceTraveledMeters,
+    totalDistanceMeters,
+    progressRatio: Math.max(0, Math.min(1, best.distanceTraveledMeters / totalDistanceMeters)),
+    distanceOffRouteMeters: best.distanceMeters,
+  };
+}
+
 const freeFlowProfileCache = new Map();
 const FREE_FLOW_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -241,4 +311,5 @@ module.exports = {
   getCorridorPolylineForCoverage,
   getCorridorFreeFlowProfile,
   nearestPointOnPolyline,
+  progressAlongPolyline,
 };

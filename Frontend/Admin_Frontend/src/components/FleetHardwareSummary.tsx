@@ -23,6 +23,24 @@ function signalPct(dbm: number | null): number {
   return Math.max(0, Math.min(100, p));
 }
 
+function fmtClockTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+/** Live countdown to nextSmsExpectedAt, ticking off the same 1s nowTick the component already
+ *  maintains for "Last Seen" — reused here so no new timer is introduced. */
+function fmtCountdown(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const target = new Date(iso).getTime();
+  if (Number.isNaN(target)) return "—";
+  const deltaSec = Math.round((target - Date.now()) / 1000);
+  if (deltaSec <= 0) return "any moment";
+  return `${deltaSec}s`;
+}
+
 /** Wi-Fi/LTE/GPS link summary + per-bus hardware table for LILYGO T-A7670E trackers. */
 export function FleetHardwareSummary() {
   const [rows, setRows] = useState<FleetHardwareStatusRow[]>([]);
@@ -56,7 +74,8 @@ export function FleetHardwareSummary() {
     const wifi = hw.filter((r) => r.activeLink === "wifi").length;
     const lte = hw.filter((r) => r.activeLink === "lte").length;
     const alerts = rows.filter((r) => r.alertRedPulse).length;
-    return { wifi, lte, alerts, staffGps: rows.filter((r) => r.activeLink === "staff").length };
+    const smsActive = rows.filter((r) => r.smsFallbackStatus === "active").length;
+    return { wifi, lte, alerts, smsActive, staffGps: rows.filter((r) => r.activeLink === "staff").length };
   }, [rows, nowTick]);
 
   return (
@@ -84,6 +103,11 @@ export function FleetHardwareSummary() {
           <strong>{summary.alerts}</strong>
           <small className="fleet-sensors__kpi-sub">Weak LTE or low battery</small>
         </div>
+        <div className={"fleet-sensors__kpi" + (summary.smsActive > 0 ? " fleet-sensors__kpi--alert" : "")}>
+          <span>SMS Fallback active</span>
+          <strong>{summary.smsActive}</strong>
+          <small className="fleet-sensors__kpi-sub">Mobile-data telemetry down — reporting via SMS</small>
+        </div>
       </section>
 
       <section className="fleet-sensors__table-wrap">
@@ -108,17 +132,21 @@ export function FleetHardwareSummary() {
                     ? r.uplinkInferred
                       ? "LTE / SIM (inferred)"
                       : "LTE / SIM"
-                    : r.activeLink === "staff"
-                      ? "Attendant app"
-                      : "Uplink unknown";
+                    : r.activeLink === "sms"
+                      ? "SMS Fallback"
+                      : r.activeLink === "staff"
+                        ? "Attendant app"
+                        : "Uplink unknown";
               const linkClass =
                 r.activeLink === "wifi"
                   ? "fleet-sensors__link--wifi"
                   : r.activeLink === "lte"
                     ? "fleet-sensors__link--lte"
-                    : r.activeLink === "staff"
-                      ? "fleet-sensors__link--staff"
-                      : "fleet-sensors__link--down";
+                    : r.activeLink === "sms"
+                      ? "fleet-sensors__link--sms"
+                      : r.activeLink === "staff"
+                        ? "fleet-sensors__link--staff"
+                        : "fleet-sensors__link--down";
               const rowClass = r.alertRedPulse ? " fleet-sensors__row--alert" : "";
               return (
                 <tr key={r.busId} className={rowClass}>
@@ -130,6 +158,13 @@ export function FleetHardwareSummary() {
                   </td>
                   <td>
                     <span className={"fleet-sensors__link " + linkClass}>{linkLabel}</span>
+                    {r.activeLink === "sms" ? (
+                      <div className="fleet-sensors__mono" style={{ marginTop: 4, fontSize: "0.8em" }}>
+                        Last SMS GPS: {fmtClockTime(r.lastSmsAt)}
+                        <br />
+                        Next SMS GPS: ~{fmtCountdown(r.nextSmsExpectedAt)}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <div className="fleet-sensors__gauge-cell">

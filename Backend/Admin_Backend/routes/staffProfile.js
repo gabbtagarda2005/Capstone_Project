@@ -310,8 +310,10 @@ function createStaffProfileRouter() {
       }
       
       let etaMinutes = null;
+      let trafficSource = "unavailable";
+      let confidence = "UNKNOWN";
       try {
-        etaMinutes = await getAdvancedEtaMinutes({
+        const etaResult = await getAdvancedEtaMinutes({
           lat1: Number(log.latitude),
           lon1: Number(log.longitude),
           lat2: Number(nextTerminal.latitude),
@@ -324,6 +326,9 @@ function createStaffProfileRouter() {
           nextLocation: nextTerminal.name || "Terminal",
           stops: [],
         });
+        etaMinutes = etaResult.etaMinutes;
+        trafficSource = etaResult.trafficSource;
+        confidence = etaResult.confidence;
       } catch (err) {
         // Fallback to simple ETA
         etaMinutes = getFreeEtaMinutes(
@@ -345,6 +350,8 @@ function createStaffProfileRouter() {
         targetArrivalTime,
         status: etaMinutes > delayThreshold ? "DELAYED" : "ON TIME",
         nextTerminal: nextTerminal.name,
+        trafficSource,
+        confidence,
       });
     } catch (e) {
       res.status(500).json({ error: e.message || "Failed to compute ETA" });

@@ -11,11 +11,87 @@
 #define SERVER_PORT 443
 #define SERVER_PATH "/api/buses/hardware-telemetry"
 
-/** Retry / cadence (ms) — same delay after GNSS wait, cellular failure, or non-2xx HTTP */
-#define POST_INTERVAL_MS 8000
+/**
+ * 1 = https:// (default, use unless your exact modem/firmware is confirmed broken). 0 = http://.
+ * Bench-verified on a real LilyGO T-A7670E-FASE (firmware A011B07A7670M7_F, SIMCom A7670-series):
+ * AT+HTTPACTION always returns modem-internal error 715 for ANY https:// target on that exact
+ * firmware build (confirmed against multiple unrelated well-known HTTPS sites, not just this
+ * project's backend) — a known, unresolved issue also reported by other users on this exact chip/
+ * firmware (Xinyuan-LilyGO/LilyGo-Modem-Series#181). Plain http:// works correctly on that same
+ * unit. If DEBUG_AT_PASSTHROUGH testing on your unit shows the same 715 pattern, set this to 0 and
+ * put a PLAIN HTTP (not HTTPS) reachable address in SERVER_HOST/SERVER_PORT — see
+ * deploy/raspberry-pi/README.md for exposing Admin_Backend over plain HTTP as a fallback.
+ */
+#define SERVER_USE_TLS 1
 
-/** Must match Backend/Admin_Backend .env DEVICE_INGEST_SECRET (leave "" if unset on server). */
+/** Human-readable bus id used ONLY in the BTGPS|<BUS_ID>|... SMS payload — must match the busId
+ *  this device's IngestDevice credential is registered to on the backend (e.g. "BUS-001"). */
+#define BUS_ID_LABEL "BUS-001"
+
+/** Mobile-data (HTTPS) telemetry cadence — 5s per the phone(3s)/hardware-mobile(5s)/SMS(15s)
+ *  failover-priority design. */
+#define POST_INTERVAL_MS 5000
+
+/**
+ * Per-device credential (services/deviceRegistry.js on the backend — POST /api/fleet/devices).
+ * Preferred over the legacy DEVICE_INGEST_SECRET below: gives this exact unit its own revocable
+ * credential and a server-verified busId instead of trusting the fleet-wide shared secret.
+ */
+#define DEVICE_ID ""
+#define DEVICE_KEY ""
+
+/** Legacy fleet-wide shared secret — optional fallback, unused once DEVICE_ID/DEVICE_KEY are set.
+ *  Must match Backend/Admin_Backend .env DEVICE_INGEST_SECRET (leave "" if unset on server). */
 #define DEVICE_INGEST_SECRET ""
+
+// -----------------------------------------------------------------------------
+// SMS emergency fallback — ONLY used when mobile-data telemetry is confirmed failing (see
+// MOBILE_FAIL_CONFIRM_COUNT below). Sends GPS via this device's own SIM directly to a dedicated
+// receiving GSM gateway (hardware/lilygo_ta7670e_sms_gateway) — NOT through IPROG/any backend SMS
+// service. AT+CMGF=1 has a known open GitHub issue failing on some T-A7670E units
+// (Xinyuan-LilyGO/LilyGo-Modem-Series#247) — bench-verify with DEBUG_AT_PASSTHROUGH before relying
+// on this in the field; the firmware degrades gracefully (logs + skips) if it fails.
+// -----------------------------------------------------------------------------
+/** E.164 number of the dedicated receiving GSM gateway's SIM (see hardware/lilygo_ta7670e_sms_gateway). */
+#define SMS_GATEWAY_NUMBER "+63XXXXXXXXXX"
+
+/** SMS-fallback send cadence while active. */
+#define SMS_INTERVAL_MS 15000
+
+/** Consecutive HTTPS telemetry failures required before treating mobile-data as "confirmed down"
+ *  and switching to SMS fallback — not on the very first failure. At POST_INTERVAL_MS=5000 this is
+ *  roughly a 10s confirmation window. */
+#define MOBILE_FAIL_CONFIRM_COUNT 2
+
+/** Consecutive PDP-activation failures (network up, mobile data itself won't attach) before
+ *  switching straight to SMS fallback without waiting for a TELEMETRY_SEND attempt. */
+#define PDP_FAIL_CONFIRM_COUNT 2
+
+/** While in SMS fallback, how often to re-attempt PDP/mobile-data reconnection in the background
+ *  (without interrupting the SMS cadence) so recovery is automatic. */
+#define SMS_PDP_RECHECK_MS 30000
+
+/** Minimum time between AT+CMGF=1 (SMS text mode) attempts once one has failed — avoids hammering
+ *  a modem firmware that doesn't support it every single SMS_FALLBACK cycle. */
+#define SMS_CMGF_RETRY_COOLDOWN_MS 60000
+
+/** After this many consecutive SMS send failures, slow down to SMS_RETRY_BACKOFF_MS instead of
+ *  SMS_INTERVAL_MS — avoids uncontrolled duplicate/rapid-fire SMS attempts on a wedged modem. */
+#define SMS_FAIL_ABANDON_COUNT 5
+#define SMS_RETRY_BACKOFF_MS 30000
+
+/** Local store-and-forward ring buffer size (fixes buffered during a mobile-data outage, flushed
+ *  in order once connectivity returns). */
+#define TELEMETRY_BUFFER_SIZE 20
+#define BUFFER_FLUSH_GAP_MS 250
+
+/** GNSS background-poll cadence (independent of the connectivity state machine — GNSS acquisition
+ *  keeps running regardless of SIM/network/PDP state). */
+#define GNSS_POLL_INTERVAL_MS 2000
+
+#define NETWORK_REGISTER_TIMEOUT_MS 60000
+#define RETRY_BACKOFF_BASE_MS 3000
+#define RETRY_BACKOFF_MAX_MS 30000
 
 /** 1 = modem validates the server's TLS certificate (needs a CA cert uploaded to the modem's
  *  filesystem first — not implemented in this sketch). 0 = encrypted but no identity check
@@ -85,6 +161,13 @@
  *  field index 12, in m/s. */
 #define GNSS_SPEED_FIELD_IS_MPS true
 #define GNSS_SPEED_FIELD_INDEX 12
+
+/** UNVERIFIED on real hardware (only the speed index above was confirmed via live NMEA
+ *  comparison) — SIMCom's documented +CGNSSINFO layout puts course/heading at this index.
+ *  Bench-verify by comparing reported heading against actual direction of travel; adjust if wrong,
+ *  same technique that caught the original speed-index bug (see hardware_ta7670e_board memory / the
+ *  parseCgnssinfo() comment in the .ino). */
+#define GNSS_COURSE_FIELD_INDEX 13
 
 /**
  * 0 = lat/lon fields are already decimal degrees (e.g. 8.1477).

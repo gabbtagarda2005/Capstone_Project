@@ -14,23 +14,10 @@ const Bus = require("../models/Bus");
 const { matchCorridorForBus, isNearAnyTerminal } = require("./freeEtaEngine");
 const { getCorridorFreeFlowProfile } = require("./corridorGeometry");
 const { getOsrmDiagnostics, ENABLE_OSRM } = require("./osrmTrafficService");
-
-/** Congestion-ratio cut points → the five tiers the spec asks for. Documented, not hidden magic
- *  numbers: below 0.15 the corridor is essentially moving at its OSRM-implied free-flow speed. */
-const CONGESTION_LEVELS = [
-  { max: 0.15, level: "FREE_FLOW" },
-  { max: 0.35, level: "MODERATE" },
-  { max: 0.55, level: "SLOW" },
-  { max: 0.75, level: "HEAVY" },
-  { max: Infinity, level: "SEVERE" },
-];
-
-function classifyRatio(ratio) {
-  for (const tier of CONGESTION_LEVELS) {
-    if (ratio <= tier.max) return tier.level;
-  }
-  return "SEVERE";
-}
+const { matchPointToSegment } = require("./corridorSegments");
+const { computeSegmentCongestion } = require("./segmentTrafficStats");
+const { computeConfidence } = require("./trafficConfidence");
+const { CONGESTION_LEVELS, classifyRatio } = require("./congestionLevels");
 
 /**
  * @returns {Promise<{
@@ -71,6 +58,37 @@ async function computeBusCongestion({ busId, latitude, longitude, speedKph }) {
   if (!corridor) {
     return { status: "unavailable", reason: "No assigned corridor for this bus's route" };
   }
+
+  // Prefer real segment-level stats (median of recent observations on this exact road piece,
+  // services/segmentTrafficStats.js) over the old single-point "this one speed reading vs. the
+  // whole corridor's free-flow number" method. Falls back to that corridor-wide method below when
+  // the bus isn't matched to any segment (e.g. corridor has no intermediate stops yet) — never
+  // a behavior regression, just a weaker signal when segmentation isn't available.
+  const match = await matchPointToSegment(corridor, Number(latitude), Number(longitude)).catch(() => null);
+  if (match) {
+    const segResult = await computeSegmentCongestion(match.segment.segmentId, corridor).catch(() => null);
+    if (segResult && segResult.status === "ok") {
+      return {
+        status: "ok",
+        level: segResult.level,
+        congestionRatio: segResult.congestionRatio,
+        currentKph: segResult.currentKph,
+        freeFlowKph: segResult.referenceKph,
+        freeFlowSource: segResult.referenceSource,
+        corridorName: corridor.displayName || null,
+        // Additive fields — new consumers only, existing ones ignore unknown keys.
+        segmentId: segResult.segmentId,
+        sampleCount: segResult.sampleCount,
+        lastObservationAt: segResult.lastObservationAt,
+        confidence: segResult.confidence,
+      };
+    }
+    if (segResult && segResult.status === "insufficient_data") {
+      // Genuinely not enough recent samples on this exact segment yet — honest, not an error.
+      // Falls through to the corridor-wide single-point method below as a weaker-but-real signal.
+    }
+  }
+
   const profile = await getCorridorFreeFlowProfile(corridor).catch(() => null);
   if (!profile) {
     const diag = getOsrmDiagnostics();
@@ -89,6 +107,8 @@ async function computeBusCongestion({ busId, latitude, longitude, speedKph }) {
     freeFlowKph: Math.round(profile.freeFlowKph * 10) / 10,
     freeFlowSource: profile.source || "osrm_static",
     corridorName: corridor.displayName || null,
+    sampleCount: 1,
+    confidence: computeConfidence({ sampleCount: 1, method: profile.source }),
   };
 }
 

@@ -1,0 +1,33 @@
+#ifndef TA7670E_SMS_GATEWAY_CONFIG_H
+#define TA7670E_SMS_GATEWAY_CONFIG_H
+
+// -----------------------------------------------------------------------------
+// A7670E UART + power control — identical to lilygo_ta7670e_cellular_telemetry (same board,
+// verified power-on sequence against LilyGO's own official example: Xinyuan-LilyGO/LilyGO-T-A76XX,
+// examples/ATdebug/utilities.h + examples/Network/Network.ino). Do not change without re-verifying
+// on your actual hardware.
+// -----------------------------------------------------------------------------
+#define MODEM_RX_PIN 27
+#define MODEM_TX_PIN 26
+#define MODEM_BAUD 115200
+#define BOARD_POWERON_PIN 12
+#define BOARD_PWRKEY_PIN 4
+#define MODEM_RESET_PIN 5
+#define MODEM_RESET_LEVEL HIGH
+#define MODEM_DTR_PIN 25
+
+/** How often to poll for new (REC UNREAD) SMS. */
+#define SMS_POLL_INTERVAL_MS 3000
+
+/**
+ * TEMPORARY diagnostic — raw AT passthrough instead of the normal poll/parse loop, to hand-verify
+ * AT+CMGF=1 / AT+CNMI / AT+CMGL / AT+CMGR / AT+CMGD against your real modem firmware before
+ * trusting the automated version. There is a known open GitHub issue
+ * (Xinyuan-LilyGO/LilyGo-Modem-Series#247) of AT+CMGF=1 failing on some T-A7670E units — confirm it
+ * returns OK on YOUR board before relying on this gateway. Turn back to 0 for normal operation.
+ */
+#ifndef DEBUG_AT_PASSTHROUGH
+#define DEBUG_AT_PASSTHROUGH 0
+#endif
+
+#endif

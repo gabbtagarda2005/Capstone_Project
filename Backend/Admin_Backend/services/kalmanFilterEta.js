@@ -109,14 +109,30 @@ function getEtaFilter(busId, initialEta = 10) {
   return entry.filter;
 }
 
+/** confidence -> measurement-noise (R) override. Higher R = trust this measurement less = smooth
+ *  harder; lower R = react faster. Default (no confidence given) keeps the filter's original
+ *  R=2.5 — existing callers that don't pass a confidence are unaffected. */
+const CONFIDENCE_MEASUREMENT_NOISE = {
+  HIGH: 1.0,
+  MEDIUM: 2.5,
+  LOW: 5.0,
+  UNKNOWN: 8.0,
+};
+
 /**
- * Apply Kalman smoothing to a raw ETA value.
+ * Apply Kalman smoothing to a raw ETA value. When `confidence` is provided (see
+ * services/trafficConfidence.js), the filter reacts faster for HIGH-confidence readings and
+ * smooths harder for LOW/UNKNOWN ones — never fakes precision from noisy/thin data.
  * @param {string} busId - Bus identifier
  * @param {number} rawEtaMinutes - Raw calculated ETA
+ * @param {{confidence?: "HIGH"|"MEDIUM"|"LOW"|"UNKNOWN"}} [opts]
  * @returns {number} Smoothed ETA in minutes
  */
-function smoothEtaWithKalman(busId, rawEtaMinutes) {
+function smoothEtaWithKalman(busId, rawEtaMinutes, opts = {}) {
   const filter = getEtaFilter(busId, rawEtaMinutes);
+  if (opts.confidence && CONFIDENCE_MEASUREMENT_NOISE[opts.confidence] != null) {
+    filter.R = CONFIDENCE_MEASUREMENT_NOISE[opts.confidence];
+  }
   return filter.update(rawEtaMinutes);
 }
 

@@ -6,17 +6,41 @@ const PortalUser = require("../models/PortalUser");
 const { onBusGpsForTerminalArrival } = require("./terminalGeofenceIntercept");
 const { maybeRecordSpeedViolation } = require("./speedViolationAlert");
 const { normalizeGpsSignal } = require("./normalizeGpsSignal");
-const { decideActiveSource } = require("./gpsSourceArbiter");
+const { decideActiveSource, getActiveSource } = require("./gpsSourceArbiter");
 const { checkGpsOutlier } = require("./gpsOutlierGuard");
+const { isValidGpsCoordinate, resolveRecordedAtFromClientTimestamp } = require("./gpsValidation");
 const { buildPublicPayload } = require("../routes/liveDispatch");
 const { broadcastLiveBoard } = require("../sockets/socket");
 const liveDispatchStore = require("./liveDispatchStore");
 const AppBroadcast = require("../models/AppBroadcast");
-const { getFreeEtaMinutes, getAdvancedEtaMinutes, resolveNextTerminalForBus, isNearAnyTerminal, getCorridorPolylineForBus } = require("./freeEtaEngine");
+const { getFreeEtaMinutes, getAdvancedEtaMinutes, resolveNextTerminalForBus, isNearAnyTerminal, getCorridorPolylineForBus, matchCorridorForBus } = require("./freeEtaEngine");
 const { nearestPointOnPolyline } = require("./corridorGeometry");
+const { matchPointToSegment } = require("./corridorSegments");
+const { MOVING_SPEED_MIN_KPH } = require("./corridorFreeFlowCalibration");
 const { getPortalSettingsLean } = require("./adminPortalSettingsService");
 const { computeBusCongestion } = require("./congestionEngine");
 const { classifyDelay } = require("./delayClassifier");
+const { manilaNowMinutes, parseHmToMinutes } = require("./manilaTime");
+
+/** Best-effort: which real road segment (services/corridorSegments.js) this fix belongs to, for
+ *  tagging GpsHistory rows so they become usable segment-level traffic history. Only matches
+ *  moving fixes (reuses corridorFreeFlowCalibration's own "moving" cutoff) — a parked/idle bus
+ *  isn't a traffic sample. Never blocks ingestion: any failure here just means the row is stored
+ *  without a segment tag, exactly like today. */
+async function resolveSegmentMatchForHistory(busId, lat, lon, speedKph) {
+  const speed = Number(speedKph);
+  if (!Number.isFinite(speed) || speed < MOVING_SPEED_MIN_KPH) return { segmentId: null, corridorId: null };
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { segmentId: null, corridorId: null };
+  try {
+    const corridor = await matchCorridorForBus(String(busId));
+    if (!corridor) return { segmentId: null, corridorId: null };
+    const match = await matchPointToSegment(corridor, lat, lon);
+    if (!match) return { segmentId: null, corridorId: null };
+    return { segmentId: match.segment.segmentId, corridorId: corridor._id };
+  } catch {
+    return { segmentId: null, corridorId: null };
+  }
+}
 /** Hardware (LILYGO) fixes within this distance of the bus's assigned corridor get snapped onto
  *  the road — GNSS noise/multipath near terrain routinely lands a genuine on-road position a
  *  hundred-ish meters into adjacent ground (hillside, treeline) with no on-road alternative
@@ -68,47 +92,50 @@ function scheduleLiveBoardPushFromGps(io) {
     .catch(() => {});
 }
 
-/** Reject NaN, out-of-range, and the (0,0) "no fix" sentinel some GPS stacks send instead of omitting. */
-function isValidGpsCoordinate(lat, lng) {
-  const la = Number(lat);
-  const lo = Number(lng);
-  if (!Number.isFinite(la) || !Number.isFinite(lo)) return false;
-  if (la < -90 || la > 90 || lo < -180 || lo > 180) return false;
-  if (Math.abs(la) < 1e-6 && Math.abs(lo) < 1e-6) return false;
-  return true;
-}
-
+/** Attendant-app-specific timestamp field aliases, delegating the actual clamp logic to the
+ *  shared helper (also used by the LILYGO hardware/SMS ingest paths below). */
 function resolveRecordedAt(body) {
   const raw = body?.clientRecordedAt ?? body?.recorded_at;
-  if (raw == null) return new Date();
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return new Date();
-  const now = Date.now();
-  if (d.getTime() > now + 90_000) return new Date();
-  if (d.getTime() < now - 7 * 86400_000) return new Date();
-  return d;
+  return resolveRecordedAtFromClientTimestamp(raw);
 }
 
-function parseHmToMinutes(raw) {
-  const s = raw == null ? "" : String(raw).trim();
-  const m = s.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return null;
-  const hh = Number(m[1]);
-  const mm = Number(m[2]);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-  return hh * 60 + mm;
+/** [GPS]-prefixed transition logs, fired only when the arbiter's active source actually changes —
+ *  matches the exact log vocabulary requested for the phone/hardware/SMS failover state machine. */
+function logGpsSourceTransition(busId, prevActive, nextActive) {
+  if (!prevActive || !nextActive || prevActive === nextActive) return;
+  const tag = `[GPS][bus ${String(busId)}]`;
+  if (nextActive === "phone") {
+    console.log(`${tag} Staff GPS restored`);
+    return;
+  }
+  if (prevActive === "phone" && nextActive === "lilygo") {
+    console.log(`${tag} Staff GPS stale`);
+    console.log(`${tag} Hardware mobile telemetry active`);
+    return;
+  }
+  if (prevActive === "phone" && nextActive === "lilygo_sms") {
+    console.log(`${tag} Staff GPS stale`);
+    console.log(`${tag} SMS fallback ACTIVATED`);
+    return;
+  }
+  if (prevActive === "lilygo" && nextActive === "lilygo_sms") {
+    console.log(`${tag} Mobile telemetry failed`);
+    console.log(`${tag} SMS fallback ACTIVATED`);
+    return;
+  }
+  if (prevActive === "lilygo_sms" && nextActive === "lilygo") {
+    console.log(`${tag} Hardware mobile telemetry restored`);
+    console.log(`${tag} SMS fallback stopped`);
+  }
 }
 
-function manilaNowMinutes() {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Manila",
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(new Date());
-  const hh = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-  const mm = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-  return hh * 60 + mm;
+/** gpsSourceArbiter's internal vocabulary (phone/lilygo/lilygo_sms) → GpsLog.source vocabulary
+ *  (staff/hardware/hardware_sms) used everywhere else in this codebase (routes, sockets, UI). */
+function mapArbiterSourceToGpsSource(arbiterSource) {
+  if (arbiterSource === "phone") return "staff";
+  if (arbiterSource === "lilygo") return "hardware";
+  if (arbiterSource === "lilygo_sms") return "hardware_sms";
+  return null;
 }
 
 async function maybeFlipDispatchDelayed(busId) {
@@ -145,6 +172,8 @@ async function maybeComputeEtaAndTrafficDelay(io, busId, latitude, longitude, sp
 
   let bus = null;
   let etaMinutes = null;
+  let trafficSource = "unavailable";
+  let confidence = "UNKNOWN";
 
   if (canEstimateEta) {
     try {
@@ -154,7 +183,7 @@ async function maybeComputeEtaAndTrafficDelay(io, busId, latitude, longitude, sp
     }
 
     try {
-      etaMinutes = await getAdvancedEtaMinutes({
+      const etaResult = await getAdvancedEtaMinutes({
         lat1: Number(latitude),
         lon1: Number(longitude),
         lat2: Number(terminal.latitude),
@@ -167,6 +196,9 @@ async function maybeComputeEtaAndTrafficDelay(io, busId, latitude, longitude, sp
         nextLocation: terminal.name || "Terminal",
         stops: [],
       });
+      etaMinutes = etaResult.etaMinutes;
+      trafficSource = etaResult.trafficSource;
+      confidence = etaResult.confidence;
     } catch (err) {
       console.warn(`[ETA] Advanced ETA calculation failed, using fallback: ${err.message}`);
       etaMinutes = getFreeEtaMinutes(
@@ -181,13 +213,20 @@ async function maybeComputeEtaAndTrafficDelay(io, busId, latitude, longitude, sp
   const nowMs = Date.now();
   const nearTerminal = await isNearAnyTerminal(Number(latitude), Number(longitude));
 
-  // Real congestion-ratio + delay-tier classification (see congestionEngine.js/delayClassifier.js)
-  // — additive alongside the slow-window heuristic below, which still drives the existing
+  // Real congestion + delay-tier classification (see congestionEngine.js/delayClassifier.js) —
+  // additive alongside the slow-window heuristic below, which still drives the existing
   // dispatch-status flip and attendant broadcast. This fix was just ingested, so GPS is "live".
   const congestion = await computeBusCongestion({ busId: bid, latitude: Number(latitude), longitude: Number(longitude), speedKph: speed }).catch(
     () => ({ status: "unavailable", reason: "Congestion engine error" })
   );
-  const delay = classifyDelay({ gpsFreshness: "live", etaMinutes, congestion });
+  const delay = await classifyDelay({
+    busId: bid,
+    gpsFreshness: "live",
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    speedKph: speed,
+    congestion,
+  }).catch(() => ({ tier: "UNKNOWN", delayMinutes: null, reason: "Delay reason unavailable", congestionLevel: null }));
 
   const isSlow = Number.isFinite(speed) && speed < SLOW_SPEED_KPH && !nearTerminal;
   const prev = slowStateByBus.get(bid) || { startedAt: null };
@@ -237,6 +276,10 @@ async function maybeComputeEtaAndTrafficDelay(io, busId, latitude, longitude, sp
     trafficDelay,
     congestion,
     delay,
+    // Additive — see services/trafficProviders/ (never "live_provider" until a real traffic API
+    // key is configured) and services/trafficConfidence.js.
+    trafficSource,
+    confidence,
   };
 }
 
@@ -316,9 +359,16 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
   const resolvedBusId = b.busId;
   const recordedAt = resolveRecordedAt(body);
 
+  const prevActiveArbiterSource = getActiveSource(resolvedBusId);
   // Phone is the primary GPS source — always preferred. This only defers to LILYGO during the
   // brief stabilization window right after the phone recovers from an outage (see gpsSourceArbiter).
-  const { shouldPublish: sourceWantsPublish } = decideActiveSource(resolvedBusId, "phone", null, Date.now());
+  const { shouldPublish: sourceWantsPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(
+    resolvedBusId,
+    "phone",
+    null,
+    Date.now()
+  );
+  logGpsSourceTransition(resolvedBusId, prevActiveArbiterSource, nextActiveArbiterSource);
 
   const prevDoc = await GpsLog.findOne({ busId: String(resolvedBusId) })
     .select("attendantLatitude attendantLongitude attendantRecordedAt")
@@ -340,6 +390,7 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
     attendantLatitude: Number(latitude),
     attendantLongitude: Number(longitude),
     attendantRecordedAt: recordedAt,
+    activeGpsSource: mapArbiterSourceToGpsSource(nextActiveArbiterSource),
     ...(signalNorm ? { signal: signalNorm } : {}),
   };
   if (shouldPublish) {
@@ -393,6 +444,8 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
     payload.trafficDelay = etaMeta.trafficDelay;
     payload.congestion = etaMeta.congestion;
     payload.delay = etaMeta.delay;
+    payload.trafficSource = etaMeta.trafficSource;
+    payload.confidence = etaMeta.confidence;
   }
   broadcastLocationUpdate(io, payload);
   if (await maybeFlipDispatchDelayed(resolvedBusId)) scheduleLiveBoardPushFromGps(io);
@@ -400,6 +453,7 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
   void onBusGpsForTerminalArrival(io, String(resolvedBusId), Number(latitude), Number(longitude)).catch(() => {});
 
   try {
+    const segMatch = await resolveSegmentMatchForHistory(resolvedBusId, Number(latitude), Number(longitude), speedKph);
     await GpsHistory.create({
       busId: String(resolvedBusId),
       latitude: Number(latitude),
@@ -407,6 +461,8 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
       speedKph: speedKph != null ? Number(speedKph) : null,
       heading: heading != null ? Number(heading) : null,
       signal: signalNorm || null,
+      segmentId: segMatch.segmentId,
+      corridorId: segMatch.corridorId,
       recordedAt,
     });
   } catch (e) {
@@ -491,7 +547,15 @@ function estimateSpeedKphFromPrevHardware(doc, hwLat, hwLng, nowMs) {
   return Math.min(199, Math.round(kph * 10) / 10);
 }
 
-/** LilyGo / IMEI ping — no operator JWT; bus id already resolved. */
+/** LilyGo / IMEI ping — no operator JWT; bus id already resolved. Optional body.recordedAt (ISO
+ *  string, the device's own GNSS-derived fix time) is used so ring-buffer-replayed records sent
+ *  after a connectivity outage keep their true original timestamp instead of collapsing onto
+ *  server-arrival time; falls back to "now" when absent, matching prior behavior. Optional
+ *  body.deviceId (IngestDevice.deviceId) is persisted for admin visibility only. Note:
+ *  body.source, if the client sends one, is intentionally never read here — this function always
+ *  publishes as source="hardware" regardless of any client claim (see ingestHardwareSmsGps for the
+ *  only other place "hardware_sms" is ever written; which function is called, not a request field,
+ *  is what determines the published source — closing a spoofing gap). */
 async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body) {
   const { latitude, longitude, speedKph, heading } = body || {};
   if (latitude === undefined || longitude === undefined) {
@@ -504,7 +568,8 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
     e.statusCode = 400;
     throw e;
   }
-  const recordedAt = new Date();
+  const recordedAt = body?.recordedAt != null ? resolveRecordedAtFromClientTimestamp(body.recordedAt) : new Date();
+  const deviceId = body?.deviceId != null ? String(body.deviceId).trim() || null : null;
   const busLean = await Bus.findOne({ busId: String(resolvedBusId) })
     .select("route operatorMysqlId operatorPortalUserId")
     .lean();
@@ -515,15 +580,17 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
   let nextLat = hwLat;
   let nextLng = hwLng;
   const nextSource = "hardware";
+  const prevActiveArbiterSource = getActiveSource(bid);
   /** LILYGO is backup-only: phone (primary) wins whenever it's within its timeout window — see
    *  gpsSourceArbiter for why this replaces the older recency-only fusion logic that was reverted
    *  (it had hidden legitimate hardware fixes; this version tracks explicit per-bus state instead). */
-  const { shouldPublish: sourceWantsPublish } = decideActiveSource(
+  const { shouldPublish: sourceWantsPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(
     bid,
     "lilygo",
-    doc?.attendantRecordedAt ?? null,
+    { phoneLastRecordedAt: doc?.attendantRecordedAt ?? null },
     recordedAt.getTime()
   );
+  logGpsSourceTransition(bid, prevActiveArbiterSource, nextActiveArbiterSource);
   const { outlier: isOutlier } = await checkGpsOutlier({
     busId: bid,
     source: "hardware",
@@ -575,6 +642,8 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
     signalStrength: sigStrength,
     voltage,
     hardwareRecordedAt: recordedAt,
+    ...(deviceId ? { deviceId } : {}),
+    activeGpsSource: mapArbiterSourceToGpsSource(nextActiveArbiterSource),
   };
   if (shouldPublish) {
     Object.assign(gpsLogSet, {
@@ -596,24 +665,52 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
     return;
   }
 
-  const payload = {
-    busId: String(resolvedBusId),
-    latitude: nextLat,
-    longitude: nextLng,
+  await publishHardwarePosition(io, broadcastLocationUpdate, bid, {
+    lat: nextLat,
+    lng: nextLng,
     speedKph: resolvedSpeedKph,
-    heading: heading != null ? Number(heading) : null,
-    recordedAt: recordedAt.toISOString(),
-    attendantSub: null,
-    attendantName: null,
+    heading,
+    recordedAt,
     source: nextSource,
-    sourceFlag: nextSource === "hardware" ? "hardware" : "mobile",
     net,
     signalStrength: sigStrength,
     voltage,
+    busLean,
+  });
+}
+
+/**
+ * Shared publish-side-effects tail for every hardware-origin GPS source (LILYGO mobile-data HTTPS
+ * and LILYGO SMS fallback alike): ETA/traffic-delay computation, canonical Socket.IO broadcast,
+ * dispatch delay flip, terminal-arrival geofence check, speed-violation check, GpsHistory append.
+ * Only call this once a caller has already decided (via decideActiveSource + checkGpsOutlier) that
+ * this fix SHOULD be published, and has already written the raw per-source GpsLog fields
+ * (hardwareLatitude/* or smsLatitude/*) itself — this function only handles the publish side.
+ */
+async function publishHardwarePosition(
+  io,
+  broadcastLocationUpdate,
+  busId,
+  { lat, lng, speedKph, heading, recordedAt, source, net, signalStrength, voltage, busLean }
+) {
+  const bid = String(busId);
+  const normalizedHeading = heading != null ? Number(heading) : null;
+  const payload = {
+    busId: bid,
+    latitude: lat,
+    longitude: lng,
+    speedKph,
+    heading: normalizedHeading,
+    recordedAt: recordedAt.toISOString(),
+    attendantSub: null,
+    attendantName: null,
+    source,
+    sourceFlag: source === "hardware_sms" ? "hardware_sms" : "hardware",
+    net,
+    signalStrength,
+    voltage,
   };
-  const etaMeta = await maybeComputeEtaAndTrafficDelay(io, resolvedBusId, nextLat, nextLng, resolvedSpeedKph).catch(
-    () => null
-  );
+  const etaMeta = await maybeComputeEtaAndTrafficDelay(io, bid, lat, lng, speedKph).catch(() => null);
   if (etaMeta) {
     payload.etaMinutes = etaMeta.etaMinutes;
     payload.etaTargetIso = etaMeta.etaTargetIso;
@@ -621,31 +718,130 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
     payload.trafficDelay = etaMeta.trafficDelay;
     payload.congestion = etaMeta.congestion;
     payload.delay = etaMeta.delay;
+    payload.trafficSource = etaMeta.trafficSource;
+    payload.confidence = etaMeta.confidence;
   }
   broadcastLocationUpdate(io, payload);
-  if (await maybeFlipDispatchDelayed(resolvedBusId)) scheduleLiveBoardPushFromGps(io);
-  void onBusGpsForTerminalArrival(io, String(resolvedBusId), nextLat, nextLng).catch(() => {});
-  const hardwareAttendantName = await resolveAssignedAttendantName(busLean);
+  if (await maybeFlipDispatchDelayed(bid)) scheduleLiveBoardPushFromGps(io);
+  void onBusGpsForTerminalArrival(io, bid, lat, lng).catch(() => {});
+  const attendantName = await resolveAssignedAttendantName(busLean);
   void maybeRecordSpeedViolation(io, {
-    busId: resolvedBusId,
-    speedKph: resolvedSpeedKph,
-    latitude: nextLat,
-    longitude: nextLng,
-    attendantName: hardwareAttendantName,
+    busId: bid,
+    speedKph,
+    latitude: lat,
+    longitude: lng,
+    attendantName,
     assignedRoute: busLean?.route != null ? String(busLean.route) : null,
   });
   try {
+    const segMatch = await resolveSegmentMatchForHistory(bid, lat, lng, speedKph);
     await GpsHistory.create({
-      busId: String(resolvedBusId),
-      latitude: nextLat,
-      longitude: nextLng,
-      speedKph: resolvedSpeedKph,
-      heading: heading != null ? Number(heading) : null,
+      busId: bid,
+      latitude: lat,
+      longitude: lng,
+      speedKph,
+      heading: normalizedHeading,
+      segmentId: segMatch.segmentId,
+      corridorId: segMatch.corridorId,
       recordedAt,
     });
   } catch (e) {
-    console.warn("[attendantGpsIngest] GpsHistory (device) failed:", e.message || e);
+    console.warn("[attendantGpsIngest] GpsHistory (hardware) failed:", e.message || e);
   }
+}
+
+/**
+ * LILYGO SMS-fallback ping — arrives only from services/smsGpsReceiver.js, which has already
+ * validated the sender's phone number against IngestDevice.smsSenderNumber and the claimed busId
+ * before calling this. Always publishes as source="hardware_sms" — never trusts a client-claimed
+ * source string (there isn't one on this path at all, unlike the HTTPS path's informational-only
+ * body.source). Writes to smsLatitude/smsLongitude/smsRecordedAt — separate from
+ * hardwareLatitude/hardwareLongitude/hardwareRecordedAt (the mobile-data path's fields) — so the
+ * two hardware transports never clobber each other's raw bookkeeping.
+ */
+async function ingestHardwareSmsGps(io, broadcastLocationUpdate, busId, { latitude, longitude, speedKph, heading, recordedAt, deviceId }) {
+  const bid = String(busId);
+  if (!isValidGpsCoordinate(latitude, longitude)) {
+    const e = new Error("Invalid or unavailable GPS coordinates");
+    e.statusCode = 400;
+    throw e;
+  }
+  const busLean = await Bus.findOne({ busId: bid })
+    .select("route operatorMysqlId operatorPortalUserId")
+    .lean();
+  const doc = await GpsLog.findOne({ busId: bid }).lean();
+  const smsLat = Number(latitude);
+  const smsLng = Number(longitude);
+
+  const prevActiveArbiterSource = getActiveSource(bid);
+  const { shouldPublish: sourceWantsPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(
+    bid,
+    "lilygo_sms",
+    {
+      phoneLastRecordedAt: doc?.attendantRecordedAt ?? null,
+      hardwareMobileLastRecordedAt: doc?.hardwareRecordedAt ?? null,
+    },
+    recordedAt.getTime()
+  );
+  logGpsSourceTransition(bid, prevActiveArbiterSource, nextActiveArbiterSource);
+
+  const { outlier: isOutlier } = await checkGpsOutlier({
+    busId: bid,
+    source: "hardware_sms",
+    lat: smsLat,
+    lng: smsLng,
+    recordedAtMs: recordedAt.getTime(),
+    prevLat: Number(doc?.smsLatitude),
+    prevLng: Number(doc?.smsLongitude),
+    prevRecordedAtMs: doc?.smsRecordedAt ? new Date(doc.smsRecordedAt).getTime() : null,
+  });
+  const shouldPublish = sourceWantsPublish && !isOutlier;
+
+  const resolvedSpeedKph = speedKph != null && Number.isFinite(Number(speedKph)) ? Number(speedKph) : null;
+
+  const gpsLogSet = {
+    busId: bid,
+    smsLatitude: smsLat,
+    smsLongitude: smsLng,
+    smsRecordedAt: recordedAt,
+    ...(deviceId ? { deviceId } : {}),
+    activeGpsSource: mapArbiterSourceToGpsSource(nextActiveArbiterSource),
+    lastSmsAt: recordedAt,
+  };
+  if (shouldPublish) {
+    Object.assign(gpsLogSet, {
+      latitude: smsLat,
+      longitude: smsLng,
+      speedKph: resolvedSpeedKph,
+      heading: heading != null ? Number(heading) : null,
+      source: "hardware_sms",
+      network: "sms",
+      signalStrength: null,
+      voltage: null,
+      recordedAt,
+    });
+  }
+  await GpsLog.findOneAndUpdate({ busId: bid }, gpsLogSet, { upsert: true, new: true, setDefaultsOnInsert: true });
+  await Bus.updateOne({ busId: bid }, { lastSeenAt: recordedAt }).catch(() => {});
+
+  if (!shouldPublish) {
+    // Phone or hardware mobile-data is still healthy, or this implied an impossible jump from the
+    // last SMS position — recorded above for continuity, but must not move the published pin.
+    return;
+  }
+
+  await publishHardwarePosition(io, broadcastLocationUpdate, bid, {
+    lat: smsLat,
+    lng: smsLng,
+    speedKph: resolvedSpeedKph,
+    heading,
+    recordedAt,
+    source: "hardware_sms",
+    net: "sms",
+    signalStrength: null,
+    voltage: null,
+    busLean,
+  });
 }
 
 module.exports = {
@@ -653,5 +849,6 @@ module.exports = {
   resolveAttendantMetaFromTicketingUser,
   ingestAttendantGps,
   ingestDeviceGps,
+  ingestHardwareSmsGps,
   clearAttendantLiveSession,
 };
