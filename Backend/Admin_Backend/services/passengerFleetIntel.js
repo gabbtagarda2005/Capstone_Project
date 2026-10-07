@@ -263,6 +263,19 @@ function normalizeBusKey(s) {
 }
 
 /**
+ * The start of the window that counts toward a bus's CURRENT trip/leg occupancy — today
+ * (Asia/Manila) unless the bus's `tripSegmentStartedAt` (set on ticket issuance / route flip /
+ * stop-dropoff processing) is later, in which case that's the real boundary. Shared by the public
+ * occupancy calc below and by services/ticketDropoffCompletion.js so both agree on which tickets
+ * belong to "this leg" — duplicating this comparison would risk the two drifting apart.
+ */
+function effectiveSegmentStart(tripSegmentStartedAt) {
+  const startDay = manilaTodayStart();
+  const segmentStart = tripSegmentStartedAt ? new Date(tripSegmentStartedAt) : null;
+  return segmentStart && !Number.isNaN(segmentStart.getTime()) && segmentStart > startDay ? segmentStart : startDay;
+}
+
+/**
  * @param {Array<object>} fleetItems - rows from public fleet-buses (before enrich)
  * @param {{ viewerHub?: string, userLat?: number, userLng?: number }} opts
  */
@@ -307,9 +320,7 @@ async function enrichPublicFleetBuses(fleetItems, opts = {}) {
     const bid = String(row.busId || "").trim();
     const bKey = normalizeBusKey(row.busNumber || row.busId);
     const tickets = bKey ? ticketsByBus.get(bKey) || [] : [];
-    const segmentStart = row.tripSegmentStartedAt ? new Date(row.tripSegmentStartedAt) : null;
-    const effectiveStart =
-      segmentStart && !Number.isNaN(segmentStart.getTime()) && segmentStart > startDay ? segmentStart : startDay;
+    const effectiveStart = effectiveSegmentStart(row.tripSegmentStartedAt);
     const ticketsScoped = tickets.filter((t) => new Date(t.createdAt) >= effectiveStart);
     const hubs = hubsForBusRow(row, hubsGlobal);
     const intel = computeSeatIntel({
@@ -365,4 +376,6 @@ module.exports = {
   DEFAULT_SPEED_KPH,
   buildHubOrderLabelsForRoute,
   ROUTE_FLIP_COOLDOWN_MS,
+  normalizeBusKey,
+  effectiveSegmentStart,
 };

@@ -4,6 +4,7 @@ const GpsLog = require("../models/GpsLog");
 const GpsHistory = require("../models/GpsHistory");
 const PortalUser = require("../models/PortalUser");
 const { onBusGpsForTerminalArrival } = require("./terminalGeofenceIntercept");
+const { completeTicketsAtArrivedStops } = require("./ticketDropoffCompletion");
 const { maybeRecordSpeedViolation } = require("./speedViolationAlert");
 const { normalizeGpsSignal } = require("./normalizeGpsSignal");
 const { decideActiveSource, getActiveSource } = require("./gpsSourceArbiter");
@@ -451,6 +452,7 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
   if (await maybeFlipDispatchDelayed(resolvedBusId)) scheduleLiveBoardPushFromGps(io);
   scheduleLiveBoardPushFromGps(io);
   void onBusGpsForTerminalArrival(io, String(resolvedBusId), Number(latitude), Number(longitude)).catch(() => {});
+  void completeTicketsAtArrivedStops(io, String(resolvedBusId), Number(latitude), Number(longitude)).catch(() => {});
 
   try {
     const segMatch = await resolveSegmentMatchForHistory(resolvedBusId, Number(latitude), Number(longitude), speedKph);
@@ -724,6 +726,7 @@ async function publishHardwarePosition(
   broadcastLocationUpdate(io, payload);
   if (await maybeFlipDispatchDelayed(bid)) scheduleLiveBoardPushFromGps(io);
   void onBusGpsForTerminalArrival(io, bid, lat, lng).catch(() => {});
+  void completeTicketsAtArrivedStops(io, bid, lat, lng).catch(() => {});
   const attendantName = await resolveAssignedAttendantName(busLean);
   void maybeRecordSpeedViolation(io, {
     busId: bid,
