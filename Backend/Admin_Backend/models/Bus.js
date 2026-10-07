@@ -27,6 +27,15 @@ const busSchema = new mongoose.Schema(
     driverId: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
     route: { type: String, default: null },
     /**
+     * When true, the bus is currently running the corridor in destination→origin direction (the
+     * "return leg") rather than the corridor's defined origin→destination direction. `route` itself
+     * is left untouched (it's often a stable corridor label like "ROUTE 1", not a literal
+     * "A → B" string, so it can't safely be parsed/flipped in place) — resolving a bus's actual
+     * current routeStart/routeEnd must always swap them when this is true. See
+     * services/corridorRouteResolver.js and services/autoRouteFlip.js.
+     */
+    routeReversed: { type: Boolean, default: false },
+    /**
      * Linear hub labels for the current direction (outbound leg). Reversed automatically when the bus
      * reaches the destination terminal geofence (round-trip flip).
      */

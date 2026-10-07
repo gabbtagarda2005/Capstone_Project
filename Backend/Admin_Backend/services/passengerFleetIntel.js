@@ -284,7 +284,12 @@ async function enrichPublicFleetBuses(fleetItems, opts = {}) {
       createdAt: { $gte: startDay },
       boardingStatus: { $nin: ["completed", "cancelled"] },
     })
-      .select({ destination: 1, destinationLocation: 1, busNumber: 1, boardingStatus: 1 })
+      // createdAt must be projected — the effectiveStart/ticketsScoped filter below reads
+      // t.createdAt; without it here, every ticket's createdAt is undefined, `new Date(undefined)`
+      // is an Invalid Date, and the >= comparison is always false — silently zeroing every bus's
+      // occupiedSeats regardless of how many real tickets exist. This was the actual bug behind
+      // "X seats still shows full availability after tickets are issued."
+      .select({ destination: 1, destinationLocation: 1, busNumber: 1, boardingStatus: 1, createdAt: 1 })
       .lean(),
   ]);
 

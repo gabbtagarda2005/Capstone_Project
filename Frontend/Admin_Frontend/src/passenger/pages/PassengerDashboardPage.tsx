@@ -574,11 +574,19 @@ function resolveHeadingTerminal(
   const destTrim = dest?.trim() || "";
   if (!destTrim) return ntRaw || origin.trim() || "Terminal updating";
 
-  if (/maramag/i.test(origin) && /malaybalay/i.test(destTrim)) {
+  // Maramag <-> Malaybalay corridor, either direction — symmetric so the same Valencia-preview
+  // UX applies after an automatic direction reversal (return leg), not just the original
+  // Maramag -> Malaybalay direction this heuristic was first written for.
+  const isMaramagMalaybalayCorridor =
+    (/maramag/i.test(origin) && /malaybalay/i.test(destTrim)) ||
+    (/malaybalay/i.test(origin) && /maramag/i.test(destTrim));
+  if (isMaramagMalaybalayCorridor) {
+    const originKeyword = /maramag/i.test(origin) ? "maramag" : "malaybalay";
+    const destKeyword = originKeyword === "maramag" ? "malaybalay" : "maramag";
     if (etaMinutes <= 0) return destTrim;
     if (nt.includes("valencia")) return destTrim;
-    if (nt.includes("maramag")) return VALENCIA_CORRIDOR_HEADING;
-    if (nt.includes("malaybalay")) {
+    if (nt.includes(originKeyword)) return VALENCIA_CORRIDOR_HEADING;
+    if (nt.includes(destKeyword)) {
       if (etaMinutes >= 20) return VALENCIA_CORRIDOR_HEADING;
       return destTrim;
     }

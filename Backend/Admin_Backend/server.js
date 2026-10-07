@@ -402,7 +402,7 @@ app.use("/api/reports", createReportsRouter());
 app.use("/api/auth", createAuthTicketingRouter());
 app.use("/api/admin", createAdminPortalRouter());
 app.use("/api/operators", createOperatorsTicketingRouter());
-app.use("/api/tickets", createTicketsTicketingRouter());
+app.use("/api/tickets", createTicketsTicketingRouter(io));
 app.use("/api/locations", createLocationsTicketingRouter());
 app.use("/api/corridor-routes", createCorridorRoutesRouter());
 app.use("/api/fares", createFaresRouter());
@@ -675,7 +675,13 @@ app.get("/api/public/fleet-buses", async (req, res) => {
     const rows = await Bus.find().sort({ busId: 1 }).lean();
     const items = rows.map((b) => {
       const route = b.route && String(b.route).trim() ? String(b.route).trim() : null;
-      const { routeStart, routeEnd } = matchRouteEndpoints(route);
+      const corridorResolved = matchRouteEndpoints(route);
+      // routeReversed swaps which corridor endpoint is "current origin" vs "current destination"
+      // — the corridor definition itself (and `route`) never changes, only which way the bus is
+      // presently running it. See services/autoRouteFlip.js / services/corridorRouteResolver.js.
+      const reversed = Boolean(b.routeReversed);
+      const routeStart = reversed ? corridorResolved.routeEnd : corridorResolved.routeStart;
+      const routeEnd = reversed ? corridorResolved.routeStart : corridorResolved.routeEnd;
       const hubOrderLabels = Array.isArray(b.hubOrderLabels)
         ? b.hubOrderLabels.map((x) => String(x || "").trim()).filter(Boolean)
         : [];
@@ -686,6 +692,7 @@ app.get("/api/public/fleet-buses", async (req, res) => {
         route,
         routeStart,
         routeEnd,
+        routeReversed: reversed,
         hubOrderLabels,
         tripSegmentStartedAt: b.tripSegmentStartedAt
           ? new Date(b.tripSegmentStartedAt).toISOString()

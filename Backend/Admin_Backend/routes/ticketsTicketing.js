@@ -14,6 +14,7 @@ const { buildMongoTicketMatch } = require("../utils/mongoTicketQueryFromQuery");
 const { computeTicketFare } = require("../services/farePricing");
 const { buildOperatorBusQuery } = require("../services/attendantGpsIngest");
 const { sendTicketSMS, normalizePhilippineMobileE164 } = require("../services/smsService");
+const { broadcastLiveBoard } = require("../sockets/socket");
 
 function isMongoTicketId(s) {
   const t = String(s || "").trim();
@@ -76,7 +77,7 @@ function readMongoTicketEditToken(token) {
   return p;
 }
 
-function createTicketsTicketingRouter() {
+function createTicketsTicketingRouter(io) {
   const router = express.Router();
 
   router.get("/stats", requireAdminJwt, async (req, res) => {
@@ -297,6 +298,16 @@ function createTicketsTicketingRouter() {
         }
       } else if (phoneRaw) {
         sms = { attempted: true, ok: false, error: "Invalid Philippine mobile number" };
+      }
+
+      // Fire-and-forget: push the updated seat/occupancy numbers to connected passengers via the
+      // same liveBoardSnapshot channel the GPS/geofence paths already use (sockets/socket.js) —
+      // no new socket event needed, and this must never block or fail the ticket response itself.
+      if (io) {
+        const { buildPublicPayload } = require("./liveDispatch");
+        buildPublicPayload()
+          .then((payload) => broadcastLiveBoard(io, payload))
+          .catch((e) => console.warn("[tickets/issue] live board broadcast failed:", e.message || e));
       }
 
       return res.status(201).json({
