@@ -26,8 +26,14 @@ const issuedTicketRecordSchema = new mongoose.Schema(
      * lib/services/ticket_outbox_store.dart). Sparse + unique so a retried sync after an
      * ambiguous network failure can't create a duplicate ticket; normal online tickets (no
      * client ID) are unaffected.
+     *
+     * No `default` here on purpose — MongoDB's sparse index only exempts documents where the
+     * field is genuinely MISSING, not documents where it's explicitly `null`. A `default: null`
+     * would make Mongoose write the field as null on every normal (non-idempotent) ticket,
+     * which defeats the sparse index the moment a second such ticket is issued (both have the
+     * literal value null, so the unique constraint collides on them).
      */
-    clientRequestId: { type: String, default: null, unique: true, sparse: true },
+    clientRequestId: { type: String, unique: true, sparse: true },
     /**
      * Passenger seat intel: `boarded` counts toward live occupancy until `completed` (alighted) or `cancelled`.
      * Legacy docs without this field are treated as boarded.

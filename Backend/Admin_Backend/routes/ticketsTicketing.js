@@ -263,7 +263,10 @@ function createTicketsTicketingRouter() {
         issuedByName: issuedName,
         busNumber: busNorm,
         boardingStatus: "boarded",
-        clientRequestId: clientReqId || null,
+        // undefined (not null) — Mongoose omits an undefined field entirely rather than writing
+        // it as an explicit null, which is what the sparse unique index actually needs to treat
+        // a normal (non-idempotent) ticket as exempt. See the schema comment for why.
+        clientRequestId: clientReqId || undefined,
       });
       let busCounter = null;
       if (busNorm) {
