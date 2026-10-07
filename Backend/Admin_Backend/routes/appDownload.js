@@ -30,6 +30,13 @@ function createAppDownloadRouter() {
     if (!fs.existsSync(APK_PATH)) {
       return res.status(404).json({ error: "Attendant app build not available yet." });
     }
+    // Lets Cloudflare cache this large binary at the edge instead of re-pulling it through the
+    // Pi's (slow, residential) upload bandwidth on every single download. 30 min, not longer —
+    // this filename gets overwritten in place whenever a new build ships, and a stale cached
+    // copy would otherwise keep being served past that point. res.download()'s underlying
+    // sendFile() already sets a content-derived ETag, so a cache hit within the window still
+    // skips the full re-transfer, not just future ones past max-age.
+    res.setHeader("Cache-Control", "public, max-age=1800");
     res.download(APK_PATH, "BukidnonBusAttendant.apk", (err) => {
       if (err && !res.headersSent) {
         res.status(500).json({ error: "Could not send APK" });
