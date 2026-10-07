@@ -718,7 +718,7 @@ export function DashboardMap({
             const label = reg?.busNumber?.trim() || b.busId;
             const route = reg?.route?.trim() || "—";
             return (
-              <Marker key={`bus-${b.busId}`} position={[b.latitude, b.longitude]} icon={busIcon}>
+              <Marker key={`bus-${b.busId}`} position={[b.latitude, b.longitude]} icon={busIcon} zIndexOffset={1000}>
                 <Popup>
                   <strong>Bus {label}</strong>
                   <div>Route: {route}</div>
