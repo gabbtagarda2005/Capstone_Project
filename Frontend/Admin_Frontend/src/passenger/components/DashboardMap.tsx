@@ -667,7 +667,12 @@ export function DashboardMap({
                 />
               );
               nodes.push(
-                <Marker key={`${row.id}-term`} position={[t.latitude, t.longitude]} icon={LEAFLET_TERMINAL_ICON}>
+                // A corridor's terminal and its locationPoint can sit at (nearly) the same
+                // coordinates — when they do, Leaflet stacks both markers on the same spot and
+                // the later-added one (the waypoint, below) visually covers this hexagon icon.
+                // zIndexOffset keeps the terminal on top regardless of render order, since it's
+                // the more important landmark of the two.
+                <Marker key={`${row.id}-term`} position={[t.latitude, t.longitude]} icon={LEAFLET_TERMINAL_ICON} zIndexOffset={500}>
                   <Popup>
                     <strong>Terminal</strong>
                     <div>{t.name}</div>
