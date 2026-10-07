@@ -218,7 +218,10 @@ function FitToSelectedRoute({
     lastKey.current = fitKey;
     try {
       const b = L.latLngBounds(points);
-      map.fitBounds(b, { padding: [56, 56], maxZoom: 16 });
+      // Asymmetric padding — the uniform 56px wasn't enough to clear PassengerTopBar's real
+      // height (~100px with its subtitle row), so a marker near the top of the fitted bounds
+      // could render hidden underneath it. Only the top needs the bigger value.
+      map.fitBounds(b, { paddingTopLeft: [56, 120], paddingBottomRight: [56, 56], maxZoom: 16 });
     } catch {
       /* ignore */
     }
@@ -279,7 +282,10 @@ function AutoFitOnce({
     lastKey.current = fitKey;
     try {
       const b = L.latLngBounds(points);
-      map.fitBounds(b, { padding: [48, 48], maxZoom: 14 });
+      // Same top-clearance fix as FitToSelectedRoute above — this is the default/initial fit
+      // (all deployed points), so it's the one most likely to place a marker right under the
+      // top bar on first load.
+      map.fitBounds(b, { paddingTopLeft: [48, 120], paddingBottomRight: [48, 48], maxZoom: 14 });
     } catch {
       /* ignore */
     }
