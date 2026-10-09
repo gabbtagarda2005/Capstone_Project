@@ -396,9 +396,9 @@ const LEAFLET_TERMINAL_ICON = L.divIcon({
 });
 const LEAFLET_BUS_ICON = L.divIcon({
   className: "locations-page__leaflet-bus",
-  html: '<div style="font-size:18px;line-height:18px">🚌</div>',
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
+  html: '<div class="locations-page__leaflet-bus-pin" aria-hidden="true">🚌</div>',
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
 });
 /** Selected-bus route start/end pins (A = origin green, B = destination red) — Leaflet, inline-styled to match this file's other divIcons. */
 function leafletRouteEndpointIcon(letter: "A" | "B", fill: string) {
@@ -1634,7 +1634,7 @@ export function LocationsPage() {
                           <LeafletMarker
                             position={[b.pos[0], b.pos[1]]}
                             icon={LEAFLET_BUS_ICON}
-                            zIndexOffset={800}
+                            zIndexOffset={1000}
                             eventHandlers={{ click: () => handleBusMarkerClick({ busId: b.busId, pos: b.pos }) }}
                           >
                             {selectedMapEntity === `bus:${b.busId}` ? (

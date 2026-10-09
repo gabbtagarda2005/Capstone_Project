@@ -1326,3 +1326,24 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Matches the passenger-facing map's bus pin exactly (dashboard-map__bus-pin in
+   passenger/components/DashboardMap.css) so the live bus looks the same to admins and
+   passengers — previously this was a bare emoji with Leaflet's default white div-icon box
+   behind it. */
+.locations-page__leaflet-bus {
+  background: transparent !important;
+  border: none !important;
+}
+
+.locations-page__leaflet-bus-pin {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(37, 99, 235, 0.95));
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  box-shadow: 0 4px 22px rgba(34, 211, 238, 0.35);
+}
