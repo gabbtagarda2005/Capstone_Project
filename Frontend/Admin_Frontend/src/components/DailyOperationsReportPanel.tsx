@@ -22,35 +22,11 @@ function localDateYmd(): string {
   return `${y}-${m}-${day}`;
 }
 
-function formatHeaderDate(ymd: string): string {
-  const [y, m, d] = ymd.split("-").map(Number);
-  if (!y || !m || !d) return ymd;
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  try {
-    return dt.toLocaleDateString(undefined, {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    });
-  } catch {
-    return ymd;
-  }
-}
-
 function hubTierClass(tier: string): string {
   if (tier === "green") return "daily-ops__hub-stat--green";
   if (tier === "amber") return "daily-ops__hub-stat--amber";
   if (tier === "red") return "daily-ops__hub-stat--red";
   return "daily-ops__hub-stat--neutral";
-}
-
-function precisionKpiClass(pct: number, totalTrips: number): string {
-  if (totalTrips <= 0) return "daily-ops__kpi--neutral";
-  if (pct >= 90) return "daily-ops__kpi--green";
-  if (pct >= 70) return "daily-ops__kpi--amber";
-  return "daily-ops__kpi--red";
 }
 
 function normalizeTimeForInput(t: string | undefined): string {
@@ -247,7 +223,6 @@ export function DailyOperationsReportPanel() {
     return "BUKIDNON TRANSIT";
   }, [branding.companyName]);
 
-  const fleet = data?.fleetStatus;
   const speedRowsForTab = speedViolations.length > 0 ? speedViolations : (data?.speedViolations ?? []);
 
   return (
@@ -365,73 +340,6 @@ export function DailyOperationsReportPanel() {
 
           {data ? (
             <>
-              <section className="reports-page__exec reports-page__exec--intel daily-ops__kpi-grid" aria-label="Report summary">
-                <article className="reports-page__stat reports-page__stat--hero daily-ops__kpi daily-ops__kpi--date">
-                  <div className="reports-page__stat-label-row">
-                    <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
-                    Report day
-                  </div>
-                  <strong className="daily-ops__mono">{data.reportDate}</strong>
-                  <span className="reports-page__stat-note">{formatHeaderDate(data.reportDate)}</span>
-                </article>
-
-                <article className="reports-page__stat reports-page__stat--hero daily-ops__kpi daily-ops__kpi--fleet">
-                  <div className="reports-page__stat-label-row daily-ops__stat-label-row--split">
-                    <span className="daily-ops__stat-label-cluster">
-                      <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
-                      Fleet status (live GPS snapshot)
-                    </span>
-                    <span className="reports-hub__live-badge">
-                      <span className="reports-hub__live-dot reports-hub__animate-heartbeat" aria-hidden />
-                      LIVE
-                    </span>
-                  </div>
-                  <strong className="daily-ops__fleet-strong">
-                    <span className="daily-ops__tag--active">Moving: {fleet?.activeGps ?? 0}</span>
-                    <span className="daily-ops__tag-sep" aria-hidden>
-                      {" "}
-                      ·{" "}
-                    </span>
-                    <span className="daily-ops__tag--stall">Stopped: {fleet?.stationary ?? 0}</span>
-                    <span className="daily-ops__tag-sep" aria-hidden>
-                      {" "}
-                      ·{" "}
-                    </span>
-                    <span className="daily-ops__tag--sos">SOS: {fleet?.sosCount ?? 0}</span>
-                  </strong>
-                  <span className="reports-page__stat-note">Live snapshot from fleet GPS</span>
-                </article>
-
-                <article className="reports-page__stat reports-page__stat--hero daily-ops__kpi daily-ops__kpi--registry">
-                  <div className="reports-page__stat-label-row">
-                    <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
-                    Bus registry · report built at
-                  </div>
-                  <strong>
-                    {fleet?.totalRegistered ?? "—"} <span className="daily-ops__stat-soft">buses registered</span>
-                  </strong>
-                  <span className="reports-page__stat-note daily-ops__mono">
-                    {new Date(data.generatedAt).toISOString().replace("T", " ").slice(0, 19)} UTC
-                  </span>
-                </article>
-
-                <article
-                  className={`reports-page__stat reports-page__stat--hero daily-ops__kpi ${precisionKpiClass(
-                    data.arrivalSummary?.precisionPct ?? 0,
-                    data.arrivalSummary?.totalTrips ?? 0
-                  )}`}
-                >
-                  <div className="reports-page__stat-label-row">
-                    <span className="reports-page__heartbeat reports-hub__animate-heartbeat" aria-hidden />
-                    Arrival precision (24h)
-                  </div>
-                  <strong>{data.arrivalSummary?.precisionPct ?? 0}%</strong>
-                  <span className="reports-page__stat-note">
-                    {data.arrivalSummary?.onTimeTrips ?? 0}/{data.arrivalSummary?.totalTrips ?? 0} on-time trips
-                  </span>
-                </article>
-              </section>
-
               <div className="reports-exec-forecast daily-ops__sync-strip" role="status">
                 <span className="reports-exec-forecast__dot reports-hub__animate-heartbeat" aria-hidden />
                 <p className="reports-exec-forecast__text">
