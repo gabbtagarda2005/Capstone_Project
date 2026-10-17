@@ -1754,6 +1754,12 @@ class ApiAssignedBus {
   final String busId;
   final String plateNumber;
   final String busNumber;
+
+  Map<String, dynamic> toJson() => {
+        'busId': busId,
+        'plateNumber': plateNumber,
+        'busNumber': busNumber,
+      };
 }
 
 class ApiSimpleActionResult {
@@ -1849,6 +1855,11 @@ class ApiBusAssignment {
 
   final bool assigned;
   final ApiAssignedBus? bus;
+
+  Map<String, dynamic> toJson() => {
+        'assigned': assigned,
+        'bus': bus?.toJson(),
+      };
 }
 
 class ApiAuthResult {

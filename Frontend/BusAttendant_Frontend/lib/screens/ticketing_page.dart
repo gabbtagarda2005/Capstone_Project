@@ -526,6 +526,21 @@ class _TicketingPageState extends State<TicketingPage> {
     }
   }
 
+  List<ApiRouteCoverage> _hardcodedFallbackHubs() {
+    return _terminalHubOrder
+        .map(
+          (hub) => ApiRouteCoverage(
+            id: 'fallback-$hub',
+            locationName: hub,
+            pointType: 'terminal',
+            terminalName: hub,
+            terminal: null,
+            stops: _fallbackStopsForHub(hub),
+          ),
+        )
+        .toList();
+  }
+
   Future<void> _loadTerminalCoverages() async {
     setState(() {
       _loadingTerminals = true;
@@ -536,18 +551,7 @@ class _TicketingPageState extends State<TicketingPage> {
       final usable = coverages.where((c) => c.pickableStopLabels().isNotEmpty).toList();
       var hubsOrdered = _terminalCoveragesOrdered(usable);
       if (hubsOrdered.isEmpty) {
-        hubsOrdered = _terminalHubOrder
-            .map(
-              (hub) => ApiRouteCoverage(
-                id: 'fallback-$hub',
-                locationName: hub,
-                pointType: 'terminal',
-                terminalName: hub,
-                terminal: null,
-                stops: _fallbackStopsForHub(hub),
-              ),
-            )
-            .toList();
+        hubsOrdered = _hardcodedFallbackHubs();
       }
       if (!mounted) return;
       setState(() {
@@ -555,10 +559,16 @@ class _TicketingPageState extends State<TicketingPage> {
         _loadingTerminals = false;
       });
     } catch (e) {
+      // A fetch failure (offline, timeout) previously left the attendant unable to select any
+      // origin/destination at all — blocking ticket issuance entirely while offline, even though
+      // TicketOutboxStore already exists specifically to let tickets be issued offline. Fall back
+      // to the same hardcoded hub/stop data used when the server returns an empty list, so the
+      // attendant can keep issuing tickets (queued via the outbox) with no connectivity.
       if (!mounted) return;
       setState(() {
+        _terminalCoverages = _hardcodedFallbackHubs();
         _loadingTerminals = false;
-        _terminalLoadError = 'Could not load terminals: $e';
+        _terminalLoadError = null;
       });
     }
   }

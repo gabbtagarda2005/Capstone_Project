@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../services/api_client.dart';
 import '../services/app_broadcast_controller.dart';
+import '../services/assignment_cache.dart';
 import '../services/weather_advisory_controller.dart';
 import '../services/google_auth_service.dart';
 import '../services/gps_outbox_store.dart';
@@ -88,6 +89,7 @@ class _MainShellState extends State<MainShell> {
   final GpsOutboxStore _gpsOutbox = GpsOutboxStore();
   final TicketOutboxStore _ticketOutbox = TicketOutboxStore();
   final SosOutboxStore _sosOutbox = SosOutboxStore();
+  final AssignmentCache _assignmentCache = AssignmentCache();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   StreamSubscription<Position>? _webGpsSub;
   Position? _lastWebFix;
@@ -680,6 +682,9 @@ class _MainShellState extends State<MainShell> {
           _assignmentReady = true;
         });
       }
+      // Keep the last-known-good assignment on disk so a later fetch failure (offline, timeout)
+      // can fall back to it instead of presenting as "unassigned" — see the catch block below.
+      unawaited(_assignmentCache.save(a));
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -687,9 +692,14 @@ class _MainShellState extends State<MainShell> {
         });
       }
     } catch (_) {
+      // A failed fetch (offline, timeout) is NOT the same thing as "no bus assigned" — only fall
+      // back to genuinely-unassigned when nothing has ever been cached (e.g. the very first
+      // launch happens to be offline). Otherwise trust the last assignment this device actually
+      // saw from the server, so GPS/ticketing/beacon-lock keep working offline mid-shift.
+      final cached = await _assignmentCache.load();
       if (mounted) {
         setState(() {
-          _assignment = const ApiBusAssignment(assigned: false, bus: null);
+          _assignment = cached ?? const ApiBusAssignment(assigned: false, bus: null);
           _assignmentReady = true;
         });
       }
