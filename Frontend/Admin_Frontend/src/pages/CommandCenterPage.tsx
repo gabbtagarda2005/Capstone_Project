@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { FleetHardwareSummary } from "@/components/FleetHardwareSummary";
 import { api, fetchAdminPortalSettings, putAdminPortalSettings } from "@/lib/api";
 import {
   COMMAND_CENTER_BROADCAST,
@@ -184,13 +183,6 @@ export function CommandCenterPage() {
       {sentFlash ? <div className="command-center__flash">{sentFlash}</div> : null}
 
       <div className="command-center__hub-layout">
-        <section className="command-center__card command-center__card--glass" aria-labelledby={`${id}-sensors`}>
-          <h2 id={`${id}-sensors`} className="command-center__h2">
-            Fleet sensors
-          </h2>
-          <FleetHardwareSummary />
-        </section>
-
         <div className="command-center__hub-row command-center__hub-row--single">
           <section className="command-center__card command-center__card--glass" aria-labelledby={`${id}-wx`}>
             <h2 id={`${id}-wx`} className="command-center__h2">
