@@ -61,6 +61,37 @@ function parseHmToMinutes(raw) {
   return hh * 60 + mm;
 }
 
+/**
+ * Full Asia/Manila wall-clock parts for an instant — the one canonical source for hour/month/year
+ * bucketing (analytics, dashboards), so callers don't each hand-roll their own Intl.DateTimeFormat
+ * reimplementation of the same Manila-time computation.
+ * @param {Date} d
+ * @returns {{ymd: string, year: number, month: number, day: number, hour: number, minute: number}}
+ */
+function manilaWallClockParts(d) {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const o = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]));
+  const year = parseInt(o.year, 10) || d.getUTCFullYear();
+  const month = parseInt(o.month, 10) || 1;
+  const day = parseInt(o.day, 10) || 1;
+  return {
+    ymd: `${o.year}-${o.month}-${o.day}`,
+    year,
+    month,
+    day,
+    hour: parseInt(o.hour, 10) || 0,
+    minute: parseInt(o.minute, 10) || 0,
+  };
+}
+
 module.exports = {
   YMD_RE,
   isValidYmd,
@@ -70,4 +101,5 @@ module.exports = {
   addDaysYmd,
   manilaNowMinutes,
   parseHmToMinutes,
+  manilaWallClockParts,
 };

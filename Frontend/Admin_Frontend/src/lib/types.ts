@@ -399,6 +399,18 @@ export type ReportYearlyBucket = { year: number; tickets: number; revenue: numbe
 
 export type ReportBusRow = { busLabel: string; tickets: number; revenue: number };
 
+export type ReportTrend = {
+  current: number;
+  previous: number;
+  /** null when a meaningful percentage can't honestly be computed (see direction). */
+  pctChangePct: number | null;
+  direction: "up" | "down" | "flat" | "no_prior_data";
+};
+
+export type ReportForecast =
+  | { available: true; estimatedRevenue: number; method: string; basedOnMonths?: number; basedOnYears?: number; basedOnDays?: number }
+  | { available: false; estimatedRevenue: null; reason: string };
+
 export type ReportsAnalyticsDto = {
   generatedAt: string;
   constants: { monthlyProfitGoalPesos: number; tomorrowGrowthRate: number };
@@ -432,6 +444,31 @@ export type ReportsAnalyticsDto = {
     day: { date: string; tickets: number; locations: ReportPickupRow[] };
     month: { month: number; label: string; tickets: number; locations: ReportPickupRow[] };
     year: { year: number; tickets: number; locations: ReportPickupRow[] };
+  };
+  /** Day/Month/Year tab data for the Admin Dashboard's passenger & revenue cards. */
+  peakPassengers?: {
+    day: Array<{ hour: number; count: number }>;
+    month: Array<{ day: number; count: number }>;
+    year: Array<{ month: number; label: string; count: number }>;
+  };
+  revenueSeries?: {
+    day: Array<{ hour: number; revenue: number }>;
+    month: Array<{ day: number; revenue: number }>;
+    year: Array<{ month: number; label: string; revenue: number }>;
+  };
+  /** Real current-vs-previous-period comparison — replaces any hardcoded "vs last period" figure.
+   *  direction "no_prior_data" means the previous period had zero records, so a percentage would be
+   *  misleading (division by zero); render that state honestly instead of a fabricated arrow. */
+  revenueTrend?: {
+    day: ReportTrend;
+    month: ReportTrend;
+    year: ReportTrend;
+  };
+  /** Revenue forecast. `available: false` means there isn't yet enough historical data for an
+   *  honest estimate — render `reason`, not a number, in that case. */
+  forecast?: {
+    monthly: ReportForecast;
+    yearly: ReportForecast;
   };
   topBusesAll?: ReportBusRow[];
   routesForTopBuses?: ReportRouteRow[];

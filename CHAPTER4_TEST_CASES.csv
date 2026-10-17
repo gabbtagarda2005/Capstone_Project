@@ -2,186 +2,394 @@ FR #,Test Case #,Test Case Description,Test Steps,Test Data,Expected Result,Actu
 Bukidnon Bus Company @BUKSU,,,,,,,,
 ,,,,,,,,
 ADMINISTRATOR MODULE,,,,,,,,
-4.1.1.1 Admin Login/Authentication,TC-AL-01,Valid admin login,"1. Open http://localhost:5173/login
+4.1.1.1 Admin Login/Authentication,TC-AL-01,Valid admin login (password),"1. Open http://localhost:5173/login
 2. Enter a whitelisted admin email and correct password
-3. Click Log In","Email: bukidnonbuscompany2025@gmail.com; Password: <valid password>","User is authenticated, JWT issued, and redirected to /dashboard",,,
-4.1.1.1 Admin Login/Authentication,TC-AL-01.1,Invalid password,"1. Open login page
+3. Click Log In","Email: bukidnonbuscompany2025@gmail.com; Password: <valid password>","User is authenticated, a JWT is issued, and the browser is redirected to /dashboard",,,
+4.1.1.1 Admin Login/Authentication,TC-AL-02,Valid admin login via Google Sign-In,"1. Open login page
+2. Click ""Sign in with Google""
+3. Complete Google auth with a whitelisted email","Google account: 2301108330@student.buksu.edu.ph","Login succeeds via Firebase auth and the browser is redirected to /dashboard",,,
+4.1.1.1 Admin Login/Authentication,TC-AL-03,Invalid password,"1. Open login page
 2. Enter a whitelisted email with the wrong password
-3. Click Log In","Email: bukidnonbuscompany2025@gmail.com; Password: WrongPass123","Login rejected with error ""Invalid credentials""; user stays on login page",,,
-4.1.1.1 Admin Login/Authentication,TC-AL-01.2,Non-whitelisted email,"1. Open login page
+3. Click Log In","Email: bukidnonbuscompany2025@gmail.com; Password: WrongPass123","Login rejected with error ""Invalid credentials""; user remains on the login page",,,
+4.1.1.1 Admin Login/Authentication,TC-AL-04,Non-whitelisted email (unauthorized access attempt),"1. Open login page
 2. Enter an email not on the admin whitelist
 3. Click Log In","Email: random.user@gmail.com; Password: anything","Login rejected with error ""Access Denied: Unauthorized Admin Account""",,,
-4.1.1.1 Admin Login/Authentication,TC-AL-01.3,Empty email and/or password,"1. Open login page
+4.1.1.1 Admin Login/Authentication,TC-AL-05,Empty email and/or password (missing input),"1. Open login page
 2. Leave email and/or password blank
 3. Click Log In","Email: (empty); Password: (empty)","Validation error ""Email and password required""; form does not submit",,,
-4.1.1.1 Admin Login/Authentication,TC-AL-01.4,Account lockout after repeated failed attempts,"1. Open login page
-2. Enter a valid email with an incorrect password
-3. Repeat step 2 until the lockout threshold is reached
-4. Attempt to log in again immediately","Email: bukidnonbuscompany2025@gmail.com; Password: wrong (x5+)","Account temporarily locked; error ""Account temporarily locked after failed sign-in attempts. Try again later.""",,,
-4.1.1.1 Admin Login/Authentication,TC-AL-01.5,Password login on a Google-only account,"1. Open login page
-2. Enter the email of an account created via Google Sign-In
+4.1.1.1 Admin Login/Authentication,TC-AL-06,Account lockout after repeated failed attempts (boundary),"1. Enter a valid email with an incorrect password
+2. Repeat until the configured attempt threshold (default 5) is reached","Email: bukidnonbuscompany2025@gmail.com; Password: wrong (x5)","Account is locked; error ""Account temporarily locked after failed sign-in attempts. Try again later.""",,,
+4.1.1.1 Admin Login/Authentication,TC-AL-07,Login attempt while account is still locked,"1. Immediately after TC-AL-06, attempt login again with the CORRECT password","Email: bukidnonbuscompany2025@gmail.com; Password: <valid password>","Login is still rejected with the lockout message until lockoutMinutes elapses, even though the password is correct",,,
+4.1.1.1 Admin Login/Authentication,TC-AL-08,Password login on a Google-only account,"1. Open login page
+2. Enter the email of an account created via Google Sign-In only
 3. Enter any password
 4. Click Log In","Email: googleonly.admin@buksu.edu.ph; Password: anything","Login rejected with error ""Use Google Login for this account""",,,
+4.1.1.1 Admin Login/Authentication,TC-AL-09,[FAILURE] Login attempt while Admin_Backend is unreachable,"1. Stop/disconnect Admin_Backend (or block network to it)
+2. Open login page
+3. Enter valid credentials
+4. Click Log In","Email: bukidnonbuscompany2025@gmail.com; Password: <valid password>; Backend: unreachable","Login fails with a clear connectivity error (not a false ""success""); no offline/cached login is available by design — there is no local authentication fallback implemented",,,No offline login capability exists in the system; this is expected and by design, not a defect.
+4.1.1.1 Admin Login/Authentication,TC-AL-10,[RECOVERY] Login succeeds once backend connectivity is restored,"1. Restore Admin_Backend connectivity after TC-AL-09
+2. Retry login with the same valid credentials","Email: bukidnonbuscompany2025@gmail.com; Password: <valid password>","Login succeeds normally; no leftover error state from the prior failed attempt",,,
 ,,,,,,,,
 4.1.1.2 User Account Management,TC-UAM-01,Add a new bus attendant account,"1. Log in as admin
 2. Go to Management > Bus Attendants
 3. Click Add Attendant
 4. Fill in first name, last name, and email
 5. Submit","First name: Juan; Last name: Dela Cruz; Email: juan.delacruz@example.com","New attendant is created and appears in the Bus Attendants list",,,
-4.1.1.2 User Account Management,TC-UAM-01.1,Edit an existing attendant's profile,"1. Open an attendant's detail page
+4.1.1.2 User Account Management,TC-UAM-02,Add a new driver account,"1. Go to Management > Drivers
+2. Click Add Driver
+3. Fill in required fields
+4. Submit","First name: Pedro; Last name: Santos; License #: N01-23-456789","New driver is created and appears in the Drivers list",,,
+4.1.1.2 User Account Management,TC-UAM-03,Edit an existing attendant's profile,"1. Open an attendant's detail page
 2. Update phone number
 3. Save","Phone: 09171234567","Profile updates; response { ok: true }; new phone number reflected in list and detail page",,,
-4.1.1.2 User Account Management,TC-UAM-01.2,Edit attendant with missing required fields,"1. Open an attendant's edit form
+4.1.1.2 User Account Management,TC-UAM-04,Edit attendant with missing required fields,"1. Open an attendant's edit form
 2. Clear the first name field
 3. Save","First name: (empty)","Validation error ""firstName and lastName are required""; changes not saved",,,
-4.1.1.2 User Account Management,TC-UAM-01.3,Deactivate/remove an attendant account,"1. Open an attendant's detail page
+4.1.1.2 User Account Management,TC-UAM-05,Deactivate/remove an attendant account,"1. Open an attendant's detail page
 2. Click Remove/Deactivate
 3. Confirm","N/A","Account is removed from the registry; the attendant can no longer sign in via the operator login",,,
-4.1.1.2 User Account Management,TC-UAM-01.4,Edit a non-existent attendant record,"1. Send an edit request for an attendant id that does not exist (e.g., stale link)","operatorId: 999999 (invalid)","Error ""Verified attendant not found"" (HTTP 404)",,,
+4.1.1.2 User Account Management,TC-UAM-06,Edit a non-existent attendant record,"1. Send an edit request for an attendant id that no longer exists (e.g., stale browser tab)","operatorId: 999999 (invalid)","Error ""Verified attendant not found"" (HTTP 404)",,,
+4.1.1.2 User Account Management,TC-UAM-07,[UNAUTHORIZED] Non-super-admin attempts to create a new Admin/IT account,"1. Log in as a regular (manager-tier) admin
+2. Attempt to use the IT-account creation flow","N/A","Request rejected; this action requires super-admin privileges",,,
+4.1.1.2 User Account Management,TC-UAM-08,[FAILURE] Submit new-attendant form while backend is unreachable,"1. Fill in the Add Attendant form
+2. Disconnect backend connectivity
+3. Submit","First name: Maria; Last name: Reyes; Email: maria.reyes@example.com","Submission fails with a clear error; form data is not silently lost from the screen; no account is created",,,
+4.1.1.2 User Account Management,TC-UAM-09,[RECOVERY] Resubmit the same form after backend is restored,"1. Restore backend connectivity after TC-UAM-08
+2. Resubmit the same form (same data)","Same data as TC-UAM-08","Account is created successfully exactly once; no duplicate account from the earlier failed attempt",,,
+4.1.1.2 User Account Management,TC-UAM-10,Data persists after reload,"1. Add a new attendant
+2. Reload the Management page","N/A","The newly added attendant still appears in the list after reload (confirms the record was actually persisted, not just shown optimistically)",,,
 ,,,,,,,,
 4.1.1.3 Bus Management,TC-BM-01,Add a new bus with valid data,"1. Go to Management > Buses
 2. Click Add Bus
 3. Fill in bus number, 15-digit IMEI, driver, route, seat capacity
 4. Submit","Bus #: BUK-101; IMEI: 356938035643809; Route: Malaybalay-Valencia; Seat capacity: 50","Bus is created and appears in the fleet list",,,
-4.1.1.3 Bus Management,TC-BM-01.1,Add a bus without a bus number,"1. Open Add Bus form
+4.1.1.3 Bus Management,TC-BM-02,Add a bus without a bus number (missing input),"1. Open Add Bus form
 2. Leave Bus Number blank
 3. Submit","Bus #: (empty)","Validation error ""busNumber is required""",,,
-4.1.1.3 Bus Management,TC-BM-01.2,Add a bus with an invalid IMEI,"1. Open Add Bus form
+4.1.1.3 Bus Management,TC-BM-03,Add a bus with an invalid IMEI (invalid input),"1. Open Add Bus form
 2. Enter an IMEI that is not 15 digits
 3. Submit","IMEI: 12345","Validation error ""imei must be exactly 15 digits""",,,
-4.1.1.3 Bus Management,TC-BM-01.3,Add a bus without a valid driver,"1. Open Add Bus form
+4.1.1.3 Bus Management,TC-BM-04,Add a bus without a valid driver,"1. Open Add Bus form
 2. Leave Driver unselected / choose an invalid id
 3. Submit","Driver: (none)","Validation error ""driverId must be a valid MongoDB driver id""",,,
-4.1.1.3 Bus Management,TC-BM-01.4,Add a bus with seat capacity out of range,"1. Open Add Bus form
+4.1.1.3 Bus Management,TC-BM-05,Add a bus with seat capacity out of range (boundary),"1. Open Add Bus form
 2. Enter a seat capacity above 300
 3. Submit","Seat capacity: 500","Validation error ""seatCapacity must be between 1 and 300""",,,
-4.1.1.3 Bus Management,TC-BM-01.5,Delete a bus record,"1. Open a bus's detail page
+4.1.1.3 Bus Management,TC-BM-06,Add a bus with a duplicate IMEI (boundary/uniqueness),"1. Open Add Bus form
+2. Enter an IMEI already registered to another bus
+3. Submit","IMEI: <IMEI of an existing bus>","Submission is rejected; the IMEI unique index prevents a second bus from using the same hardware identifier",,,
+4.1.1.3 Bus Management,TC-BM-07,Delete a bus record,"1. Open a bus's detail page
 2. Click Delete
 3. Confirm","N/A","Bus and its GPS history are removed; response { ok: true }; bus no longer listed",,,
+4.1.1.3 Bus Management,TC-BM-08,[UNAUTHORIZED] Attempt to add a bus without a valid admin session,"1. Clear/invalidate the admin token
+2. Send a create-bus request directly (e.g., expired session)","N/A","Request rejected with 401 Unauthorized; no bus is created",,,
+4.1.1.3 Bus Management,TC-BM-09,[FAILURE] Delete request fails mid-flight (connection drops after click),"1. Click Delete on a bus
+2. Interrupt connectivity immediately after the click, before a response is received","N/A","UI shows an error/timeout; the bus record still exists afterward (verify via reload) — no partially-deleted or corrupted state",,,
+4.1.1.3 Bus Management,TC-BM-10,[RECOVERY] Retry delete after connectivity is restored,"1. Restore connectivity after TC-BM-09
+2. Retry the delete action","Same bus as TC-BM-09","Bus is deleted exactly once; fleet list reflects the removal after reload",,,
 ,,,,,,,,
 4.1.1.4 Route and Schedule Management,TC-RSM-01,Create a new corridor route,"1. Go to Management > Routes
 2. Click Add Route
 3. Select origin, destination, and via stops
 4. Submit","Origin: Malaybalay Terminal; Destination: Valencia Terminal","Route is created and appears in the Route Management list",,,
-4.1.1.4 Route and Schedule Management,TC-RSM-01.1,Create a dispatch schedule block,"1. Go to Management > Schedules
+4.1.1.4 Route and Schedule Management,TC-RSM-02,Create a dispatch schedule block,"1. Go to Management > Schedules
 2. Click Add Schedule
 3. Select bus, route, and scheduled departure time
 4. Submit","Bus #: BUK-101; Route: Malaybalay-Valencia; Departure: 06:00 AM","Schedule block is created (HTTP 201) and appears on the live fleet departures board",,,
-4.1.1.4 Route and Schedule Management,TC-RSM-01.2,Create a schedule block with missing fields,"1. Open Add Schedule form
+4.1.1.4 Route and Schedule Management,TC-RSM-03,Create a schedule block with missing fields,"1. Open Add Schedule form
 2. Leave Bus field blank
 3. Submit","Bus #: (empty)","Validation error ""busId, routeId, and scheduledDeparture are required""",,,
-4.1.1.4 Route and Schedule Management,TC-RSM-01.3,Delete a corridor route as a non-super-admin,"1. Log in as a regular (non-super) admin
-2. Attempt to delete a corridor route","N/A","Request rejected with error ""Super Admin privileges required for this action"" (HTTP 403)",,,
-4.1.1.4 Route and Schedule Management,TC-RSM-01.4,Delete a schedule block,"1. Open the Schedules board
+4.1.1.4 Route and Schedule Management,TC-RSM-04,[UNAUTHORIZED] Delete a corridor route as a non-super-admin,"1. Log in as a regular (non-super) admin
+2. Attempt to delete a corridor route","N/A","Request rejected with error ""Super Admin privileges required for this action"" (HTTP 403); route remains undeleted",,,
+4.1.1.4 Route and Schedule Management,TC-RSM-05,Delete a schedule block,"1. Open the Schedules board
 2. Click Delete on an existing block
 3. Confirm","N/A","Block is removed (HTTP 204) and disappears from the board",,,
+4.1.1.4 Route and Schedule Management,TC-RSM-06,Delete a corridor route as super admin,"1. Log in as super admin
+2. Delete a corridor route","N/A","Route is deleted successfully",,,
+4.1.1.4 Route and Schedule Management,TC-RSM-07,Create a schedule block referencing a suspended route (boundary),"1. Suspend a corridor route
+2. Attempt to create a new schedule block against that route","Route: a route with suspended = true","The suspended route is excluded from active route selections, or the block is flagged accordingly — verify it is not silently scheduled as if active",,,
+4.1.1.4 Route and Schedule Management,TC-RSM-08,[FAILURE] Bulk-weekly schedule generation fails due to backend timeout,"1. Trigger a bulk-weekly schedule generation
+2. Interrupt backend connectivity before the response completes","N/A","UI shows an error; no partial/incomplete week of schedule blocks is committed",,,
+4.1.1.4 Route and Schedule Management,TC-RSM-09,[RECOVERY] Retry bulk-weekly generation after backend recovers,"1. Restore backend connectivity after TC-RSM-08
+2. Retry the same bulk-weekly action","Same inputs as TC-RSM-08","Schedule is generated correctly exactly once; no duplicate blocks from the earlier failed attempt",,,
+4.1.1.4 Route and Schedule Management,TC-RSM-10,Data persists after reload,"1. Create a schedule block
+2. Reload the Schedules page","N/A","The newly created block still appears after reload",,,
 ,,,,,,,,
 4.1.1.5 Real-Time Bus Monitoring,TC-RTM-01,View live bus positions on the map,"1. Log in as admin
 2. Go to Locations
 3. Observe the map","At least one bus actively transmitting GPS","Map displays a pulsing marker at the bus's current coordinates",,,
-4.1.1.5 Real-Time Bus Monitoring,TC-RTM-01.1,View map with no active buses,"1. Go to Locations when no bus is transmitting GPS","N/A","Map loads with no markers; no error is shown",,,
-4.1.1.5 Real-Time Bus Monitoring,TC-RTM-01.2,Marker updates in real time,"1. Open Locations page
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-02,View map with no active buses (empty state),"1. Go to Locations when no bus is transmitting GPS","N/A","Map loads with no markers; no error is shown",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-03,Marker updates in real time via Socket.IO,"1. Open Locations page
 2. Have the Bus Attendant app send a GPS ping while the map is open","N/A","Bus marker position updates automatically via Socket.IO, without a page refresh",,,
-4.1.1.5 Real-Time Bus Monitoring,TC-RTM-01.3,GPS source fails over to hardware backup,"1. Start a trip with the attendant phone transmitting GPS
-2. Simulate the phone going offline (stop the app / disable network)
-3. Wait past the phone timeout window
-4. Confirm the LILYGO hardware unit is transmitting","Phone offline > PHONE_GPS_TIMEOUT_MS; LILYGO unit online","Marker continues updating from the hardware source; no stale or duplicate markers appear",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-04,GPS source fails over to the LILYGO hardware backup,"1. Start a trip with the attendant phone transmitting GPS
+2. Stop the phone's GPS transmission (airplane mode / close app)
+3. Wait past PHONE_GPS_TIMEOUT_MS
+4. Confirm the LILYGO hardware unit is online and transmitting","Phone offline; LILYGO unit online","Marker continues updating from the hardware source; no stale or duplicate markers appear",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-05,GPS fails back to the phone once it resumes reporting,"1. After TC-RTM-04, resume phone GPS transmission
+2. Observe the active source over the next several pings","Phone back online, reporting consistently","Active source returns to the phone after the configured stabilization streak, without the marker flapping between sources",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-06,Implausible GPS jump is rejected (anti-spoofing),"1. Send two consecutive GPS fixes implying a speed over 180 km/h for the same source","Two fixes, e.g. 10 km apart, 10 seconds apart","The second fix is rejected as an outlier, logged to the security log, and does not update the published map position",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-07,[FAILURE] Socket.IO connection drops while the map is open,"1. Open Locations page with live buses visible
+2. Disable network connectivity briefly","N/A","Map does not crash; live updates stop; the last-known bus positions remain displayed (not cleared or replaced with blanks)",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-08,[RECOVERY] Socket.IO reconnects after connectivity is restored,"1. Restore network connectivity after TC-RTM-07","N/A","The socket automatically reconnects (per its configured reconnection settings), re-subscribes, and live updates resume without duplicate or ghost markers",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-09,[FAILURE] Admin_Backend becomes unavailable while Locations page is open,"1. Stop Admin_Backend while the Locations page is open","N/A","The page indicates a clear disconnected/unavailable state rather than silently freezing with no explanation",,,
+4.1.1.5 Real-Time Bus Monitoring,TC-RTM-10,[RECOVERY] Backend restored, live tracking resumes,"1. Restart Admin_Backend after TC-RTM-09","N/A","The page reconnects and resumes live tracking once the socket and any pending requests succeed again",,,Confirm whether a manual reload is required or reconnection alone is sufficient before marking Pass.
 ,,,,,,,,
 4.1.1.6 System Configuration,TC-SC-01,Update general system settings,"1. Go to Settings
 2. Change a setting (e.g., session policy)
 3. Save","N/A","Settings are saved; confirmation shown; change persists after reload",,,
-4.1.1.6 System Configuration,TC-SC-01.1,Change a staff member's privilege as super admin,"1. Log in as super admin
+4.1.1.6 System Configuration,TC-SC-02,Change a staff member's privilege as super admin,"1. Log in as super admin
 2. Go to Settings > Privileges
 3. Change another admin's role/privilege
-4. Save","Target role: Auditor -> Admin","Privilege updated successfully and reflected for the affected account",,,
-4.1.1.6 System Configuration,TC-SC-01.2,Attempt privilege change as a non-super-admin,"1. Log in as a regular admin
+4. Save","Target role: auditor -> fleet_manager","Privilege updated successfully and reflected for the affected account",,,
+4.1.1.6 System Configuration,TC-SC-03,[UNAUTHORIZED] Attempt privilege change as a non-super-admin,"1. Log in as a regular admin
 2. Attempt to change another user's RBAC privilege","N/A","Request rejected with error ""Super Admin privileges required for this action"" (HTTP 403)",,,
-4.1.1.6 System Configuration,TC-SC-01.3,Verify audit log after a settings change,"1. Make a settings or privilege change
+4.1.1.6 System Configuration,TC-SC-04,Verify audit log after a settings change,"1. Make a settings or privilege change
 2. Go to the Audit Log panel","N/A","A new entry appears showing the actor, action, and timestamp of the change",,,
+4.1.1.6 System Configuration,TC-SC-05,Change account lockout threshold and verify enforcement,"1. Change maxLoginAttempts to a new value
+2. Attempt failed logins up to that new threshold","New maxLoginAttempts: 3","Account locks out after exactly the configured number of attempts, not the previous default",,,
+4.1.1.6 System Configuration,TC-SC-06,Assign the read-only ""auditor"" role and verify restriction,"1. Assign an account the auditor RBAC role
+2. Log in as that account
+3. Attempt to send an admin broadcast","N/A","Request is rejected with ""Read-only role cannot send broadcasts""",,,
+4.1.1.6 System Configuration,TC-SC-07,Submit settings with an out-of-range value (boundary),"1. Open Settings
+2. Set max login attempts to a value above the allowed maximum (10)
+3. Save","maxLoginAttempts: 50","Value is clamped to the allowed range (max 10) or rejected with a validation message — not silently accepted as 50",,,
+4.1.1.6 System Configuration,TC-SC-08,[FAILURE] Save settings while backend is unreachable,"1. Change a setting
+2. Disconnect backend connectivity
+3. Save","N/A","An error is shown; the setting is not assumed saved on the client; prior settings remain in effect",,,
+4.1.1.6 System Configuration,TC-SC-09,[RECOVERY] Retry save after backend is restored,"1. Restore connectivity after TC-SC-08
+2. Retry Save with the same change","Same setting change as TC-SC-08","Settings are saved successfully exactly once",,,
+4.1.1.6 System Configuration,TC-SC-10,Data persists after reload,"1. Change a setting
+2. Reload the Settings page","N/A","The updated value persists and displays correctly after reload",,,
 ,,,,,,,,
-4.1.1.7 Analytics and Reporting Module,TC-AR-01,View analytics for a date range,"1. Go to Reports
-2. Set a start and end date
-3. View Analytics tab","Start date / End date covering known ticket activity","Usage statistics and peak-hour figures matching the selected range are displayed",,,
-4.1.1.7 Analytics and Reporting Module,TC-AR-01.1,View a daily operations report,"1. Go to Reports > Daily Operations
+4.1.1.7 Analytics and Reporting Module,TC-AR-01,View analytics for a date range with known activity,"1. Go to Reports
+2. Set a start and end date covering known ticket activity
+3. View Analytics tab","Start/End date covering known tickets","Usage statistics and peak-hour figures matching the selected range are displayed",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-02,View a daily operations report,"1. Go to Reports > Daily Operations
 2. Select a specific date","Date: a day with recorded trips","Daily ops report (arrival precision, speed violations, crew activity, hub health) is displayed",,,
-4.1.1.7 Analytics and Reporting Module,TC-AR-01.2,Export a master report,"1. Go to Reports
+4.1.1.7 Analytics and Reporting Module,TC-AR-03,Export a master report (Excel/PDF),"1. Go to Reports
 2. Click Export (Excel/PDF)","N/A","File downloads successfully and contains data consistent with the on-screen report",,,
-4.1.1.7 Analytics and Reporting Module,TC-AR-01.3,View analytics when no data exists for the range,"1. Select a date range with no ticket activity","Start/End date: a period with zero tickets","An empty analytics payload is returned; page shows a zero/empty state without error",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-04,View analytics when no data exists for the range (boundary/empty),"1. Select a date range with no ticket activity","Start/End date: a period with zero tickets","An empty analytics payload is returned; page shows a zero/empty state without error",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-05,Filter analytics by a specific bus number,"1. Apply a busNumber filter on the Analytics tab","Bus #: BUK-101","Results are scoped to only that bus's tickets",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-06,Request analytics with an invalid date range (invalid input),"1. Set an end date earlier than the start date
+2. View Analytics","startDate: 2026-10-10; endDate: 2026-10-01","Request is handled gracefully (empty/corrected result), not a crash or server error",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-07,Verify ticket counts match underlying records (data accuracy),"1. Note the ticket count shown in Analytics for a range
+2. Manually cross-check against the ticket list for the same range","N/A","The two counts match exactly",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-08,[FAILURE] Request analytics while MongoDB is disconnected,"1. Disconnect the database (controlled test environment)
+2. Request /api/reports/analytics","N/A","An honest empty payload is returned (ticketingDisabled: true, explanatory note) rather than a 500 crash or fabricated data",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-09,[RECOVERY] Database reconnects,"1. Restore the database connection after TC-AR-08
+2. Request analytics again","N/A","Real, non-empty analytics data is returned again",,,
+4.1.1.7 Analytics and Reporting Module,TC-AR-10,[FAILURE] Export fails due to a dependency error,"1. Trigger a master export while the export/PDF dependency is made to fail (controlled test)","N/A","A clear error is shown; no corrupted or partial file is silently offered as a successful download",,,
 ,,,,,,,,
-4.1.1.8 Dashboard Trends and Visualization,TC-DV-01,View dashboard trend charts,"1. Log in as admin
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-01,View dashboard trend charts with real ticket data,"1. Log in as admin
 2. Open the Dashboard (root)","N/A","Peak-load and revenue charts render using real ticket data",,,
-4.1.1.8 Dashboard Trends and Visualization,TC-DV-01.1,Switch chart timeframe tab,"1. On the Dashboard, switch the peak-load tab between Day/Month","N/A","Chart re-renders to reflect the newly selected timeframe",,,
-4.1.1.8 Dashboard Trends and Visualization,TC-DV-01.2,View Fleet Hardware Summary tiles,"1. Go to Command Center","N/A","Battery, signal, and active GPS-source tier are shown for each registered hardware unit",,,
-4.1.1.8 Dashboard Trends and Visualization,TC-DV-01.3,View dashboard with no ticket data,"1. Open the Dashboard for a period with no tickets issued","N/A","Charts render an empty/zero state without throwing an error",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-02,Switch chart timeframe tab (Day/Month/Year),"1. On the Dashboard, switch the peak-load and revenue tabs between Day/Month/Year","N/A","Charts and figures update to reflect the newly selected timeframe, matching the /api/reports/analytics Day/Month/Year series",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-03,View Fleet Hardware Summary tiles,"1. Go to Command Center","N/A","Battery, signal, and active GPS-source tier are shown for each registered hardware unit",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-04,View dashboard with zero ticket data (boundary/empty),"1. Open the Dashboard for a dataset with no tickets issued","N/A","An honest zero/empty state is shown — not the old fabricated demo numbers (e.g., millions of passengers)",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-05,Verify Top 5 Pickup Locations percentage denominator,"1. View the Top 5 Pickup Locations card
+2. Cross-check a location's % against (its ticket count / total system-wide ticket count)","N/A","The displayed percentage equals ticketCount / total passengers, not ticketCount / sum of the 5 displayed locations",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-06,Verify the revenue trend indicator reflects a real comparison,"1. View the Total Revenue card's trend line
+2. Compare the shown current/previous period revenue manually","N/A","The percentage and direction (up/down/no prior data) match a real current-vs-previous-period comparison — not a hardcoded ""▲10%""",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-07,Verify the Monthly/Yearly forecast is real or honestly unavailable,"1. View the Forecast card","N/A","Shows a real trailing-average/YTD-extrapolation estimate with its method, OR an ""Insufficient historical data"" message — never the old totalRevenue/12 placeholder",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-08,Dashboard auto-refreshes after a new ticket is issued,"1. Keep the Dashboard open
+2. Issue a ticket from the attendant app in another session","N/A","The dashboard's figures update on their own within a few seconds, without a manual page reload",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-09,[FAILURE] View dashboard while /api/reports/analytics is unreachable,"1. Stop Admin_Backend (or block the analytics endpoint)
+2. Open/refresh the Dashboard","N/A","A clear ""Unable to load dashboard analytics"" error is shown; no fabricated demo numbers are displayed",,,
+4.1.1.8 Dashboard Trends and Visualization,TC-DV-10,[RECOVERY] Dashboard recovers once the backend is restored,"1. Restore Admin_Backend after TC-DV-09
+2. Refresh, or wait for the next live-update event","N/A","The dashboard retrieves real current analytics and renders the full grid correctly again",,,
 ,,,,,,,,
 COMMUTER INTERFACE,,,,,,,,
 4.1.2.1 View Bus Routes and Schedules,TC-VRS-01,View available routes and schedules,"1. Open http://localhost:5174/dashboard
 2. View the Schedules tab","N/A","Routes with destinations and estimated departure/arrival times are listed",,,
-4.1.2.1 View Bus Routes and Schedules,TC-VRS-01.1,Use Station Finder to locate the nearest terminal,"1. Allow location access
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-02,Use Station Finder to locate the nearest terminal,"1. Allow location access
 2. Open Station Finder","Device location within Bukidnon service area","The nearest terminal is correctly identified and displayed",,,
-4.1.2.1 View Bus Routes and Schedules,TC-VRS-01.2,View routes when Admin backend is unreachable,"1. Stop Admin_Backend
-2. Reload the passenger dashboard","N/A","App shows a graceful empty/error state (proxy returns 502); no crash",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-03,View estimated departure/arrival times for a route,"1. Select a route
+2. View its schedule entry","N/A","Correct estimated departure/arrival times are shown for that route",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-04,Schedule updates after an admin change,"1. Admin edits a schedule's departure time
+2. Reload the passenger dashboard","New departure time set by admin","The updated time is reflected on the commuter view",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-05,Deny location access for Station Finder (degraded mode),"1. Deny the location permission prompt
+2. Open Station Finder","Location permission: denied","The feature degrades gracefully (manual search or an empty state); the app does not crash",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-06,[FAILURE] View routes while Admin_Backend is unreachable,"1. Stop Admin_Backend
+2. Reload the passenger dashboard","N/A","Passenger_Backend's proxy returns 502; the frontend shows a clear ""can't load routes right now"" message rather than a blank screen or a fabricated schedule",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-07,[RECOVERY] Routes reload after backend is restored,"1. Restore Admin_Backend after TC-VRS-06
+2. Reload or retry","N/A","Current real routes and schedules are shown again",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-08,Distinguish ""no routes configured"" from ""failed to load"" (boundary),"1. Compare the UI for a genuinely empty route list vs. the failure state from TC-VRS-06","N/A","The two states are visually distinguishable, not both rendered as an identical generic blank list",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-09,Verify no account/login is required,"1. Open the Commuter app fresh with no prior session","N/A","Routes and schedules are accessible without any login or account step",,,
+4.1.2.1 View Bus Routes and Schedules,TC-VRS-10,Reload after a successful load (data consistency),"1. Successfully load the dashboard
+2. Reload the page","N/A","Routes/schedules reload consistently with the same correct data, without requiring a hard refresh",,,
 ,,,,,,,,
-4.1.2.2 Seat Availability Check,TC-SAC-01,View seat availability for a bus,"1. Open the passenger dashboard
+4.1.2.2 Seat Availability Check,TC-SAC-01,View seat availability for a bus with tickets issued,"1. Open the passenger dashboard
 2. View a bus card","A bus with some tickets already issued","Seat line (e.g., ""37/50"") and seat notice are displayed",,,
-4.1.2.2 Seat Availability Check,TC-SAC-01.1,View a fully booked bus,"1. View a bus card for a bus at full capacity","Occupied seats = seat capacity","A ""Full"" / smart notice message is shown instead of a numeric line",,,
-4.1.2.2 Seat Availability Check,TC-SAC-01.2,View a bus with no tickets issued yet,"1. View a bus card for a newly assigned bus","Occupied seats = 0","Full seat capacity is shown as available (e.g., ""0/50"")",,,
+4.1.2.2 Seat Availability Check,TC-SAC-02,View a fully booked bus (boundary),"1. View a bus card for a bus at full capacity","Occupied seats = seat capacity","A ""Full"" / smart notice message is shown instead of a plain numeric line",,,
+4.1.2.2 Seat Availability Check,TC-SAC-03,View a bus with zero tickets issued (boundary),"1. View a bus card for a newly assigned bus","Occupied seats = 0","Full seat capacity is shown as available (e.g., ""0/50"")",,,
+4.1.2.2 Seat Availability Check,TC-SAC-04,Seat count updates after a new ticket is issued elsewhere,"1. Note a bus's current seat count
+2. Issue a new ticket for that bus from the attendant app
+3. Refresh/wait for the passenger dashboard's next fetch","N/A","The seat count reflects the new ticket on the dashboard's next refresh cycle",,,
+4.1.2.2 Seat Availability Check,TC-SAC-05,View a bus with no seatCapacity explicitly set (boundary),"1. View a bus card for a bus record without a configured seat capacity","seatCapacity: not set","The default capacity (50) is applied rather than showing an error or blank value",,,
+4.1.2.2 Seat Availability Check,TC-SAC-06,[FAILURE] View seat data while the fleet-buses endpoint is unreachable,"1. Stop Admin_Backend
+2. Load the passenger dashboard","N/A","An honest unavailable state is shown; no fabricated seat count is displayed",,,
+4.1.2.2 Seat Availability Check,TC-SAC-07,[RECOVERY] Seat data loads after backend is restored,"1. Restore Admin_Backend after TC-SAC-06
+2. Reload the dashboard","N/A","Correct seat data loads on the next request",,,
+4.1.2.2 Seat Availability Check,TC-SAC-08,View seat counts across multiple buses simultaneously,"1. View several bus cards on the same route at once","Multiple active buses","Each bus shows its own independent, correct seat count",,,
+4.1.2.2 Seat Availability Check,TC-SAC-09,Seat count resets after an automatic route-direction flip,"1. Have a bus complete its route and auto-flip direction at the destination terminal
+2. View its seat availability afterward","N/A","Occupancy reflects only the new trip segment, not carried-over counts from the completed leg",,,
+4.1.2.2 Seat Availability Check,TC-SAC-10,Cross-check consistency with the Admin ticket count (data accuracy),"1. Note a bus's occupied-seat count on the Commuter app
+2. Compare against the actual ticket count for that bus in the Admin module","N/A","The two figures are consistent with each other",,,
 ,,,,,,,,
 4.1.2.3 Real-Time Bus Monitoring,TC-CRT-01,View live bus location on the commuter map,"1. Open the passenger dashboard
 2. View the map","At least one bus transmitting GPS","A bus icon appears at its current GPS position",,,
-4.1.2.3 Real-Time Bus Monitoring,TC-CRT-01.1,Map auto-refreshes bus position,"1. Keep the dashboard open for at least 20 seconds
-2. Observe the bus icon","N/A","Position updates automatically roughly every 18 seconds without a manual refresh",,,
-4.1.2.3 Real-Time Bus Monitoring,TC-CRT-01.2,View map with no active buses on route,"1. Open the map when no bus on the selected route is transmitting GPS","N/A","Map loads with no bus markers; no error is shown",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-02,Map auto-refreshes bus position,"1. Keep the dashboard open for at least 20 seconds
+2. Observe the bus icon","N/A","Position updates automatically on the map's polling interval (~18s) without a manual refresh",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-03,View map with no active buses on route (empty state),"1. Open the map when no bus on the selected route is transmitting GPS","N/A","Map loads with no bus markers; no error is shown",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-04,Switch basemap (roadmap/satellite/terrain/dark),"1. Use the basemap toggle to switch tile layers","N/A","The correct tile layer renders for each selected mode",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-05,Deny location access (degraded mode),"1. Deny the location permission prompt
+2. View the map","Location permission: denied","The map still functions normally, minus ""nearest to me"" features",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-06,[FAILURE] Lose internet connectivity while viewing the live map,"1. View the live map with a bus visible
+2. Disable internet connectivity","N/A","The app indicates the shown position may be stale rather than silently continuing to imply it is current",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-07,[RECOVERY] Reconnect internet while viewing the map,"1. Restore connectivity after TC-CRT-06","N/A","The next poll cycle retrieves a fresh position and normal live tracking resumes without requiring an app restart",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-08,[FAILURE] Backend proxy for live positions is unreachable,"1. Stop Admin_Backend
+2. View the live map","N/A","The map shows a clear unavailable state instead of a frozen or blank map with no explanation",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-09,[RECOVERY] Map resumes after backend is restored,"1. Restore Admin_Backend after TC-CRT-08","N/A","The map resumes updating on its next poll cycle",,,
+4.1.2.3 Real-Time Bus Monitoring,TC-CRT-10,Distinguish stale GPS from no GPS data at all (boundary),"1. View a bus that hasn't reported GPS recently
+2. Compare against a bus with no GPS history at all","N/A","The two states are distinguishable, not rendered identically",,,
 ,,,,,,,,
-4.1.2.4 Notification and Alerts,TC-NA-01,Receive an admin broadcast,"1. Admin sends a broadcast targeted at ""passenger""
+4.1.2.4 Notification and Alerts,TC-NA-01,Receive an admin broadcast targeted at passengers,"1. Admin sends a broadcast targeted at ""passenger""
 2. Refresh/open the passenger dashboard","Broadcast message: ""Route diversion on Sayre Highway""; severity: medium","Banner/alert displays the broadcast message with the correct severity styling",,,
-4.1.2.4 Notification and Alerts,TC-NA-01.1,View dashboard with no active broadcast,"1. Ensure no broadcast is targeted at passengers
+4.1.2.4 Notification and Alerts,TC-NA-02,View dashboard with no active broadcast (empty state),"1. Ensure no broadcast is targeted at passengers
 2. Open the dashboard","N/A","No notification banner is shown",,,
-4.1.2.4 Notification and Alerts,TC-NA-01.2,Arrival alarm triggers near destination,"1. Set an arrival alarm for a stop
+4.1.2.4 Notification and Alerts,TC-NA-03,Arrival alarm triggers near destination,"1. Set an arrival alarm for a stop
 2. Wait until the bus is near that stop","Selected stop: user's destination terminal","Arrival alarm fires when the bus reaches the configured proximity",,,
+4.1.2.4 Notification and Alerts,TC-NA-04,Receive a critical-severity broadcast,"1. Admin sends a broadcast with severity ""critical""","Severity: critical","Banner is displayed with distinct critical/urgent styling",,,
+4.1.2.4 Notification and Alerts,TC-NA-05,Receive a medium-severity broadcast,"1. Admin sends a broadcast with severity ""medium""","Severity: medium","Banner styling is visually distinct from both normal and critical severities",,,
+4.1.2.4 Notification and Alerts,TC-NA-06,Broadcast clears correctly after admin removes it,"1. Admin deletes/clears an active broadcast
+2. Wait for the next poll on the passenger app","N/A","The banner disappears on the next poll; no stale message lingers",,,
+4.1.2.4 Notification and Alerts,TC-NA-07,[FAILURE] Poll for notifications while backend is unreachable,"1. Stop Admin_Backend
+2. Leave the passenger app open through its poll interval","N/A","No crash occurs; no stale broadcast is falsely re-flagged as new",,,
+4.1.2.4 Notification and Alerts,TC-NA-08,[RECOVERY] Notifications resume after backend is restored,"1. Restore Admin_Backend after TC-NA-07","N/A","The next poll correctly retrieves the current broadcast state",,,
+4.1.2.4 Notification and Alerts,TC-NA-09,Receive a traffic/delay advisory automatically,"1. Cause a bus to fall into a SEVERE_DELAY tier due to traffic (per the delay classifier)
+2. Observe the passenger notifications feed","N/A","A ""Traffic & delays"" advisory appears automatically, without any attendant having manually sent it",,,
+4.1.2.4 Notification and Alerts,TC-NA-10,No duplicate alerting on repeated polls (data integrity),"1. Leave the app open across several poll cycles with one unchanged active broadcast","N/A","The same broadcast is not re-shown/re-alerted as if it were new on every poll",,,
 ,,,,,,,,
 4.1.2.5 Contextual Information Display (Weather),TC-WD-01,View current weather advisory for a terminal,"1. Open the passenger dashboard
 2. View the Weather card","N/A","Correct weather condition (sunny/rain/storm) and label are displayed",,,
-4.1.2.5 Contextual Information Display (Weather),TC-WD-01.1,View advisory during rain/storm conditions,"1. View the Weather card when a monitored hub is experiencing rain","Weather code in rain range (WMO 51-67, 80-82, 95-99)","A passenger-facing rain/storm advisory (e.g., ""Rain showers"") is shown",,,
-4.1.2.5 Contextual Information Display (Weather),TC-WD-01.2,View weather when the advisory service is temporarily unavailable,"1. Simulate the weather provider being unreachable
-2. Open the dashboard","N/A","Page falls back gracefully (cached/empty state); no crash",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-02,View advisory during rain/storm conditions,"1. View the Weather card when a monitored hub is experiencing rain","Weather code in rain range (WMO 51-67, 80-82, 95-99)","A passenger-facing rain/storm advisory (e.g., ""Rain showers"") is shown",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-03,View fog/reduced-visibility advisory,"1. View the Weather card when a monitored hub reports fog","Weather code 45 or 48","A ""Fog / reduced visibility"" advisory is shown",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-04,View clear weather state (boundary),"1. View the Weather card when conditions are clear","Weather code 0-3","No advisory banner is shown, or a neutral ""clear"" state is shown",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-05,View weather for multiple monitored hubs simultaneously,"1. View weather across more than one monitored terminal/hub","N/A","Each hub shows its own correct, independent condition",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-06,View ""last refreshed"" badge accuracy,"1. Note the ""last refreshed"" timestamp on the Weather card
+2. Compare against the actual last poll time","N/A","The displayed timestamp matches the real last successful poll",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-07,[FAILURE] Weather provider (Open-Meteo) is unreachable,"1. Simulate the weather provider being unreachable
+2. Open the dashboard","N/A","A graceful fallback is shown (cached/last-known or empty state); no crash; no fabricated condition is invented",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-08,[RECOVERY] Weather resumes after the provider is reachable again,"1. Restore the weather provider after TC-WD-07
+2. Wait for the next poll cycle","N/A","Current real conditions are retrieved and displayed again",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-09,Weather-adjusted ETA reflects the active advisory,"1. With an active rain/storm advisory, compare a bus's displayed ETA against its ETA under clear conditions","N/A","The ETA under the active advisory is adjusted upward (longer), consistent with the weather delay multiplier",,,
+4.1.2.5 Contextual Information Display (Weather),TC-WD-10,View weather card before the first poll completes (boundary),"1. Load the app and immediately view the Weather card, before the first poll cycle finishes","N/A","A loading/pending state is shown rather than a blank card or an incorrect default condition",,,
 ,,,,,,,,
 BUS ATTENDANT MOBILE APPLICATION,,,,,,,,
 4.1.3.1 Attendant Login/Authentication,TC-AA-01,Valid attendant login,"1. Open the Bus Attendant app
 2. Enter a valid operator email and password
 3. Tap Log In","Email: attendant01@buksu.edu.ph; Password: <valid password>","Login succeeds; app navigates to the Home dashboard",,,
-4.1.3.1 Attendant Login/Authentication,TC-AA-01.1,Invalid attendant credentials,"1. Enter a valid operator email with the wrong password
+4.1.3.1 Attendant Login/Authentication,TC-AA-02,Invalid attendant credentials,"1. Enter a valid operator email with the wrong password
 2. Tap Log In","Password: wrongpass","Error ""Invalid credentials""; login blocked",,,
-4.1.3.1 Attendant Login/Authentication,TC-AA-01.2,Login without an assigned bus,"1. Log in with an operator account that has no bus assigned","Account: unassigned operator","Login blocked with the bus-assignment-required error message",,,
-4.1.3.1 Attendant Login/Authentication,TC-AA-01.3,Login with an inactive assigned bus,"1. Log in with an operator whose assigned bus status is Inactive","Bus status: Inactive","Error ""Your assigned bus has been deactivated. You cannot sign in until an administrator reactivates the unit in Fleet management.""",,,
-4.1.3.1 Attendant Login/Authentication,TC-AA-01.4,Account lockout after repeated failed attempts,"1. Enter a valid email with an incorrect password repeatedly until the lockout threshold is reached","Password: wrong (x5+)","Error ""Account temporarily locked after failed sign-in attempts. Try again later.""",,,
+4.1.3.1 Attendant Login/Authentication,TC-AA-03,Login without an assigned bus,"1. Log in with an operator account that has no bus assigned","Account: unassigned operator","Login blocked with the bus-assignment-required error message",,,
+4.1.3.1 Attendant Login/Authentication,TC-AA-04,Login with an inactive assigned bus,"1. Log in with an operator whose assigned bus status is Inactive","Bus status: Inactive","Error ""Your assigned bus has been deactivated. You cannot sign in until an administrator reactivates the unit in Fleet management.""",,,
+4.1.3.1 Attendant Login/Authentication,TC-AA-05,Account lockout after repeated failed attempts,"1. Enter a valid email with an incorrect password repeatedly until the lockout threshold is reached","Password: wrong (x5)","Error ""Account temporarily locked after failed sign-in attempts. Try again later.""",,,
+4.1.3.1 Attendant Login/Authentication,TC-AA-06,Forgot-password / OTP reset flow,"1. Tap ""Forgot Password""
+2. Complete the OTP verification and reset steps","Registered attendant email","Password is reset successfully and the attendant can log in with the new password",,,
+4.1.3.1 Attendant Login/Authentication,TC-AA-07,Session persists after app restart,"1. Log in successfully
+2. Close and reopen the app","N/A","The attendant remains logged in; no re-login is required (stored token still valid)",,,
+4.1.3.1 Attendant Login/Authentication,TC-AA-08,Expired/invalid stored token forces re-login,"1. With an expired or tampered stored token, open the app","N/A","The app detects the invalid session and returns the attendant to the login screen rather than silently failing subsequent requests",,,
+4.1.3.1 Attendant Login/Authentication,TC-AA-09,[FAILURE] Fresh login attempt with no connectivity,"1. Disable all network connectivity on the device
+2. Attempt to log in with valid credentials","Email/Password: valid; Network: offline","The app clearly reports it cannot reach the server; no offline/cached login is granted, since no offline authentication mechanism is implemented",,,No offline login capability exists for the attendant app; this is expected and by design.
+4.1.3.1 Attendant Login/Authentication,TC-AA-10,[RECOVERY] Login succeeds once connectivity is restored,"1. Restore connectivity after TC-AA-09
+2. Retry login with the same valid credentials","Same credentials as TC-AA-09","Login succeeds normally",,,
 ,,,,,,,,
 4.1.3.2 Trip Dashboard,TC-TD-01,View assigned bus/route/trip on Home,"1. Log in
 2. View the Home tab","Account with an active bus assignment","Correct bus number, route, and current trip schedule are displayed",,,
-4.1.3.2 Trip Dashboard,TC-TD-01.1,View Home with no bus assigned,"1. Log in with an account that has no active assignment (edge case if login is not blocked)","N/A","An ""unassigned"" state is shown; app does not crash",,,
-4.1.3.2 Trip Dashboard,TC-TD-01.2,Dashboard reflects a new assignment,"1. Admin reassigns the attendant to a different bus
+4.1.3.2 Trip Dashboard,TC-TD-02,View Home with no bus assigned (boundary),"1. Log in with an account that has no active assignment (edge case if login is not blocked)","N/A","An ""unassigned"" state is shown; the app does not crash",,,
+4.1.3.2 Trip Dashboard,TC-TD-03,Dashboard reflects a new assignment after reassignment,"1. Admin reassigns the attendant to a different bus
 2. Attendant reopens/refreshes Home","New bus: BUK-102","Home tab updates to show the newly assigned bus and route",,,
+4.1.3.2 Trip Dashboard,TC-TD-04,View current trip schedule/departure time,"1. View the Home tab for an assigned trip","N/A","The correct scheduled departure time is shown",,,
+4.1.3.2 Trip Dashboard,TC-TD-05,Dashboard updates after an automatic route flip,"1. Have the assigned bus reach its destination terminal and auto-flip direction
+2. View the Home tab afterward","N/A","The dashboard reflects the new (reversed) origin/destination for the next leg",,,
+4.1.3.2 Trip Dashboard,TC-TD-06,View driver information on the dashboard,"1. View the Home tab for an assigned trip with a driver linked to the bus","N/A","The correct driver name is displayed",,,
+4.1.3.2 Trip Dashboard,TC-TD-07,[FAILURE] Open Home tab while the assignment endpoint is unreachable,"1. Stop Admin_Backend
+2. Open or refresh the Home tab","N/A","A clear error/retry state is shown; it is not rendered as if the attendant were genuinely unassigned",,,
+4.1.3.2 Trip Dashboard,TC-TD-08,[RECOVERY] Home tab loads correctly after backend is restored,"1. Restore Admin_Backend after TC-TD-07
+2. Retry or reload","N/A","Correct assignment data loads successfully",,,
+4.1.3.2 Trip Dashboard,TC-TD-09,Pull-to-refresh updates dashboard data,"1. On the Home tab, perform a pull-to-refresh gesture","N/A","The latest assignment/trip state is retrieved and displayed, without requiring an app restart",,,
+4.1.3.2 Trip Dashboard,TC-TD-10,Reopen app mid-trip (data persistence),"1. Close the app while a trip is active
+2. Reopen it","N/A","The dashboard reloads and shows the still-active trip's correct current state",,,
 ,,,,,,,,
-4.1.3.3 Ticketing,TC-TK-01,Issue a valid ticket,"1. Tap the Tickets tab
+4.1.3.3 Ticketing,TC-TK-01,Issue a valid ticket with full connectivity,"1. Tap the Tickets tab
 2. Enter passenger id, start location, destination, and category
 3. Confirm issue","Passenger: Maria Santos; Start: Malaybalay Terminal; Destination: Valencia Terminal","Ticket is issued with a ticket code and correct computed fare",,,
-4.1.3.3 Ticketing,TC-TK-01.1,Issue a ticket with missing required fields,"1. Open the ticketing form
+4.1.3.3 Ticketing,TC-TK-02,Issue a ticket with missing required fields,"1. Open the ticketing form
 2. Leave Destination blank
-3. Confirm issue","Destination: (empty)","Validation error ""passengerId, startLocation, and destination are required""",,,
-4.1.3.3 Ticketing,TC-TK-01.2,Retry a ticket after an ambiguous offline sync (duplicate clientRequestId),"1. Issue a ticket while offline
-2. Let the app auto-retry with the same clientRequestId once online","Same clientRequestId as a previously issued ticket","The original ticket is returned with alreadyIssued: true; no duplicate ticket or fare charge is created",,,
-4.1.3.3 Ticketing,TC-TK-01.3,Issue a ticket while device is offline,"1. Disable network connectivity
-2. Issue a ticket","Network: offline","Ticket is queued in the local outbox and syncs automatically once connectivity returns",,,
+3. Confirm issue","Destination: (empty)","Validation error ""passengerId, startLocation, and destination are required""; no ticket is created",,,
+4.1.3.3 Ticketing,TC-TK-03,Issue a ticket with a student/PWD/senior discount,"1. Issue a ticket selecting the ""student"" category","Category: student","The fare reflects the configured student discount (default 20%) off the base fare",,,
+4.1.3.3 Ticketing,TC-TK-04,[FAILURE/OFFLINE] Issue a ticket while the device has no connectivity,"1. Disable network connectivity
+2. Issue a ticket","Network: offline","The ticket is queued in the local ticket outbox and shown to the attendant as pending — it is not silently lost",,,
+4.1.3.3 Ticketing,TC-TK-05,[RECOVERY] Queued ticket syncs after connectivity is restored,"1. Restore connectivity after TC-TK-04","Same ticket as TC-TK-04","The queued ticket is automatically submitted and created server-side exactly once",,,
+4.1.3.3 Ticketing,TC-TK-06,Retry after an ambiguous sync failure (duplicate prevention),"1. Issue a ticket
+2. Let the app auto-retry with the same clientRequestId (simulating a response that was lost in transit)","Same clientRequestId as a previously issued ticket","The original ticket is returned with alreadyIssued: true; no duplicate ticket or fare charge is created",,,
+4.1.3.3 Ticketing,TC-TK-07,[UNAUTHORIZED] Edit a ticket with an incorrect edit PIN,"1. Attempt to edit a previously issued ticket
+2. Enter an incorrect edit PIN","PIN: wrong","Edit is rejected; the ticket remains unchanged",,,
+4.1.3.3 Ticketing,TC-TK-08,Edit a ticket with the correct verified PIN,"1. Attempt to edit a previously issued ticket
+2. Enter the correct edit PIN","PIN: correct","The edit is applied and recorded in the driver ticket edit log",,,
+4.1.3.3 Ticketing,TC-TK-09,[FAILURE] Ticket issuance when backend returns a server error (not connectivity loss),"1. With the device online, cause the issue-ticket request to receive a 500 response (controlled test)","N/A","The app does not falsely confirm issuance; the ticket is not created; a clear error distinct from a connectivity-loss state is shown",,,Confirm whether this is handled identically to the offline-queue path or as a distinct error before marking Pass.
+4.1.3.3 Ticketing,TC-TK-10,Issue several tickets in quick succession (data integrity),"1. Issue 5 tickets in rapid succession while online","5 distinct passengers","Each ticket receives a correct, unique ticket code; no collisions or dropped tickets occur",,,
 ,,,,,,,,
 4.1.3.4 GPS Transmission,TC-GT-01,Phone transmits live location during an active trip,"1. Start/""Go live"" a trip on the attendant app
 2. Observe the Admin Locations map","N/A","Bus location updates on the admin live map in real time from the phone GPS source",,,
-4.1.3.4 GPS Transmission,TC-GT-01.1,Phone loses GPS/network signal mid-trip,"1. During an active trip, disable GPS or network on the device","N/A","App shows a GPS-lost warning; location pings are queued in the local outbox",,,
-4.1.3.4 GPS Transmission,TC-GT-01.2,Connectivity restored after an outage,"1. Re-enable GPS/network after TC-GT-01.1","N/A","Queued points are sent via the batch endpoint; the admin map catches up to the current position",,,
-4.1.3.4 GPS Transmission,TC-GT-01.3,LILYGO hardware backup takes over after phone timeout,"1. Stop phone GPS transmission entirely for longer than the configured timeout
-2. Confirm the LILYGO unit is online","Phone offline > PHONE_GPS_TIMEOUT_MS","Bus location continues updating on the admin map from the LILYGO hardware source",,,
+4.1.3.4 GPS Transmission,TC-GT-02,[FAILURE/OFFLINE] Phone loses connectivity mid-trip,"1. During an active trip, disable network connectivity on the device","N/A","GPS pings are queued locally in the device's GPS outbox rather than discarded",,,
+4.1.3.4 GPS Transmission,TC-GT-03,[RECOVERY] Queued GPS points sync after reconnection,"1. Restore connectivity after TC-GT-02","N/A","Queued points are sent via the batch endpoint (up to 40 per request) and applied in order; the admin map catches up to the current position",,,
+4.1.3.4 GPS Transmission,TC-GT-04,LILYGO hardware backup takes over after phone timeout,"1. Stop phone GPS transmission entirely for longer than the configured timeout
+2. Confirm the LILYGO unit is online","Phone offline past PHONE_GPS_TIMEOUT_MS","Bus location continues updating on the admin map from the LILYGO hardware source",,,
+4.1.3.4 GPS Transmission,TC-GT-05,GPS fails back to the phone once it resumes reliably,"1. Resume phone GPS transmission after TC-GT-04
+2. Observe the active source over subsequent pings","N/A","The active source returns to the phone after the stabilization streak, without flapping between sources",,,
+4.1.3.4 GPS Transmission,TC-GT-06,Implausible GPS jump is rejected (invalid input/anti-spoofing),"1. Send two consecutive fixes implying over 180 km/h for the same bus/source","N/A","The second fix is rejected as an outlier and does not corrupt the published position",,,
+4.1.3.4 GPS Transmission,TC-GT-07,GPS visibility-lost warning is displayed,"1. Move the device/emulator to a location with no satellite fix","N/A","The app shows a GPS-lost warning to the attendant",,,
+4.1.3.4 GPS Transmission,TC-GT-08,Location permission denied,"1. Deny the location permission prompt on the device","N/A","The app clearly prompts the attendant to enable location access; transmission does not silently fail with no explanation",,,
+4.1.3.4 GPS Transmission,TC-GT-09,[FAILURE] Backend returns an error for a GPS ping (not a connectivity loss),"1. With the device online, cause a GPS ping request to receive a server error (e.g., malformed payload, controlled test)","N/A","The ping is rejected server-side with an error response; the bus's position is not corrupted; subsequent valid pings continue normally",,,
+4.1.3.4 GPS Transmission,TC-GT-10,End-of-trip stops GPS transmission,"1. End the live session / complete the trip","N/A","No further GPS pings are sent after the trip concludes",,,
 ,,,,,,,,
 4.1.3.5 Notification Handling,TC-NH-01,Receive an admin broadcast targeted at attendants,"1. Admin sends a broadcast targeted at ""attendant""
 2. Attendant app polls for updates","Broadcast message: ""Terminal 2 gate change""; severity: normal","Banner appears on the Home tab with the correct message and severity",,,
-4.1.3.5 Notification Handling,TC-NH-01.1,Receive a critical-severity broadcast,"1. Admin sends a broadcast with severity ""critical""","Severity: critical","Banner is displayed with critical/urgent styling, distinct from normal messages",,,
-4.1.3.5 Notification Handling,TC-NH-01.2,No active broadcast for attendants,"1. Ensure no broadcast is targeted at attendants
+4.1.3.5 Notification Handling,TC-NH-02,Receive a critical-severity broadcast,"1. Admin sends a broadcast with severity ""critical""","Severity: critical","Banner is displayed with critical/urgent styling, distinct from normal messages",,,
+4.1.3.5 Notification Handling,TC-NH-03,No active broadcast for attendants (empty state),"1. Ensure no broadcast is targeted at attendants
 2. Open/refresh the Home tab","N/A","No notification banner is shown",,,
+4.1.3.5 Notification Handling,TC-NH-04,Receive a weather advisory notification,"1. Trigger a weather advisory for the attendant's route
+2. Observe the app","N/A","The weather advisory is shown correctly to the attendant",,,
+4.1.3.5 Notification Handling,TC-NH-05,Receive a maintenance-mode notification,"1. Admin enables maintenance mode","N/A","The app shows the maintenance overlay/lock as designed",,,
+4.1.3.5 Notification Handling,TC-NH-06,Dismissed banner does not reappear for the same message,"1. Dismiss an active broadcast banner
+2. Continue polling without a new broadcast being sent","N/A","The banner does not reappear until a genuinely new message is sent",,,
+4.1.3.5 Notification Handling,TC-NH-07,[FAILURE] Poll for broadcasts while backend is unreachable,"1. Stop Admin_Backend
+2. Leave the app open through its poll interval","N/A","No crash occurs; no stale message is falsely re-flagged as new",,,
+4.1.3.5 Notification Handling,TC-NH-08,[RECOVERY] Broadcasts resume after backend is restored,"1. Restore Admin_Backend after TC-NH-07","N/A","The next poll correctly retrieves the current broadcast/maintenance state",,,
+4.1.3.5 Notification Handling,TC-NH-09,Most recent broadcast is shown among several,"1. Admin sends two broadcasts targeted at attendants in sequence","Broadcast 1, then Broadcast 2","The most recently sent broadcast is the one displayed",,,
+4.1.3.5 Notification Handling,TC-NH-10,App reopened from background reflects current state,"1. Send the app to the background for several minutes
+2. Reopen it","N/A","The app re-polls and reflects the current broadcast state rather than showing an indefinitely stale cached one",,,
+,,,,,,,,
+4.1.3.6 Smart Alert,TC-SMA-01,Attendant sends an SOS at emergency urgency,"1. Tap the SOS button
+2. Select urgency: Emergency
+3. Confirm","Level: emergency","Admin receives a real-time critical alert on the Command Center",,,
+4.1.3.6 Smart Alert,TC-SMA-02,Attendant sends an SOS at normal/medium urgency,"1. Tap the SOS button
+2. Select urgency: Medium
+3. Confirm","Level: medium","Admin receives the alert with the correct (medium) severity, distinct from an emergency alert",,,
+4.1.3.6 Smart Alert,TC-SMA-03,SOS triggers email/SMS notification to admin,"1. Send an SOS as in TC-SMA-01
+2. Check the configured admin email/SMS destination","N/A","Admin receives an email and/or SMS notification of the SOS",,,
+4.1.3.6 Smart Alert,TC-SMA-04,Submit an incident report — accident category,"1. Open incident report
+2. Select category: Accident
+3. Submit","Category: accident","Incident is logged and an alert is sent to the admin Command Center",,,
+4.1.3.6 Smart Alert,TC-SMA-05,Submit an incident report — mechanical category,"1. Open incident report
+2. Select category: Mechanical
+3. Submit","Category: mechanical","Incident is logged and an alert is sent to the admin Command Center",,,
+4.1.3.6 Smart Alert,TC-SMA-06,Submit an incident report — traffic category,"1. Open incident report
+2. Select category: Traffic
+3. Submit","Category: traffic","Incident is logged; this is also the pathway that can surface as a passenger-facing ""Traffic & delays"" advisory",,,
+4.1.3.6 Smart Alert,TC-SMA-07,Submit an incident report with an invalid category (invalid input),"1. Submit an incident report with an unsupported category value","Category: ""weather"" (not accepted)","Request is rejected with ""category must be accident, mechanical, or traffic""",,,
+4.1.3.6 Smart Alert,TC-SMA-08,Submit SOS/incident without coordinates (missing input),"1. Submit an SOS or incident report without latitude/longitude","Latitude/Longitude: (empty)","Request is rejected as missing required fields",,,
+4.1.3.6 Smart Alert,TC-SMA-09,[OFFLINE] Send an SOS while the device has no connectivity,"1. Disable network connectivity
+2. Tap the SOS button and confirm","Network: offline","The SOS is queued in the device's local SOS outbox rather than silently failing",,,
+4.1.3.6 Smart Alert,TC-SMA-10,[RECOVERY] Queued SOS is delivered after reconnection,"1. Restore connectivity after TC-SMA-09","Same SOS as TC-SMA-09","The queued SOS is delivered to the admin and is not silently lost",,,Confirm exact retry/sync mechanics against sos_outbox_store.dart before execution.

@@ -4,6 +4,7 @@
  */
 const mongoose = require("mongoose");
 const IssuedTicketRecord = require("../models/IssuedTicketRecord");
+const { manilaWallClockParts, addDaysYmd } = require("./manilaTime");
 
 const MONTHLY_PROFIT_GOAL = 100_000;
 const TOMORROW_GROWTH = 0.08;
@@ -14,24 +15,125 @@ function hubStatus(rank) {
   return "Intermediate Stop";
 }
 
-function manilaWallClock(d) {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const o = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]));
+/** Thin alias kept so every existing call site in this file (`manilaWallClock(...)`) is unchanged —
+ *  the actual Asia/Manila wall-clock computation now lives once, in services/manilaTime.js, instead
+ *  of being reimplemented here. */
+const manilaWallClock = manilaWallClockParts;
+
+/** Groups a normalized startLocation key to its two decimal places. */
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+/** Collapses formatting differences ("Malaybalay Terminal" / "malaybalay  terminal") into the same
+ *  grouping key, without merging genuinely different stop names. */
+function normalizeLocationKey(raw) {
+  return String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+/**
+ * Groups a (possibly pre-filtered) set of ticket docs by normalized pickup location, ranks by
+ * ticket count, and returns the top `limit` with a sharePct relative to `totalForShare` (pass the
+ * true all-time/period ticket total, not docsSubset.length, so the percentage means "share of all
+ * passengers in that period" rather than "share of the 5 shown here").
+ */
+function computeTopPickups(docsSubset, totalForShare, limit = 5) {
+  const counts = new Map(); // normalized key -> ticket count
+  const labelVotes = new Map(); // normalized key -> Map(original label -> occurrences)
+  for (const doc of docsSubset) {
+    const raw = (doc.startLocation || "").trim() || "—";
+    const key = normalizeLocationKey(raw);
+    counts.set(key, (counts.get(key) || 0) + 1);
+    if (!labelVotes.has(key)) labelVotes.set(key, new Map());
+    const votes = labelVotes.get(key);
+    votes.set(raw, (votes.get(raw) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([key, ticketCount], idx) => {
+      const votes = [...labelVotes.get(key).entries()].sort((a, b) => b[1] - a[1]);
+      return {
+        location: votes[0][0],
+        ticketCount,
+        revenue: 0,
+        sharePct: Math.round((ticketCount / (totalForShare || 1)) * 1000) / 10,
+        status: hubStatus(idx),
+      };
+    });
+}
+
+/** current vs. previous-period comparison, honest about missing/zero prior data instead of
+ *  dividing by zero or implying a trend that isn't there. */
+function computeTrend(current, previous) {
+  const cur = Number(current) || 0;
+  const prev = Number(previous) || 0;
+  if (prev === 0 && cur === 0) return { current: cur, previous: prev, pctChangePct: null, direction: "flat" };
+  if (prev === 0) return { current: cur, previous: prev, pctChangePct: null, direction: "no_prior_data" };
+  const pct = Math.round(((cur - prev) / prev) * 1000) / 10;
+  return { current: cur, previous: prev, pctChangePct: pct, direction: pct > 0 ? "up" : pct < 0 ? "down" : "flat" };
+}
+
+/** Walks back `count` calendar months from (year, month) and returns their "YYYY-MM" keys —
+ *  used to look up completed-month revenue for the forecast, correctly across a year boundary. */
+function completedMonthKeysBefore(year, month, count) {
+  const keys = [];
+  let y = year;
+  let m = month;
+  for (let i = 0; i < count; i++) {
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+    keys.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return keys;
+}
+
+/** Monthly revenue estimate: average of the last `lookback` completed calendar months that
+ *  actually have data (strictly before the current month). Returns an honest "unavailable" result
+ *  — never a fabricated number — when there isn't at least one completed month of history. */
+function computeMonthlyForecast(monthlyByYearMap, year, month, lookback = 3) {
+  const keys = completedMonthKeysBefore(year, month, lookback);
+  const rows = keys.map((k) => monthlyByYearMap.get(k)).filter(Boolean);
+  if (rows.length === 0) {
+    return { available: false, estimatedRevenue: null, reason: "Insufficient historical data for a reliable forecast" };
+  }
   return {
-    ymd: `${o.year}-${o.month}-${o.day}`,
-    hour: parseInt(o.hour, 10) || 0,
-    minute: parseInt(o.minute, 10) || 0,
-    month: parseInt(o.month, 10) || 1,
-    year: parseInt(o.year, 10) || new Date().getFullYear(),
+    available: true,
+    estimatedRevenue: round2(rows.reduce((s, v) => s + v.revenue, 0) / rows.length),
+    method: `Average of the last ${rows.length} completed month(s) of actual revenue`,
+    basedOnMonths: rows.length,
   };
+}
+
+/** Yearly revenue estimate: average of completed prior years if any exist; otherwise, given at
+ *  least 14 days of current-year data, a simple extrapolation from year-to-date revenue; otherwise
+ *  an honest "unavailable" result. */
+function computeYearlyForecast(yearlyMap, year, ytdRevenue, daysElapsedInYear) {
+  const priorYears = [...yearlyMap.entries()].filter(([y]) => y < year);
+  if (priorYears.length > 0) {
+    const avg = priorYears.reduce((s, [, v]) => s + v.revenue, 0) / priorYears.length;
+    return {
+      available: true,
+      estimatedRevenue: round2(avg),
+      method: `Average of ${priorYears.length} completed prior year(s) of actual revenue`,
+      basedOnYears: priorYears.length,
+    };
+  }
+  if (daysElapsedInYear >= 14 && ytdRevenue > 0) {
+    return {
+      available: true,
+      estimatedRevenue: round2((ytdRevenue / daysElapsedInYear) * 365),
+      method: `Extrapolated from ${daysElapsedInYear} days of year-to-date revenue (no completed prior year yet)`,
+      basedOnDays: daysElapsedInYear,
+    };
+  }
+  return { available: false, estimatedRevenue: null, reason: "Insufficient historical data for a reliable forecast" };
 }
 
 /**
@@ -75,11 +177,17 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
   const dailyMap = new Map();
   const monthlyMap = new Map();
   const yearlyMap = new Map();
-  const pickupCount = new Map();
+  /** Unlike monthlyMap (keyed by month-of-year 1-12, ambiguous across year boundaries), this is
+   *  keyed "YYYY-MM" — needed for the revenue trend/forecast below, which must not conflate e.g.
+   *  May of one year with May of another once the system has more than a year of history. */
+  const monthlyByYearMap = new Map();
   const routeMap = new Map();
   const busMap = new Map();
   const opMap = new Map();
   const opTodayMap = new Map();
+  /** Retains each doc's already-computed Manila wall-clock parts, so the pickup-location and
+   *  peak-period breakdowns below can filter by period without recomputing manilaWallClock. */
+  const docsWithMw = [];
 
   for (const doc of docs) {
     const fare = Number(doc.fare) || 0;
@@ -90,6 +198,7 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
     totalTickets += 1;
 
     const m = manilaWallClock(createdAt);
+    docsWithMw.push({ doc, mw: m });
     if (m.ymd === todayYmd) {
       hourlyToday[m.hour].tickets += 1;
       hourlyToday[m.hour].revenue += fare;
@@ -110,8 +219,11 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
     yAgg.tickets += 1;
     yAgg.revenue += fare;
 
-    const loc = (doc.startLocation || "").trim() || "—";
-    pickupCount.set(loc, (pickupCount.get(loc) || 0) + 1);
+    const ymKey = `${m.year}-${String(m.month).padStart(2, "0")}`;
+    if (!monthlyByYearMap.has(ymKey)) monthlyByYearMap.set(ymKey, { tickets: 0, revenue: 0 });
+    const ymAgg = monthlyByYearMap.get(ymKey);
+    ymAgg.tickets += 1;
+    ymAgg.revenue += fare;
 
     const rKey = `${(doc.startLocation || "").trim()}|||${(doc.destination || "").trim()}`;
     if (!routeMap.has(rKey)) routeMap.set(rKey, { start: doc.startLocation, dest: doc.destination, tickets: 0, revenue: 0 });
@@ -158,6 +270,54 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
     .sort((a, b) => a[0] - b[0])
     .map(([year, v]) => ({ year, tickets: v.tickets, revenue: v.revenue }));
 
+  // --- Dashboard-specific additions: Day/Month/Year passenger & revenue series, a real
+  // period-over-period trend, and an honest (possibly "insufficient data") revenue forecast. ---
+
+  const daysInCurMonth = new Date(curYear, curMonth, 0).getDate();
+  const peakPassengersMonth = Array.from({ length: daysInCurMonth }, (_, i) => {
+    const day = i + 1;
+    const ymd = `${curYear}-${String(curMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const row = dailyMap.get(ymd);
+    return { day, count: row ? row.tickets : 0 };
+  });
+  const revenueSeriesMonth = Array.from({ length: daysInCurMonth }, (_, i) => {
+    const day = i + 1;
+    const ymd = `${curYear}-${String(curMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const row = dailyMap.get(ymd);
+    return { day, revenue: row ? row.revenue : 0 };
+  });
+
+  const peakPassengers = {
+    day: hourlyToday.map((h) => ({ hour: h.hour, count: h.tickets })),
+    month: peakPassengersMonth,
+    year: monthlyThisYear.map((x) => ({ month: x.month, label: x.label, count: x.tickets })),
+  };
+  const revenueSeries = {
+    day: hourlyToday.map((h) => ({ hour: h.hour, revenue: h.revenue })),
+    month: revenueSeriesMonth,
+    year: monthlyThisYear.map((x) => ({ month: x.month, label: x.label, revenue: x.revenue })),
+  };
+
+  const curYmKey = `${curYear}-${String(curMonth).padStart(2, "0")}`;
+  const prevMonthKeys = completedMonthKeysBefore(curYear, curMonth, 1);
+  const revenueTrend = {
+    day: computeTrend(
+      hourlyToday.reduce((s, h) => s + h.revenue, 0),
+      dailyMap.get(addDaysYmd(todayYmd, -1))?.revenue ?? 0
+    ),
+    month: computeTrend(
+      monthlyByYearMap.get(curYmKey)?.revenue ?? 0,
+      monthlyByYearMap.get(prevMonthKeys[0])?.revenue ?? 0
+    ),
+    year: computeTrend(yearlyMap.get(curYear)?.revenue ?? 0, yearlyMap.get(curYear - 1)?.revenue ?? 0),
+  };
+
+  const forecastMonthly = computeMonthlyForecast(monthlyByYearMap, curYear, curMonth);
+  const startOfYear = new Date(`${curYear}-01-01T00:00:00+08:00`);
+  const daysElapsedInYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000) + 1;
+  const forecastYearly = computeYearlyForecast(yearlyMap, curYear, yearlyMap.get(curYear)?.revenue ?? 0, daysElapsedInYear);
+  const forecast = { monthly: forecastMonthly, yearly: forecastYearly };
+
   const ytdTickets = yearlyMap.get(curYear)?.tickets ?? 0;
   const ytdRevenue = yearlyMap.get(curYear)?.revenue ?? 0;
 
@@ -186,16 +346,7 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
   const goalProgressPct =
     MONTHLY_PROFIT_GOAL > 0 ? Math.min(999, Math.round((monthlyRevenue / MONTHLY_PROFIT_GOAL) * 1000) / 10) : 0;
 
-  const topPickupLocations = [...pickupCount.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([location, ticketCount], idx) => ({
-      location,
-      ticketCount,
-      revenue: 0,
-      sharePct: Math.round((ticketCount / (totalTickets || 1)) * 1000) / 10,
-      status: hubStatus(idx),
-    }));
+  const topPickupLocations = computeTopPickups(docs, totalTickets);
 
   const topRoutes = [...routeMap.values()]
     .sort((a, b) => b.revenue - a.revenue)
@@ -206,85 +357,48 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
       revenue: r.revenue,
     }));
 
-  function pickupsForFilter(pred) {
-    const m = new Map();
-    for (const doc of docs) {
-      const createdAt = doc.createdAt ? new Date(doc.createdAt) : null;
-      if (!createdAt || !Number.isFinite(createdAt.getTime())) continue;
-      const mw = manilaWallClock(createdAt);
-      if (!pred(mw)) continue;
-      const loc = (doc.startLocation || "").trim() || "—";
-      m.set(loc, (m.get(loc) || 0) + 1);
-    }
-    return [...m.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([location, ticketCount], idx) => ({
-        location,
-        ticketCount,
-        revenue: 0,
-        sharePct: Math.round((ticketCount / (totalTickets || 1)) * 1000) / 10,
-        status: hubStatus(idx),
-      }));
-  }
-
-  const topPickupsToday = pickupsForFilter((mw) => mw.ymd === todayYmd);
+  /** docsWithMw filtering replaces the old pickupsForFilter()/ad-hoc Map-building blocks — each of
+   *  those re-parsed doc.createdAt and recomputed manilaWallClock per call; this reuses the parts
+   *  already computed once in the main loop above, and routes every pickup breakdown through the
+   *  same computeTopPickups() (location-name normalization + a real sharePct) instead of five
+   *  near-duplicate hand-rolled groupings. */
+  const topPickupsToday = computeTopPickups(
+    docsWithMw.filter((x) => x.mw.ymd === todayYmd).map((x) => x.doc),
+    totalTickets
+  );
   const ms30 = now.getTime() - 29 * 86400000;
-  const topPickupsLast30 = (() => {
-    const m = new Map();
-    for (const doc of docs) {
-      const createdAt = doc.createdAt ? new Date(doc.createdAt) : null;
-      if (!createdAt || createdAt.getTime() < ms30) continue;
-      const loc = (doc.startLocation || "").trim() || "—";
-      m.set(loc, (m.get(loc) || 0) + 1);
-    }
-    return [...m.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([location, ticketCount], idx) => ({
-        location,
-        ticketCount,
-        revenue: 0,
-        sharePct: Math.round((ticketCount / (totalTickets || 1)) * 1000) / 10,
-        status: hubStatus(idx),
-      }));
-  })();
-  const topPickupsMtd = pickupsForFilter((mw) => mw.month === curMonth && mw.year === curYear);
-  const topPickupsYtd = pickupsForFilter((mw) => mw.year === curYear);
+  const topPickupsLast30 = computeTopPickups(
+    docs.filter((d) => {
+      const t = d.createdAt ? new Date(d.createdAt).getTime() : NaN;
+      return Number.isFinite(t) && t >= ms30;
+    }),
+    totalTickets
+  );
+  const topPickupsMtd = computeTopPickups(
+    docsWithMw.filter((x) => x.mw.month === curMonth && x.mw.year === curYear).map((x) => x.doc),
+    totalTickets
+  );
+  const topPickupsYtd = computeTopPickups(
+    docsWithMw.filter((x) => x.mw.year === curYear).map((x) => x.doc),
+    totalTickets
+  );
 
   const peakHr = hourlyToday.reduce((a, b) => (b.tickets > a.tickets ? b : a), hourlyToday[0]);
   const peakHourPickups = topPickupsToday;
 
   let peakDayLabel = "";
   let peakDayTickets = 0;
-  let peakDayPickups = [];
   for (const [dk, agg] of dailyMap.entries()) {
     if (agg.tickets > peakDayTickets) {
       peakDayTickets = agg.tickets;
       peakDayLabel = dk;
     }
   }
-  if (peakDayLabel) {
-    const m = new Map();
-    for (const doc of docs) {
-      const createdAt = doc.createdAt ? new Date(doc.createdAt) : null;
-      if (!createdAt) continue;
-      const mw = manilaWallClock(createdAt);
-      if (mw.ymd !== peakDayLabel) continue;
-      const loc = (doc.startLocation || "").trim() || "—";
-      m.set(loc, (m.get(loc) || 0) + 1);
-    }
-    peakDayPickups = [...m.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([location, ticketCount], idx) => ({
-        location,
-        ticketCount,
-        revenue: 0,
-        sharePct: 0,
-        status: hubStatus(idx),
-      }));
-  }
+  /** sharePct here is now relative to that peak period's own ticket total (previously hardcoded to
+   *  0 for day/month/year peaks — same fix applied to peakMonthPickups/peakYearPickups below). */
+  const peakDayPickups = peakDayLabel
+    ? computeTopPickups(docsWithMw.filter((x) => x.mw.ymd === peakDayLabel).map((x) => x.doc), peakDayTickets)
+    : [];
 
   let peakMonthNum = 0;
   let peakMonthTickets = 0;
@@ -294,28 +408,12 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
       peakMonthNum = mo;
     }
   }
-  let peakMonthPickups = [];
-  if (peakMonthNum) {
-    const m = new Map();
-    for (const doc of docs) {
-      const createdAt = doc.createdAt ? new Date(doc.createdAt) : null;
-      if (!createdAt) continue;
-      const mw = manilaWallClock(createdAt);
-      if (mw.month !== peakMonthNum || mw.year !== curYear) continue;
-      const loc = (doc.startLocation || "").trim() || "—";
-      m.set(loc, (m.get(loc) || 0) + 1);
-    }
-    peakMonthPickups = [...m.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([location, ticketCount], idx) => ({
-        location,
-        ticketCount,
-        revenue: 0,
-        sharePct: 0,
-        status: hubStatus(idx),
-      }));
-  }
+  const peakMonthPickups = peakMonthNum
+    ? computeTopPickups(
+        docsWithMw.filter((x) => x.mw.month === peakMonthNum && x.mw.year === curYear).map((x) => x.doc),
+        peakMonthTickets
+      )
+    : [];
 
   let peakYearNum = 0;
   let peakYearTickets = 0;
@@ -325,28 +423,9 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
       peakYearNum = yr;
     }
   }
-  let peakYearPickups = [];
-  if (peakYearNum) {
-    const m = new Map();
-    for (const doc of docs) {
-      const createdAt = doc.createdAt ? new Date(doc.createdAt) : null;
-      if (!createdAt) continue;
-      const mw = manilaWallClock(createdAt);
-      if (mw.year !== peakYearNum) continue;
-      const loc = (doc.startLocation || "").trim() || "—";
-      m.set(loc, (m.get(loc) || 0) + 1);
-    }
-    peakYearPickups = [...m.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([location, ticketCount], idx) => ({
-        location,
-        ticketCount,
-        revenue: 0,
-        sharePct: 0,
-        status: hubStatus(idx),
-      }));
-  }
+  const peakYearPickups = peakYearNum
+    ? computeTopPickups(docsWithMw.filter((x) => x.mw.year === peakYearNum).map((x) => x.doc), peakYearTickets)
+    : [];
 
   const topBusesAll = [...busMap.entries()]
     .map(([busLabel, v]) => ({ busLabel, tickets: v.tickets, revenue: v.revenue }))
@@ -444,6 +523,13 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
     dailyLast14,
     monthlyThisYear,
     yearlyAll,
+    /** Day/Month/Year tab data for the Admin Dashboard's passenger/revenue cards and the real
+     *  (non-hardcoded) trend and forecast figures — see services/reportsAnalyticsMongo.js's header
+     *  comment block above buildReportsAnalyticsFromMongo for the forecast method. */
+    peakPassengers,
+    revenueSeries,
+    revenueTrend,
+    forecast,
     topPickupsToday,
     topPickupsLast30,
     topPickupsMtd,
@@ -476,4 +562,15 @@ async function buildReportsAnalyticsFromMongo(filters = {}) {
   };
 }
 
-module.exports = { buildReportsAnalyticsFromMongo };
+module.exports = {
+  buildReportsAnalyticsFromMongo,
+  // Exported for unit testing (see scripts/_verify-dashboard-analytics.js) — pure functions, no
+  // database access, safe to exercise with synthetic in-memory data.
+  computeTopPickups,
+  computeTrend,
+  completedMonthKeysBefore,
+  computeMonthlyForecast,
+  computeYearlyForecast,
+  normalizeLocationKey,
+  round2,
+};

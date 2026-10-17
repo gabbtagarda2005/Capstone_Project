@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { io } from "socket.io-client";
 import {
   Area,
   AreaChart,
@@ -13,24 +14,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api } from "@/lib/api";
-import {
-  peakByDayOfMonth,
-  peakByHourForDay,
-  peakByMonthYear,
-  revenueByDayOfMonth,
-  revenueByHourDay,
-  revenueByMonthYear,
-  totalPassengersAllTime,
-  totalRevenueAllTime,
-} from "@/lib/chartAggregates";
+import { useAuth } from "@/context/AuthContext";
+import { ADMIN_API_ORIGIN, fetchReportsAnalytics } from "@/lib/api";
 import { shortPickupLocationLabel } from "@/lib/humanizeAdminAudit";
-import type { TicketRow } from "@/lib/types";
+import type { ReportForecast, ReportsAnalyticsDto, ReportTrend } from "@/lib/types";
 import dashboardBackground from "@/Design/DashboardBackground.png";
 import dashboardBackgroundLight from "@/Design/DashboardBackgroundLight.jpg";
 import "./analytics.css";
-
-type Stats = { totalTicketCount: number; filteredCount: number; filteredRevenue: number };
 
 type Tab = "day" | "month" | "year";
 
@@ -41,54 +31,10 @@ const CHART_COLORS = {
   rev2: "#fb923c",
 };
 
-function demoPeakDay() {
-  return Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    count: [12, 8, 5, 4, 6, 18, 45, 62, 55, 40, 35, 42, 38, 44, 50, 58, 72, 85, 68, 45, 32, 22, 15, 10][hour] ?? 10,
-  }));
-}
-
-function demoPeakMonth() {
-  return Array.from({ length: 31 }, (_, i) => ({
-    day: i + 1,
-    count: 20 + Math.round(25 * Math.sin((i / 31) * Math.PI) + (i % 7) * 3),
-  }));
-}
-
-function demoPeakYear() {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return months.map((month, i) => ({
-    month,
-    count: 400 + i * 80 + (i % 5) * 24,
-  }));
-}
-
-function demoRevDay() {
-  return Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    revenue: [120, 80, 40, 30, 50, 200, 450, 620, 580, 400, 350, 420][hour] ?? 100 + hour * 8,
-  }));
-}
-
-function demoRevMonth() {
-  return Array.from({ length: 31 }, (_, i) => ({
-    day: i + 1,
-    revenue: 2000 + (i % 9) * 180 + i * 40,
-  }));
-}
-
-function demoRevYear() {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return months.map((month, i) => ({
-    month,
-    revenue: 120000 + i * 18000 + (i % 4) * 4000,
-  }));
-}
-
 export function DashboardPage() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const { token: adminToken } = useAuth();
+  const [data, setData] = useState<ReportsAnalyticsDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [peakTab, setPeakTab] = useState<Tab>("day");
@@ -99,16 +45,13 @@ export function DashboardPage() {
     setLoadError(null);
     setLoading(true);
     try {
-      const [st, list] = await Promise.all([
-        api<Stats>("/api/tickets/stats"),
-        api<{ items: TicketRow[] }>("/api/tickets"),
-      ]);
-      setStats(st);
-      setTickets(list.items);
+      const dto = await fetchReportsAnalytics();
+      setData(dto);
     } catch (e) {
+      // Deliberately does NOT fall back to fabricated numbers on failure — an honest error
+      // state is better than a dashboard that silently shows fake, impressive-looking figures.
       setLoadError(e instanceof Error ? e.message : "Failed to load analytics");
-      setTickets([]);
-      setStats(null);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -118,118 +61,50 @@ export function DashboardPage() {
     void refresh();
   }, [refresh]);
 
-  const refDate = useMemo(() => new Date(), []);
-  const year = refDate.getFullYear();
-
-  /** Demo KPI numbers only when the tickets API actually failed (not while loading). */
-  const useDemoKpis = loadError != null;
-
-  const totalPaxDisplay = useDemoKpis
-    ? 7_541_390
-    : stats != null
-      ? stats.totalTicketCount
-      : totalPassengersAllTime(tickets);
-  const totalRevDisplay = useDemoKpis
-    ? 12_847_000
-    : tickets.length > 0
-      ? totalRevenueAllTime(tickets)
-      : Number(stats?.filteredRevenue ?? 0);
-
-  const revenueSummary = useMemo(() => {
-    if (useDemoKpis) {
-      return {
-        day: 428_700,
-        month: 3_916_000,
-        year: 12_847_000,
-      };
-    }
-    const now = refDate;
-    const day = tickets
-      .filter((t) => {
-        const dt = new Date(t.createdAt);
-        return (
-          dt.getFullYear() === now.getFullYear() &&
-          dt.getMonth() === now.getMonth() &&
-          dt.getDate() === now.getDate()
-        );
-      })
-      .reduce((s, t) => s + t.fare, 0);
-    const month = tickets
-      .filter((t) => {
-        const dt = new Date(t.createdAt);
-        return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
-      })
-      .reduce((s, t) => s + t.fare, 0);
-    const year = tickets
-      .filter((t) => new Date(t.createdAt).getFullYear() === now.getFullYear())
-      .reduce((s, t) => s + t.fare, 0);
-    return { day, month, year };
-  }, [useDemoKpis, refDate, tickets]);
-
-  const topLocations = useMemo(() => {
-    if (useDemoKpis) {
-      return [
-        { name: "Malaybalay", count: 4200 },
-        { name: "Valencia", count: 2800 },
-        { name: "Maramag", count: 1800 },
-        { name: "Don Carlos", count: 1200 },
-        { name: "Quezon", count: 900 },
-      ];
-    }
-    const map = new Map<string, number>();
-    tickets.forEach((t) => {
-      const key = t.startLocation || "Unknown";
-      map.set(key, (map.get(key) ?? 0) + 1);
+  // Live refresh: the backend emits "dashboardAnalyticsStale" right after any ticket is issued
+  // (routes/ticketsTicketing.js), so this page updates on its own instead of needing a reload.
+  useEffect(() => {
+    if (!adminToken) return undefined;
+    const socket = io(ADMIN_API_ORIGIN.replace(/\/$/, ""), {
+      path: "/socket.io/",
+      transports: ["websocket", "polling"],
+      reconnectionAttempts: 12,
+      reconnectionDelay: 2000,
+      auth: { token: adminToken },
     });
-    return [...map.entries()]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [useDemoKpis, tickets]);
+    let debounceId: number | null = null;
+    const onStale = () => {
+      if (debounceId != null) window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(() => {
+        void refresh();
+      }, 2000);
+    };
+    socket.on("dashboardAnalyticsStale", onStale);
+    return () => {
+      if (debounceId != null) window.clearTimeout(debounceId);
+      socket.disconnect();
+    };
+  }, [adminToken, refresh]);
 
-  const topLocTotal = Math.max(
-    1,
-    topLocations.reduce((s, x) => s + x.count, 0)
-  );
-
-  /** Chart series: placeholder curves when API failed or there are no ticket rows to aggregate */
-  const chartSeriesDemo = loadError != null || tickets.length === 0;
+  const totalPaxDisplay = data?.executive.totalTickets ?? 0;
+  const totalRevDisplay = data?.executive.totalRevenue ?? 0;
+  const topLocations = data?.topPickupLocations ?? [];
 
   const peakData = useMemo(() => {
-    if (chartSeriesDemo) {
-      if (peakTab === "day") return demoPeakDay();
-      if (peakTab === "month") return demoPeakMonth();
-      return demoPeakYear();
-    }
-    if (peakTab === "day") {
-      const rows = peakByHourForDay(tickets, refDate);
-      return rows.map((r) => ({ hour: r.hour, count: r.count }));
-    }
-    if (peakTab === "month") {
-      return peakByDayOfMonth(tickets, refDate);
-    }
-    return peakByMonthYear(tickets, year);
-  }, [tickets, peakTab, refDate, year, chartSeriesDemo]);
+    if (!data?.peakPassengers) return [];
+    return data.peakPassengers[peakTab];
+  }, [data, peakTab]);
 
   const revData = useMemo(() => {
-    if (chartSeriesDemo) {
-      if (revTab === "day") return demoRevDay();
-      if (revTab === "month") return demoRevMonth();
-      return demoRevYear();
-    }
-    if (revTab === "day") {
-      return revenueByHourDay(tickets, refDate).map((r) => ({ hour: r.hour, revenue: r.revenue }));
-    }
-    if (revTab === "month") {
-      return revenueByDayOfMonth(tickets, refDate);
-    }
-    return revenueByMonthYear(tickets, year);
-  }, [tickets, revTab, refDate, year, chartSeriesDemo]);
+    if (!data?.revenueSeries) return [];
+    return data.revenueSeries[revTab];
+  }, [data, revTab]);
 
   const peakXKey = peakTab === "day" ? "hour" : peakTab === "month" ? "day" : "month";
+  const revXKey = revTab === "day" ? "hour" : revTab === "month" ? "day" : "month";
 
   const peakChart =
-    peakTab === "month" && !chartSeriesDemo ? (
+    peakTab === "month" ? (
       <div className="neo-chart-box">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={peakData as { day: number; count: number }[]}>
@@ -264,8 +139,6 @@ export function DashboardPage() {
       </div>
     );
 
-  const revXKey = revTab === "day" ? "hour" : revTab === "month" ? "day" : "month";
-
   const revChart = (
     <div className="neo-chart-box">
       <ResponsiveContainer width="100%" height="100%">
@@ -286,13 +159,7 @@ export function DashboardPage() {
   const fmtMoney = (n: number) =>
     `₱${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-  const TabBtns = ({
-    value,
-    onChange,
-  }: {
-    value: Tab;
-    onChange: (t: Tab) => void;
-  }) => (
+  const TabBtns = ({ value, onChange }: { value: Tab; onChange: (t: Tab) => void }) => (
     <div className="neo-tabs" role="tablist">
       {(["day", "month", "year"] as const).map((t) => (
         <button
@@ -308,123 +175,171 @@ export function DashboardPage() {
     </div>
   );
 
+  /** Renders a real current-vs-previous-period change, honestly handling the "no prior period
+   *  data" and "flat" cases instead of always showing a hardcoded up arrow. */
+  const TrendLine = ({ trend }: { trend?: ReportTrend }) => {
+    if (!trend) return null;
+    if (trend.direction === "no_prior_data") {
+      return (
+        <div style={{ marginTop: "1rem", fontSize: "0.82rem", color: "#94a3b8" }}>No prior-period data yet</div>
+      );
+    }
+    if (trend.direction === "flat") {
+      return (
+        <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#94a3b8", fontWeight: 700 }}>
+          No change vs last period
+        </div>
+      );
+    }
+    const up = trend.direction === "up";
+    return (
+      <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: up ? "#4ade80" : "#f87171", fontWeight: 700 }}>
+        {up ? "▲" : "▼"} {Math.abs(trend.pctChangePct ?? 0)}% vs last period
+      </div>
+    );
+  };
+
+  /** Shows the real forecast estimate and its method, or an honest "insufficient data" message —
+   *  never a number invented to fill the box. */
+  const ForecastBox = ({ label, forecast }: { label: string; forecast?: ReportForecast }) => (
+    <div className="neo-forecast__box">
+      <span style={{ fontSize: "0.7rem", color: "rgba(148,163,184,0.9)" }}>{label}</span>
+      {forecast?.available ? (
+        <>
+          <strong title={forecast.method}>{fmtMoney(forecast.estimatedRevenue)}</strong>
+          <span style={{ fontSize: "0.62rem", color: "rgba(148,163,184,0.8)" }}>Estimate</span>
+        </>
+      ) : (
+        <span style={{ fontSize: "0.7rem", color: "rgba(148,163,184,0.85)", lineHeight: 1.3 }}>
+          {forecast?.reason ?? "Insufficient historical data for a reliable forecast"}
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <div className="dash-analytics">
-      {!loading && chartSeriesDemo ? (
+      {loadError ? (
         <div
           className="neo-error"
           style={{
-            background: loadError
-              ? "rgba(127, 29, 29, 0.35)"
-              : "rgba(30, 58, 138, 0.35)",
-            borderColor: loadError ? "rgba(248, 113, 113, 0.45)" : "rgba(96, 165, 250, 0.4)",
-            color: loadError ? "#fecaca" : "#bfdbfe",
+            background: "rgba(127, 29, 29, 0.35)",
+            borderColor: "rgba(248, 113, 113, 0.45)",
+            color: "#fecaca",
           }}
         >
-          {loadError
-            ? `Could not load ticket analytics (${loadError}). Showing demo chart series.`
-            : "No ticket rows yet — charts show sample curves until data exists."}
+          Unable to load dashboard analytics ({loadError}). Try refreshing the page.
+        </div>
+      ) : !loading && data && data.executive.totalTickets === 0 ? (
+        <div
+          className="neo-error"
+          style={{
+            background: "rgba(30, 58, 138, 0.35)",
+            borderColor: "rgba(96, 165, 250, 0.4)",
+            color: "#bfdbfe",
+          }}
+        >
+          No ticket activity recorded yet — figures below will populate as tickets are issued.
         </div>
       ) : null}
 
-      <div className="dash-analytics__grid">
-        <div className="dash-analytics__left-col">
-          <div className="dash-analytics__hero">
-            <div className="neo-card">
-              <div className="neo-card__label">All passengers</div>
-              <div className="neo-card__value">{totalPaxDisplay.toLocaleString()}</div>
-              <div className="neo-activity-bar" aria-hidden>
-                <div className="neo-activity-bar__seg neo-activity-bar__seg--a" />
-                <div className="neo-activity-bar__seg neo-activity-bar__seg--b" />
-                <div className="neo-activity-bar__seg neo-activity-bar__seg--c" />
+      {!data ? (
+        loading ? <p className="neo-card__hint">Loading analytics…</p> : null
+      ) : (
+        <div className="dash-analytics__grid">
+          <div className="dash-analytics__left-col">
+            <div className="dash-analytics__hero">
+              <div className="neo-card">
+                <div className="neo-card__label">All passengers</div>
+                <div className="neo-card__value">{totalPaxDisplay.toLocaleString()}</div>
+                <div className="neo-activity-bar" aria-hidden>
+                  <div className="neo-activity-bar__seg neo-activity-bar__seg--a" />
+                  <div className="neo-activity-bar__seg neo-activity-bar__seg--b" />
+                  <div className="neo-activity-bar__seg neo-activity-bar__seg--c" />
+                </div>
+                <p className="neo-card__hint">Top 5 pickup locations by passenger count</p>
+                <div style={{ marginTop: "0.75rem" }}>
+                  {topLocations.map((loc, i) => (
+                    <div key={loc.location} className="neo-list-row">
+                      <span style={{ display: "flex", alignItems: "center" }} title={loc.location}>
+                        <span
+                          className="neo-dot"
+                          style={{ background: ["#22d3ee", "#fb923c", "#a3e635", "#a855f7", "#38bdf8"][i] }}
+                        />
+                        {shortPickupLocationLabel(loc.location)}
+                      </span>
+                      <span>{loc.sharePct}%</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="neo-card__hint">Top 5 pickup locations by passenger count</p>
-              <div style={{ marginTop: "0.75rem" }}>
-                {topLocations.map((loc, i) => (
-                  <div key={loc.name} className="neo-list-row">
-                    <span style={{ display: "flex", alignItems: "center" }} title={loc.name}>
-                      <span className="neo-dot" style={{ background: ["#22d3ee", "#fb923c", "#a3e635", "#a855f7", "#38bdf8"][i] }} />
-                      {shortPickupLocationLabel(loc.name)}
-                    </span>
-                    <span>{Math.round((loc.count / topLocTotal) * 100)}%</span>
-                  </div>
-                ))}
+              <div className="neo-card">
+                <div className="neo-card__label">Total revenue</div>
+                <TabBtns value={revSummaryTab} onChange={setRevSummaryTab} />
+                <div className="neo-card__value">{fmtMoney(data.revenueTrend?.[revSummaryTab]?.current ?? 0)}</div>
+                <p className="neo-card__hint">Revenue per {revSummaryTab}</p>
+                <TrendLine trend={data.revenueTrend?.[revSummaryTab]} />
               </div>
             </div>
+
             <div className="neo-card">
-              <div className="neo-card__label">Total revenue</div>
-              <TabBtns value={revSummaryTab} onChange={setRevSummaryTab} />
-              <div className="neo-card__value">{fmtMoney(revenueSummary[revSummaryTab])}</div>
-              <p className="neo-card__hint">Revenue per {revSummaryTab}</p>
-              <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#4ade80", fontWeight: 700 }}>▲ 10% vs last period</div>
+              <div className="neo-chart-title">
+                <h3>Passenger peak hours</h3>
+                <TabBtns value={peakTab} onChange={setPeakTab} />
+              </div>
+              <p className="neo-card__hint" style={{ marginBottom: "0.5rem" }}>
+                {peakTab === "day" ? "By hour" : peakTab === "month" ? "By day" : "By month"}
+              </p>
+              {peakChart}
             </div>
           </div>
 
-          <div className="neo-card">
-            <div className="neo-chart-title">
-              <h3>Passenger peak hours</h3>
-              <TabBtns value={peakTab} onChange={setPeakTab} />
+          <button
+            type="button"
+            className="neo-globe-wrap neo-globe-wrap--clickable"
+            onClick={() => navigate("/dashboard/locations?focus=bukidnon")}
+            title="Open Bukidnon map"
+          >
+            <img src={dashboardBackground} alt="Bukidnon live network" className="neo-globe-media neo-globe-media--dark" />
+            <img src={dashboardBackgroundLight} alt="Bukidnon live network" className="neo-globe-media neo-globe-media--light" />
+            <p className="neo-globe__caption">Bukidnon transport · live network</p>
+          </button>
+
+          <div className="neo-side-stack">
+            <div className="neo-card neo-stat-sm">
+              <div className="neo-stat-sm__icon neo-stat-sm__icon--p">👥</div>
+              <div>
+                <div className="neo-stat-sm__lbl">Overall passengers</div>
+                <div className="neo-stat-sm__val">{totalPaxDisplay.toLocaleString()}</div>
+              </div>
             </div>
-            <p className="neo-card__hint" style={{ marginBottom: "0.5rem" }}>
-              {peakTab === "day" ? "By hour" : peakTab === "month" ? "By day" : "By month"}
-            </p>
-            {peakChart}
+            <div className="neo-card neo-stat-sm">
+              <div className="neo-stat-sm__icon neo-stat-sm__icon--c">✦</div>
+              <div>
+                <div className="neo-stat-sm__lbl">Total passenger revenue</div>
+                <div className="neo-stat-sm__val">{fmtMoney(totalRevDisplay)}</div>
+              </div>
+            </div>
+            <div className="neo-card">
+              <div className="neo-card__label">Forecast</div>
+              <div className="neo-forecast">
+                <ForecastBox label="Monthly" forecast={data.forecast?.monthly} />
+                <ForecastBox label="Yearly" forecast={data.forecast?.yearly} />
+              </div>
+            </div>
+            <div className="neo-card">
+              <div className="neo-chart-title">
+                <h3>Revenue</h3>
+                <TabBtns value={revTab} onChange={setRevTab} />
+              </div>
+              <p className="neo-card__hint" style={{ marginBottom: "0.5rem" }}>
+                {revTab === "day" ? "Per hour" : revTab === "month" ? "Per day" : "Per month"}
+              </p>
+              {revChart}
+            </div>
           </div>
         </div>
-
-        <button
-          type="button"
-          className="neo-globe-wrap neo-globe-wrap--clickable"
-          onClick={() => navigate("/dashboard/locations?focus=bukidnon")}
-          title="Open Bukidnon map"
-        >
-          <img src={dashboardBackground} alt="Bukidnon live network" className="neo-globe-media neo-globe-media--dark" />
-          <img src={dashboardBackgroundLight} alt="Bukidnon live network" className="neo-globe-media neo-globe-media--light" />
-          <p className="neo-globe__caption">Bukidnon transport · live network</p>
-        </button>
-
-        <div className="neo-side-stack">
-          <div className="neo-card neo-stat-sm">
-            <div className="neo-stat-sm__icon neo-stat-sm__icon--p">👥</div>
-            <div>
-              <div className="neo-stat-sm__lbl">Overall passengers</div>
-              <div className="neo-stat-sm__val">{totalPaxDisplay.toLocaleString()}</div>
-            </div>
-          </div>
-          <div className="neo-card neo-stat-sm">
-            <div className="neo-stat-sm__icon neo-stat-sm__icon--c">✦</div>
-            <div>
-              <div className="neo-stat-sm__lbl">Total passenger revenue</div>
-              <div className="neo-stat-sm__val">{fmtMoney(totalRevDisplay)}</div>
-            </div>
-          </div>
-          <div className="neo-card">
-            <div className="neo-card__label">Forecast</div>
-            <div className="neo-forecast">
-              <div className="neo-forecast__box">
-                <span style={{ fontSize: "0.7rem", color: "rgba(148,163,184,0.9)" }}>Monthly</span>
-                <strong>{fmtMoney(useDemoKpis ? 890000 : totalRevDisplay / 12)}</strong>
-                <span className="neo-trend-up">▲ 8%</span>
-              </div>
-              <div className="neo-forecast__box">
-                <span style={{ fontSize: "0.7rem", color: "rgba(148,163,184,0.9)" }}>Yearly</span>
-                <strong>{fmtMoney(useDemoKpis ? 10200000 : totalRevDisplay)}</strong>
-                <span className="neo-trend-up">▲ 12%</span>
-              </div>
-            </div>
-          </div>
-          <div className="neo-card">
-            <div className="neo-chart-title">
-              <h3>Revenue</h3>
-              <TabBtns value={revTab} onChange={setRevTab} />
-            </div>
-            <p className="neo-card__hint" style={{ marginBottom: "0.5rem" }}>
-              {revTab === "day" ? "Per hour" : revTab === "month" ? "Per day" : "Per month"}
-            </p>
-            {revChart}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

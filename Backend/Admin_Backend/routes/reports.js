@@ -40,6 +40,25 @@ function emptyAnalyticsPayload() {
     dailyLast14: [],
     monthlyThisYear: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, label: monthLabels[i], tickets: 0, revenue: 0 })),
     yearlyAll: [],
+    peakPassengers: {
+      day: Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 })),
+      month: [],
+      year: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, label: monthLabels[i], count: 0 })),
+    },
+    revenueSeries: {
+      day: Array.from({ length: 24 }, (_, h) => ({ hour: h, revenue: 0 })),
+      month: [],
+      year: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, label: monthLabels[i], revenue: 0 })),
+    },
+    revenueTrend: {
+      day: { current: 0, previous: 0, pctChangePct: null, direction: "flat" },
+      month: { current: 0, previous: 0, pctChangePct: null, direction: "flat" },
+      year: { current: 0, previous: 0, pctChangePct: null, direction: "flat" },
+    },
+    forecast: {
+      monthly: { available: false, estimatedRevenue: null, reason: "Insufficient historical data for a reliable forecast" },
+      yearly: { available: false, estimatedRevenue: null, reason: "Insufficient historical data for a reliable forecast" },
+    },
     topPickupsToday: [],
     topPickupsLast30: [],
     topPickupsMtd: [],

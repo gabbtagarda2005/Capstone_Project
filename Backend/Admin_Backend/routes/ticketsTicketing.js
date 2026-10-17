@@ -308,6 +308,15 @@ function createTicketsTicketingRouter(io) {
         buildPublicPayload()
           .then((payload) => broadcastLiveBoard(io, payload))
           .catch((e) => console.warn("[tickets/issue] live board broadcast failed:", e.message || e));
+
+        // Tells any connected Admin Dashboard to silently refetch /api/reports/analytics (its
+        // passenger/revenue/peak-hour figures just changed) instead of needing a page reload.
+        // Non-blocking, and a missed delivery just means the next ticket's emit catches it up.
+        try {
+          io.emit("dashboardAnalyticsStale");
+        } catch (e) {
+          console.warn("[tickets/issue] dashboardAnalyticsStale emit failed:", e.message || e);
+        }
       }
 
       return res.status(201).json({
