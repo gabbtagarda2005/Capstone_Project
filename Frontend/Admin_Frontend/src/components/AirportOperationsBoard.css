@@ -96,6 +96,20 @@
   padding: 0 0 12px;
 }
 
+/* Restores native table row layout against a global accessibility rule
+   (passenger/styles/accessibility.css's `[class*="status"]` selector) that unintentionally
+   matches this table's rows too, since every row carries a `airport-board__status--<tier>`
+   modifier class — the substring "status" matches even though these rows are not badges. That
+   global rule forces `display: inline-flex`, which breaks the browser's table column-alignment
+   algorithm: the header row (not similarly affected) and body rows end up sized independently,
+   so header labels drift away from their data columns. Scoped here, more specific than the
+   attribute selector, so it wins without changing the shared rule for the badges/pills it's
+   actually meant for. */
+.airport-board__table thead tr,
+.airport-board__table tbody tr {
+  display: table-row;
+}
+
 .airport-board__table thead th {
   text-align: left;
   font-size: 0.62rem;
