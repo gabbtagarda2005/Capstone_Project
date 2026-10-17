@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -53,6 +54,8 @@ import { type GpsSignalTier } from "@/lib/locationsMapUtils";
 import { LiveFleetBusCard } from "@/components/LiveFleetBusCard";
 import { MapControlPanel, type MapLayerKey, type MapLayerState, type BasemapMode } from "@/components/map/MapControlPanel";
 import { TacticalMapLegendHud } from "@/components/map/TacticalMapLegendHud";
+import { fetchPublicWeatherMap, type WeatherSpot } from "@/passenger/lib/fetchPublicWeatherMap";
+import { PassengerWeatherPanel, weatherEmojiForCode } from "@/passenger/components/PassengerWeatherPanel";
 import "./LocationsPage.css";
 
 const DEFAULT_CENTER: [number, number] = [8.1477, 125.1324];
@@ -400,6 +403,21 @@ const LEAFLET_BUS_ICON = L.divIcon({
   iconSize: [36, 36],
   iconAnchor: [18, 18],
 });
+
+/** One divIcon per distinct weather code actually seen — mirrors passenger DashboardMap.tsx's weatherDivIcon(). */
+const weatherIconCache = new Map<number, L.DivIcon>();
+function leafletWeatherIcon(code: number): L.DivIcon {
+  const cached = weatherIconCache.get(code);
+  if (cached) return cached;
+  const icon = L.divIcon({
+    className: "locations-page__leaflet-weather",
+    html: `<div class="locations-page__leaflet-weather-pin" aria-hidden="true">${weatherEmojiForCode(code)}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+  weatherIconCache.set(code, icon);
+  return icon;
+}
 /** Selected-bus route start/end pins (A = origin green, B = destination red) — Leaflet, inline-styled to match this file's other divIcons. */
 function leafletRouteEndpointIcon(letter: "A" | "B", fill: string) {
   return L.divIcon({
@@ -549,7 +567,10 @@ export function LocationsPage() {
     heatmap: true,
     delays: true,
     buses: true,
+    weather: false,
   });
+  const [weatherSpots, setWeatherSpots] = useState<WeatherSpot[]>([]);
+  const [selectedWeatherSpot, setSelectedWeatherSpot] = useState<WeatherSpot | null>(null);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [flySeq, setFlySeq] = useState(0);
   const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
@@ -842,6 +863,30 @@ export function LocationsPage() {
       window.clearInterval(id);
     };
   }, [adminToken, layers.traffic]);
+
+  /** Same public weather-advisories feed the passenger map uses — only polled while the Weather
+   *  overlay is on, matching passenger DashboardMap.tsx's rationale (backend cache itself only
+   *  refreshes every ~10 min, so polling while the layer is off wastes nothing but still costs
+   *  request budget). */
+  useEffect(() => {
+    if (!layers.weather) return;
+    let cancelled = false;
+    const load = () => {
+      fetchPublicWeatherMap()
+        .then((feed) => {
+          if (!cancelled) setWeatherSpots(feed.spots);
+        })
+        .catch(() => {
+          if (!cancelled) setWeatherSpots([]);
+        });
+    };
+    load();
+    const id = window.setInterval(load, 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [layers.weather]);
 
   useEffect(() => {
     if (!adminToken) return;
@@ -1657,6 +1702,18 @@ export function LocationsPage() {
                     })
                   : null}
 
+                {layers.weather
+                  ? weatherSpots.map((spot) => (
+                      <LeafletMarker
+                        key={`weather-${spot.locationName}-${spot.lat}-${spot.lon}`}
+                        position={[spot.lat, spot.lon]}
+                        icon={leafletWeatherIcon(spot.code)}
+                        zIndexOffset={600}
+                        eventHandlers={{ click: () => setSelectedWeatherSpot(spot) }}
+                      />
+                    ))
+                  : null}
+
                 {selectedBusRoute.status === "ready" && selectedBusRoute.data?.available ? (
                   <>
                     {selectedRoutePositions.length >= 2 ? (
@@ -1977,6 +2034,32 @@ export function LocationsPage() {
                     })
                   : null}
 
+                {layers.weather
+                  ? weatherSpots.map((spot) => (
+                      <MarkerF
+                        key={`weather-${spot.locationName}-${spot.lat}-${spot.lon}`}
+                        position={{ lat: spot.lat, lng: spot.lon }}
+                        onClick={() => setSelectedWeatherSpot(spot)}
+                        zIndex={600}
+                        label={
+                          isGoogleLoaded ? ({ text: weatherEmojiForCode(spot.code), fontSize: "15px" } as google.maps.MarkerLabel) : undefined
+                        }
+                        icon={
+                          googleCirclePath != null
+                            ? ({
+                                path: googleCirclePath,
+                                scale: 13,
+                                fillColor: "#0f172a",
+                                fillOpacity: 0.85,
+                                strokeColor: "#60a5fa",
+                                strokeWeight: 2,
+                              } as google.maps.Symbol)
+                            : undefined
+                        }
+                      />
+                    ))
+                  : null}
+
                 {selectedBusRoute.status === "ready" && selectedBusRoute.data?.available ? (
                   <>
                     {selectedRoutePositions.length >= 2 ? (
@@ -2121,6 +2204,13 @@ export function LocationsPage() {
           </ul>
         )}
       </section>
+
+      {selectedWeatherSpot
+        ? createPortal(
+            <PassengerWeatherPanel spot={selectedWeatherSpot} onClose={() => setSelectedWeatherSpot(null)} />,
+            document.body
+          )
+        : null}
     </div>
   );
 }

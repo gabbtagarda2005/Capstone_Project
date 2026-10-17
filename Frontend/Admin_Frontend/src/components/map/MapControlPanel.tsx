@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { createPortal } from "react-dom";
 import "./MapControlPanel.css";
 
-export type MapLayerKey = "geofence" | "traffic" | "heatmap" | "delays" | "buses";
+export type MapLayerKey = "geofence" | "traffic" | "heatmap" | "delays" | "buses" | "weather";
 
 export type MapLayerState = Record<MapLayerKey, boolean>;
 
@@ -64,6 +64,15 @@ function IconBus() {
       <circle cx="7.5" cy="19" r="1.5" fill="#1e293b" />
       <circle cx="16.5" cy="19" r="1.5" fill="#1e293b" />
       <rect x="15" y="12" width="3" height="2" rx="0.3" fill="#38bdf8" />
+    </svg>
+  );
+}
+
+function IconWeather() {
+  return (
+    <svg className="map-dock__chip-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4-1.5A4.5 4.5 0 0 0 6.5 19h11z" />
+      <path d="M8 12.5a4 4 0 0 1 4-4" opacity="0.5" />
     </svg>
   );
 }
@@ -289,6 +298,13 @@ export function MapControlPanel({
             label="Buses"
             active={layers.buses}
             onClick={() => onToggle("buses", !layers.buses)}
+          />
+          <LayerChip
+            icon={<IconWeather />}
+            label="Weather"
+            active={layers.weather}
+            live
+            onClick={() => onToggle("weather", !layers.weather)}
           />
         </div>
       </div>

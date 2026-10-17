@@ -1347,3 +1347,28 @@
   font-size: 1rem;
   box-shadow: 0 4px 22px rgba(34, 211, 238, 0.35);
 }
+
+/* Matches the passenger map's weather pin exactly (dashboard-map__weather-pin in
+   passenger/components/DashboardMap.css). */
+.locations-page__leaflet-weather {
+  background: transparent !important;
+  border: none !important;
+}
+
+.locations-page__leaflet-weather-pin {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 1.05rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid rgba(96, 165, 250, 0.8);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="light"] .locations-page__leaflet-weather-pin {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 4px 14px rgba(16, 24, 40, 0.25);
+}
