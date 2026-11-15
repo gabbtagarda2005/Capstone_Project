@@ -3295,6 +3295,9 @@ a.pd-card:hover {
 }
 
 .pd-spa-eta-tile__board-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.68rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -3303,6 +3306,24 @@ a.pd-card:hover {
 
 :root[data-theme="light"] .pd-spa-eta-tile__board-count {
   color: #1e2735;
+}
+
+.pd-spa-eta-tile__board-count--full {
+  color: #fca5a5;
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__board-count--full {
+  color: #b91c1c;
+}
+
+.pd-spa-eta-tile__board-full-badge {
+  padding: 0.08rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: #dc2626;
 }
 
 .pd-spa-eta-tile__bar-track {
@@ -3324,6 +3345,11 @@ a.pd-card:hover {
   background: linear-gradient(90deg, #0b3d7a, var(--eta-electric), var(--eta-cyan));
   box-shadow: 0 0 16px rgba(0, 85, 255, 0.45);
   transition: width 0.45s ease;
+}
+
+.pd-spa-eta-tile__bar-fill--full {
+  background: linear-gradient(90deg, #7f1d1d, #dc2626, #ef4444);
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.5);
 }
 
 .pd-spa-eta-tile__route-zone {

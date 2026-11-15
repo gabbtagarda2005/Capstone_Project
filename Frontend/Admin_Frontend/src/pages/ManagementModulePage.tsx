@@ -14,7 +14,6 @@ import { EditAttendantModal } from "@/components/EditAttendantModal";
 import { AddDriverWizard } from "@/components/AddDriverWizard";
 import { EditDriverModal } from "@/components/EditDriverModal";
 import { AddBusModal, type AddBusFormState } from "@/components/AddBusModal";
-import { AdminAuditTechnicalModal } from "@/components/AdminAuditTechnicalModal";
 import { RouteManagementPanel } from "@/components/RouteManagementPanel";
 import { ScheduleManagementPanel } from "@/components/ScheduleManagementPanel";
 import { FareManagementPanel } from "@/components/FareManagementPanel";
@@ -2756,7 +2755,6 @@ function BusManagementPanel() {
       </section>
 
       <section>
-        <h2 className="dash-h2">Maintenance tracker</h2>
         {buses.length === 0 ? (
           <div className="mgmt-bus-empty">
             <div className="mgmt-bus-empty__icon" aria-hidden>
@@ -2855,7 +2853,6 @@ function AdminManagementActivityPanel() {
   const [logs, setLogs] = useState<AdminAuditLogRowDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [techRow, setTechRow] = useState<AdminAuditLogRowDto | null>(null);
   const [activitySearch, setActivitySearch] = useState("");
   const [activityModule, setActivityModule] = useState<string>("all");
   const [addAdminOpen, setAddAdminOpen] = useState(false);
@@ -3007,14 +3004,6 @@ function AdminManagementActivityPanel() {
                             </time>
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          className="mgmt-admins__activity-info"
-                          aria-label="Technical details"
-                          onClick={() => setTechRow(row)}
-                        >
-                          ⓘ
-                        </button>
                       </li>
                     );
                   })}
@@ -3022,7 +3011,6 @@ function AdminManagementActivityPanel() {
               )}
             </>
           ) : null}
-          <AdminAuditTechnicalModal open={techRow != null} onClose={() => setTechRow(null)} row={techRow} />
         </div>
       </div>
       <AddAdminModal isOpen={addAdminOpen} onClose={() => setAddAdminOpen(false)} onSaved={() => void load()} />

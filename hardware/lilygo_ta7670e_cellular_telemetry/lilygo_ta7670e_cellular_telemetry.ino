@@ -499,7 +499,11 @@ static bool simReady() {
 }
 
 static bool cellularRegistered() {
+  // A7670E is LTE-only (Cat-1): EPS registration (CEREG) is authoritative; CGREG can lag or stay
+  // 0 on LTE even while CEREG already reports registered. Accept either.
   String r = modemExchange("AT+CGREG?", 3000);
+  if (r.indexOf(",1") >= 0 || r.indexOf(",5") >= 0) return true;
+  r = modemExchange("AT+CEREG?", 3000);
   return r.indexOf(",1") >= 0 || r.indexOf(",5") >= 0;
 }
 
@@ -1037,6 +1041,21 @@ void setup() {
     }
   }
 #endif
+
+  // Start GNSS immediately at boot, independent of SIM/network/PDP. Previously GNSS only started
+  // after the first successful PDP attach, so powering up in a no-signal spot (or with a SIM
+  // problem) left GPS off entirely — no fix to buffer and nothing for SMS fallback to send.
+  if (modemReady) {
+    dbg("[gps] GNSS power-on + multi-constellation (at boot)...");
+    if (!gnssPowerOn()) {
+      dbg("[gps] CGNSSPWR may have failed — still trying reads.");
+    }
+#if GNSS_ENABLE_MULTI_CONSTELLATION
+    modemExchange("AT+CGNSSMODE=3", 3000);
+#endif
+    gGnssStarted = true;
+    gLastGnssPollMs = 0;
+  }
 
   gState = ST_SIM_CHECK;
 }

@@ -1,0 +1,58 @@
+# Fare Estimate and Arrival Alarm — Component Documentation
+### Bukidnon Bus Company @BUKSU — Passenger Module
+
+*The descriptions below are based on direct inspection of the system's source code. They describe what the passenger sees, what each control does, and how each feature actually works, written in plain language rather than technical terms.*
+
+---
+
+## Fare Estimate
+
+**Start Location.**
+The passenger chooses where their trip begins from a dropdown list of the company's registered terminals and bus stops — the same set of locations used elsewhere in the app, not a separate list created just for this feature.
+
+**Current Location Option.**
+When this option is used, the system genuinely asks the passenger's device for its real location and uses that to automatically fill in the Start Location field with whichever registered terminal is closest to where the passenger actually is — it does not simply label the field "current location" as text. The passenger's exact coordinates are only used to find this nearest terminal; they are not sent on to calculate the fare itself, only the chosen terminal's name is. If the passenger manually picks or types a different starting point afterward, the system will not override that choice again. One limitation worth noting: if the passenger does not allow location access, or their device cannot determine a location, the Start Location field simply remains as it was, with no visible message in this particular part of the screen explaining why the automatic fill-in did not happen.
+
+**Destination Location.**
+The destination is chosen the same way as the starting point, from the same list of registered terminals and stops. The "use your current location" option described above is only available for the Start Location field — there is no equivalent shortcut for choosing a destination.
+
+**Passenger Category.**
+Four fare categories are offered — Regular, Student, Senior, and PWD (person with disability) — and choosing a category genuinely changes the fare shown, through a fresh calculation rather than a simple on-screen adjustment. Student, Senior, and PWD each receive a discount percentage set by the system's administrators, by default twenty percent off the base fare for each category, while Regular receives no discount.
+
+**Total Fare.**
+A fare amount only appears once both a starting point and a destination have been chosen; before that, the screen simply prompts the passenger to choose both. While the fare is being worked out, a brief "Calculating" message is shown. Once ready, the fare is displayed as a peso amount, rounded to the nearest fifty centavos. If the system does not have pricing information connecting the two chosen points, a clear message says so instead of showing an incorrect price, and if the request to calculate the fare fails outright, a separate message explains that the fare could not be retrieved.
+
+**Validation and Limitations.**
+There is no separate "Calculate" button to press — the fare updates automatically as the passenger makes selections. If either the starting point or the destination has not yet been chosen, the system does not show an error; it simply displays a prompt asking the passenger to complete both. If a passenger selects the exact same terminal for both the start and the destination, the system recognizes this specific case and explains, in plain language, that a different destination or a specific bus stop should be chosen instead, rather than showing a fare of zero or an incorrect amount.
+
+---
+
+## Arrival Alarm
+
+**Arrival Alarm Description.**
+This feature is meant to help a passenger avoid missing their stop by alerting them once they are physically close to the terminal or stop they have chosen, so they do not need to continuously watch the screen while traveling.
+
+**Notify Me At.**
+The passenger selects which terminal or stop should trigger the alarm from its own dropdown list, covering every registered terminal and stop in the system. It is worth noting that this selection is entirely separate from whatever destination the passenger may have already chosen in the Fare Estimate feature described above — the two are not connected, so a passenger wanting the alarm to match their planned destination needs to select it again here.
+
+**Set Arrival Alarm.**
+Once a stop is chosen, pressing this button activates the alarm. Doing so begins continuously checking the passenger's real device location in the background and, while active, the screen shows a live, continuously updating message stating how far away the passenger currently is from the chosen stop, along with a button to cancel the alarm. The activation button itself is replaced by this live status display while the alarm is running, and the stop selection can no longer be changed until the alarm is cancelled or it goes off.
+
+**Notifications.**
+When the alarm triggers, the system uses several methods together rather than just one: it plays a short, repeating audible tone generated by the app itself (not a recorded sound file); on devices that support it, it causes the device to vibrate briefly; if the passenger has allowed notifications, it also shows an actual device notification; and in every case, a clear on-screen message appears confirming that the passenger has arrived, with a button to dismiss it.
+
+**Arrival Detection.**
+The system determines arrival by directly comparing the passenger's own live device location against the location of the chosen terminal or stop, and triggers the alarm once the passenger comes within that stop's configured detection distance — by default around one hundred fifty meters if the administrators have not set a specific distance for that location. It is important to be precise about what this feature does and does not use: it is based entirely on the passenger's own device location, not on the estimated arrival time shown elsewhere in the app, and not on tracking any specific bus. The alarm does not know or care which bus, if any, the passenger is actually riding — it only knows how close the passenger's device currently is to the chosen point.
+
+**Permissions and Limitations.**
+This feature requires the passenger to allow location access on their device; without it, the alarm cannot function, and a clear message explains that location access is needed. Allowing notifications is optional — if the passenger does not grant this permission, the sound, vibration, and on-screen message still work normally, only the separate device notification is skipped. An important limitation is that the alarm only works while the page remains open in the passenger's browser: closing the tab, navigating away, or reloading the page cancels the alarm completely and resets it, since nothing about an active alarm is saved anywhere — not on the device and not on the system's servers. A passenger who closes the page after setting the alarm would need to set it again to continue being watched.
+
+---
+
+## Documentation Summary
+
+Together, the Fare Estimate and Arrival Alarm features help a passenger plan a trip before boarding and stay informed without constant attention while traveling. The Fare Estimate lets a passenger check how much a trip will cost between two points, adjusted for the applicable discount category, before they commit to riding, while the Arrival Alarm lets them relax during the trip with confidence that they will be alerted — through sound, vibration, and an on-screen message — as they approach their chosen stop, provided they keep the page open and have allowed the system to check their location.
+
+## Testing and Verification
+
+This documentation is based entirely on direct inspection of the system's source code. It has not been confirmed through actual use of the running application in a browser, and no live test of the fare calculation or the arrival alarm triggering correctly was performed as part of producing this documentation.

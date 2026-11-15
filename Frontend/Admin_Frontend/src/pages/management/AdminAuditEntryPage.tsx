@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AdminAuditTechnicalModal } from "@/components/AdminAuditTechnicalModal";
 import { ViewDetailsDl, ViewDetailsRow } from "@/components/ViewDetailsModal";
 import { fetchAdminAuditLog } from "@/lib/api";
 import { formatRelativeAuditTime, humanizeAdminAuditSentence } from "@/lib/humanizeAdminAudit";
@@ -11,7 +10,6 @@ export function AdminAuditEntryPage() {
   const { logId } = useParams();
   const [row, setRow] = useState<AdminAuditLogRowDto | null | undefined>(undefined);
   const [err, setErr] = useState<string | null>(null);
-  const [techOpen, setTechOpen] = useState(false);
 
   useEffect(() => {
     if (!logId) {
@@ -75,17 +73,8 @@ export function AdminAuditEntryPage() {
         <ViewDetailsRow label="Action" value={row.action} />
         <ViewDetailsRow label="Module" value={row.module} />
         {row.source ? <ViewDetailsRow label="Source" value={row.source} /> : null}
-        <ViewDetailsRow
-          label="Technical details"
-          value={
-            <button type="button" className="view-details-modal__done" onClick={() => setTechOpen(true)}>
-              View raw request
-            </button>
-          }
-        />
         <ViewDetailsRow label="Entry ID" value={<span className="view-details-row__value--mono">{row.id}</span>} />
       </ViewDetailsDl>
-      <AdminAuditTechnicalModal open={techOpen} onClose={() => setTechOpen(false)} row={row} />
     </ManagementDetailShell>
   );
 }

@@ -701,6 +701,7 @@ function PassengerQuickEtaTile({
   const cap = Math.max(0, row.seatCap);
   const boardedClamped = cap > 0 ? Math.min(cap, Math.max(0, row.boardedCount)) : 0;
   const fillPct = cap > 0 ? Math.min(100, (boardedClamped / cap) * 100) : 0;
+  const isFull = cap > 0 && boardedClamped >= cap;
 
   const inner = (
     <div className="pd-spa-eta-tile__surface">
@@ -780,8 +781,13 @@ function PassengerQuickEtaTile({
       <div className="pd-spa-eta-tile__board">
         <div className="pd-spa-eta-tile__board-head">
           <span className="pd-spa-eta-tile__board-label">Boarded</span>
-          <span className="pd-spa-eta-tile__board-count">
+          <span
+            className={
+              "pd-spa-eta-tile__board-count" + (isFull ? " pd-spa-eta-tile__board-count--full" : "")
+            }
+          >
             {cap > 0 ? `${boardedClamped} / ${cap}` : "—"}
+            {isFull ? <span className="pd-spa-eta-tile__board-full-badge">FULL</span> : null}
           </span>
         </div>
         <div
@@ -790,9 +796,14 @@ function PassengerQuickEtaTile({
           aria-valuemin={0}
           aria-valuemax={cap > 0 ? cap : 1}
           aria-valuenow={cap > 0 ? boardedClamped : 0}
-          aria-label={`Boarded ${row.boardedLine}`}
+          aria-label={`Boarded ${row.boardedLine}${isFull ? " — Full" : ""}`}
         >
-          <div className="pd-spa-eta-tile__bar-fill" style={{ width: `${fillPct}%` }} />
+          <div
+            className={
+              "pd-spa-eta-tile__bar-fill" + (isFull ? " pd-spa-eta-tile__bar-fill--full" : "")
+            }
+            style={{ width: `${fillPct}%` }}
+          />
         </div>
       </div>
 

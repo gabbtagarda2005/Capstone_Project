@@ -1153,15 +1153,19 @@ class _MainShellState extends State<MainShell> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(r.message ?? 'SOS failed'),
+            content: const Text('Could not send SOS. Please try again or contact dispatch directly.'),
             backgroundColor: TacticalColors.alertRed,
           ),
         );
       }
     } catch (e) {
+      debugPrint('[SOS] send failed: $e');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('SOS failed: $e'), backgroundColor: TacticalColors.alertRed),
+        SnackBar(
+          content: const Text('Could not send SOS. Please try again or contact dispatch directly.'),
+          backgroundColor: TacticalColors.alertRed,
+        ),
       );
     }
   }

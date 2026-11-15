@@ -73,7 +73,7 @@ async function resolveRouteEndpoints(routeStr) {
     }
   }
 
-  const idxMatch = /^route\s*(\d+)\s*$/i.exec(raw);
+  const idxMatch = /route\s*(\d+)\s*$/i.exec(raw);
   if (idxMatch) {
     const sorted = [...metas].sort((a, b) => (a.display || "").localeCompare(b.display || "", undefined, { sensitivity: "base" }));
     const idx = parseInt(idxMatch[1], 10) - 1;

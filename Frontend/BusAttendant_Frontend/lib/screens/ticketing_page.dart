@@ -930,8 +930,8 @@ class _TicketingPageState extends State<TicketingPage> {
         _fareNeedsManualEntry = true;
         _fareQuoteExplanation = null;
         if (!_editMode) _fare.text = '';
-        _fareQuoteError = 'Offline and no cached fare for this route — enter the fare manually. '
-            'It will be verified against the fare matrix once back online.';
+        _fareQuoteError = 'Offline and no saved fare for this route yet — enter the fare manually. '
+            'It will be checked once you are back online.';
       });
       return;
     }
@@ -944,7 +944,7 @@ class _TicketingPageState extends State<TicketingPage> {
       if (!_editMode) {
         _fare.text = '';
       }
-      _fareQuoteError = r.message ?? 'No matrix fare for these hubs — add hub-to-hub fare in Admin';
+      _fareQuoteError = 'No fare has been set up for this route yet. Please contact your administrator.';
     });
   }
 

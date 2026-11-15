@@ -611,10 +611,10 @@ app.get("/api/public/fleet-buses", async (req, res) => {
     }
     function hubLabel(cov) {
       if (!cov || typeof cov !== "object") return null;
-      const t = cov.terminal && String(cov.terminal.name || "").trim();
-      if (t) return t;
       const ln = String(cov.locationName || "").trim();
-      return ln || null;
+      if (ln) return ln;
+      const t = cov.terminal && String(cov.terminal.name || "").trim();
+      return t || null;
     }
     function normRouteKey(s) {
       return String(s || "")
@@ -655,7 +655,7 @@ app.get("/api/public/fleet-buses", async (req, res) => {
           if (arrow === n || dash === n || bi === n) return { routeStart: m.start, routeEnd: m.end };
         }
       }
-      const idxMatch = /^route\s*(\d+)\s*$/i.exec(raw);
+      const idxMatch = /route\s*(\d+)\s*$/i.exec(raw);
       if (idxMatch) {
         const idx = parseInt(idxMatch[1], 10) - 1;
         if (idx >= 0 && idx < sortedForRouteIndex.length) {
@@ -744,10 +744,10 @@ const { buildOrderedRouteWaypoints, stitchRouteGeometry } = require("./services/
 function resolveCorridorForBusRoute(routeStr, corridorDocs) {
   function hubLabel(cov) {
     if (!cov || typeof cov !== "object") return null;
-    const t = cov.terminal && String(cov.terminal.name || "").trim();
-    if (t) return t;
     const ln = String(cov.locationName || "").trim();
-    return ln || null;
+    if (ln) return ln;
+    const t = cov.terminal && String(cov.terminal.name || "").trim();
+    return t || null;
   }
   function normRouteKey(s) {
     return String(s || "")
@@ -778,7 +778,7 @@ function resolveCorridorForBusRoute(routeStr, corridorDocs) {
       if (arrow === n || dash === n || bi === n) return m.doc;
     }
   }
-  const idxMatch = /^route\s*(\d+)\s*$/i.exec(raw);
+  const idxMatch = /route\s*(\d+)\s*$/i.exec(raw);
   if (idxMatch) {
     const sorted = [...metas].sort((a, b) => (a.display || "").localeCompare(b.display || "", undefined, { sensitivity: "base" }));
     const idx = parseInt(idxMatch[1], 10) - 1;

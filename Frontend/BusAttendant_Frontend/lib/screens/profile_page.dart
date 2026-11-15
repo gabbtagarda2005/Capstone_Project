@@ -164,8 +164,11 @@ class _ProfilePageState extends State<ProfilePage> {
             return const Center(child: CircularProgressIndicator(color: MintObsidian.mint));
           }
           if (snap.hasError || !snap.hasData) {
-            final err = snap.error?.toString().trim();
-            final detail = (err == null || err.isEmpty) ? 'Check your session and API connection.' : err;
+            final err = snap.error?.toString().trim() ?? '';
+            if (err.isNotEmpty) debugPrint('[ProfilePage] profile load failed: $err');
+            final detail = err.contains('401')
+                ? 'Your session has expired. Please sign in again.'
+                : 'Please check your internet connection and try again.';
             return Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -539,9 +542,10 @@ class _ProfilePageState extends State<ProfilePage> {
         const SnackBar(content: Text('Shift summary generated. Use share sheet to save or email.')),
       );
     } catch (e) {
+      debugPrint('[ProfilePage] shift summary generation failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not generate shift summary: $e')),
+        const SnackBar(content: Text('Could not generate your shift summary. Please try again.')),
       );
     } finally {
       if (mounted) setState(() => _pdfBusy = false);

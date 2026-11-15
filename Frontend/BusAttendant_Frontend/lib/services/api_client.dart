@@ -1,25 +1,33 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/trip_result.dart';
 import 'maintenance_shield.dart';
 
+/// Builds the message shown to the attendant for a non-2xx server response.
+///
+/// The server's own `error`/`message` text is shown when present and short enough
+/// to be a plain sentence (that's a real business-rule explanation, e.g. "No fare
+/// set for this route yet"). Anything else — raw HTTP status codes, response
+/// bodies, or server/ops wording — is replaced with a plain, non-technical
+/// sentence; the real detail is still logged for developers via [debugPrint].
 String _parseApiErrorBody(http.Response res, String fallbackPrefix) {
   try {
     final decoded = jsonDecode(res.body);
     if (decoded is Map<String, dynamic>) {
       final msg = decoded['error']?.toString() ?? decoded['message']?.toString();
-      if (msg != null && msg.isNotEmpty) {
-        return res.statusCode == 404 ? msg : '$msg (${res.statusCode})';
+      if (msg != null && msg.isNotEmpty && msg.length < 160 && !msg.toLowerCase().contains('http')) {
+        return msg;
       }
     }
   } catch (_) {}
-  final trimmed = res.body.trim();
-  if (trimmed.isNotEmpty && trimmed.length < 500 && !trimmed.startsWith('<')) {
-    return '$fallbackPrefix (${res.statusCode}): $trimmed';
+  debugPrint('[ApiClient] $fallbackPrefix failed — HTTP ${res.statusCode}: ${res.body}');
+  if (res.statusCode >= 500) {
+    return 'Something went wrong on our end. Please try again in a moment.';
   }
-  return '$fallbackPrefix (HTTP ${res.statusCode}). Run Admin_Backend (4001) from the latest project code, restart it, then retry.';
+  return '$fallbackPrefix. Please check your entries and try again.';
 }
 
 class ApiClient {
@@ -39,24 +47,28 @@ class ApiClient {
   String _adminFallbackBaseUrl() => baseUrl;
 
   /// Human-readable cause when the HTTP client fails before a response (offline, wrong URL, CORS, etc.).
+  ///
+  /// Shown directly to the attendant, so this never mentions servers, ports, or
+  /// environment configuration — only what the attendant can actually act on
+  /// (check their connection, try again). The real exception is logged via
+  /// [debugPrint] for developers.
   String mapRequestFailure(String whatFailed, Object error) {
+    debugPrint('[ApiClient] $whatFailed failed: $error');
     if (error is TimeoutException) {
-      return '$whatFailed timed out. Check that the API is running at $baseUrl.';
+      return '$whatFailed timed out. Please check your connection and try again.';
     }
     final s = error.toString().toLowerCase();
     if (s.contains('socketexception') || s.contains('connection reset')) {
-      return 'No connection to $baseUrl — start Admin_Backend (port 4001).';
+      return 'No internet connection. Please check your connection and try again.';
     }
     if (s.contains('connection refused') ||
         s.contains('failed host lookup') ||
         s.contains('failed to fetch') ||
         s.contains('networkerror') ||
         s.contains('xmlhttprequest')) {
-      return 'Cannot reach $baseUrl (Admin API). Start Admin_Backend on port 4001, or set '
-          '--dart-define=API_BASE_URL= to your deployed Admin API. It must use MONGODB_URI for Atlas — '
-          'the app does not talk to Mongo directly.';
+      return 'Could not reach the server. Please check your internet connection and try again.';
     }
-    return '$whatFailed: $error';
+    return '$whatFailed. Please try again.';
   }
 
   Future<ApiAuthResult> login({required String email, required String password}) async {
@@ -88,8 +100,7 @@ class ApiClient {
           rawTicketing is String && rawTicketing.trim().isNotEmpty ? rawTicketing.trim() : null;
       if (ticketingToken == null || ticketingToken.isEmpty) {
         return ApiAuthResult.failure(
-          'No operator token (ticketingToken) from server — live map cannot sync. '
-          'Restart Admin_Backend (4001); sign in again.',
+          'Could not complete sign-in. Please try again, or contact your administrator if this continues.',
         );
       }
       return ApiAuthResult.ok(
@@ -109,12 +120,7 @@ class ApiClient {
         }
       } catch (_) {}
     }
-    try {
-      final err = jsonDecode(res.body) as Map<String, dynamic>;
-      return ApiAuthResult.failure(err['error']?.toString() ?? 'Login failed');
-    } catch (_) {
-      return ApiAuthResult.failure('Login failed (${res.statusCode})');
-    }
+    return ApiAuthResult.failure(_parseApiErrorBody(res, 'Could not sign in'));
   }
 
   /// "Continue with Google" — [idToken] is a Firebase ID token from GoogleAuthService.signIn().
@@ -152,8 +158,7 @@ class ApiClient {
           rawTicketing is String && rawTicketing.trim().isNotEmpty ? rawTicketing.trim() : null;
       if (ticketingToken == null || ticketingToken.isEmpty) {
         return ApiAuthResult.failure(
-          'No operator token (ticketingToken) from server — live map cannot sync. '
-          'Restart Admin_Backend (4001); sign in again.',
+          'Could not complete sign-in. Please try again, or contact your administrator if this continues.',
         );
       }
       return ApiAuthResult.ok(
@@ -173,12 +178,7 @@ class ApiClient {
         }
       } catch (_) {}
     }
-    try {
-      final err = jsonDecode(res.body) as Map<String, dynamic>;
-      return ApiAuthResult.failure(err['error']?.toString() ?? 'Google login failed');
-    } catch (_) {
-      return ApiAuthResult.failure('Google login failed (${res.statusCode})');
-    }
+    return ApiAuthResult.failure(_parseApiErrorBody(res, 'Could not sign in with Google'));
   }
 
   Future<ApiForgotPasswordResult> operatorForgotPassword({
@@ -380,14 +380,7 @@ class ApiClient {
         map['message']?.toString() ?? 'Password updated. You can sign in.',
       );
     }
-    try {
-      final err = jsonDecode(res.body) as Map<String, dynamic>;
-      return ApiResetPasswordResult.failure(
-        err['error']?.toString() ?? 'Reset failed (${res.statusCode})',
-      );
-    } catch (_) {
-      return ApiResetPasswordResult.failure('Reset failed (${res.statusCode})');
-    }
+    return ApiResetPasswordResult.failure(_parseApiErrorBody(res, 'Could not reset your password'));
   }
 
   Future<ApiDashboardSummary> fetchDashboardSummary({
@@ -583,10 +576,9 @@ class ApiClient {
       );
     }
     try {
-      final err = jsonDecode(res.body) as Map<String, dynamic>;
-      return ApiIssueTicketResult.failure(err['error']?.toString() ?? 'Issue failed');
+      return ApiIssueTicketResult.failure(_parseApiErrorBody(res, 'Could not save the ticket'));
     } catch (_) {
-      return ApiIssueTicketResult.failure('Issue failed (${res.statusCode})');
+      return ApiIssueTicketResult.failure('Could not save the ticket. Please try again.');
     }
   }
 
@@ -647,12 +639,7 @@ class ApiClient {
         return ApiFareQuoteResult.failure('Invalid fare quote response');
       }
     }
-    try {
-      final err = jsonDecode(res.body) as Map<String, dynamic>;
-      return ApiFareQuoteResult.failure(err['error']?.toString() ?? 'Fare quote failed (${res.statusCode})');
-    } catch (_) {
-      return ApiFareQuoteResult.failure('Fare quote failed (${res.statusCode})');
-    }
+    return ApiFareQuoteResult.failure(_parseApiErrorBody(res, 'Could not get a fare quote'));
   }
 
   Future<ApiVerifyEditPinResult> verifyTicketEditPin({
@@ -690,12 +677,7 @@ class ApiClient {
           driverName: map['driverName']?.toString() ?? '',
         );
       }
-      try {
-        final err = jsonDecode(res.body) as Map<String, dynamic>;
-        return ApiVerifyEditPinResult.failure(err['error']?.toString() ?? 'Verification failed');
-      } catch (_) {
-        return ApiVerifyEditPinResult.failure('Verification failed (${res.statusCode})');
-      }
+      return ApiVerifyEditPinResult.failure(_parseApiErrorBody(res, 'Could not verify the PIN'));
     } catch (e) {
       return ApiVerifyEditPinResult.failure(mapRequestFailure('PIN verification', e));
     }
@@ -733,12 +715,7 @@ class ApiClient {
       if (res.statusCode == 200) {
         return ApiPatchTicketResult.ok();
       }
-      try {
-        final err = jsonDecode(res.body) as Map<String, dynamic>;
-        return ApiPatchTicketResult.failure(err['error']?.toString() ?? 'Update failed');
-      } catch (_) {
-        return ApiPatchTicketResult.failure('Update failed (${res.statusCode})');
-      }
+      return ApiPatchTicketResult.failure(_parseApiErrorBody(res, 'Could not save the correction'));
     } catch (e) {
       return ApiPatchTicketResult.failure(mapRequestFailure('Ticket update', e));
     }
@@ -1020,12 +997,7 @@ class ApiClient {
       if (res.statusCode == 201) {
         return ApiSimpleActionResult.ok();
       }
-      try {
-        final err = jsonDecode(res.body) as Map<String, dynamic>;
-        return ApiSimpleActionResult.failure(err['error']?.toString() ?? 'Report failed (${res.statusCode})');
-      } catch (_) {
-        return ApiSimpleActionResult.failure('Report failed (${res.statusCode})');
-      }
+      return ApiSimpleActionResult.failure(_parseApiErrorBody(res, 'Could not send the report'));
     } catch (e) {
       return ApiSimpleActionResult.failure(mapRequestFailure('Incident report', e));
     }

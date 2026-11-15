@@ -1596,7 +1596,7 @@ export function LocationsPage() {
                   );
                 })}
 
-                {layers.buses
+                {layers.buses || layers.delays
                   ? busState.map((b) => {
                       const delayMin = delayMinutesByBus.get(b.busId) ?? 0;
                       const etaDelayMin = b.etaMinutes != null ? Number(b.etaMinutes) : 0;
@@ -1622,6 +1622,9 @@ export function LocationsPage() {
                       const isDelayRisk =
                         layers.delays &&
                         (delayTier === "MODERATE_DELAY" || delayTier === "SEVERE_DELAY" || (delayTier == null && isDelayed));
+                      // "Delays" is a standalone layer: when Buses is off, show only buses the
+                      // Delays layer actually flags, instead of silently rendering nothing.
+                      if (!layers.buses && !isDelayRisk) return null;
                       const routeAvg = averageSpeedByRoute.get(String(b.assignedRoute || "Assigned route —").trim()) ?? null;
                       const speedDropRisk =
                         b.speedKph != null && routeAvg != null && routeAvg > 0 && Number(b.speedKph) <= routeAvg * 0.7;
@@ -1917,7 +1920,7 @@ export function LocationsPage() {
                     />
                   );
                 })}
-                {layers.buses
+                {layers.buses || layers.delays
                   ? busState.map((b) => {
                       const delayMin = delayMinutesByBus.get(b.busId) ?? 0;
                       const etaDelayMin = b.etaMinutes != null ? Number(b.etaMinutes) : 0;
@@ -1944,6 +1947,9 @@ export function LocationsPage() {
                       const isDelayRisk =
                         layers.delays &&
                         (delayTier === "MODERATE_DELAY" || delayTier === "SEVERE_DELAY" || (delayTier == null && isDelayed));
+                      // "Delays" is a standalone layer: when Buses is off, show only buses the
+                      // Delays layer actually flags, instead of silently rendering nothing.
+                      if (!layers.buses && !isDelayRisk) return null;
                       const routeAvg = averageSpeedByRoute.get(String(b.assignedRoute || "Assigned route —").trim()) ?? null;
                       const speedDropRisk =
                         b.speedKph != null && routeAvg != null && routeAvg > 0 && Number(b.speedKph) <= routeAvg * 0.7;
