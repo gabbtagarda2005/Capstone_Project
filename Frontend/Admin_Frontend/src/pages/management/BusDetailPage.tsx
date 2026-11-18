@@ -18,30 +18,6 @@ const BEACON_MS = 120_000;
 const GAUGE_R = 52;
 const GAUGE_C = 2 * Math.PI * GAUGE_R;
 
-/** Mirrors Backend/Admin_Backend/config/gpsThresholds.js defaults — display-only, so a mismatch
- * with a server override just means the badge is briefly a shade off, never a data problem. */
-const GPS_ONLINE_MS = 10_000;
-const GPS_OFFLINE_MS = 60_000;
-
-type GpsStatus = "online" | "unstable" | "offline";
-
-function gpsStatusFromAge(ageMs: number | null): GpsStatus {
-  if (ageMs == null || !Number.isFinite(ageMs)) return "offline";
-  if (ageMs <= GPS_ONLINE_MS) return "online";
-  if (ageMs <= GPS_OFFLINE_MS) return "unstable";
-  return "offline";
-}
-
-function formatAgeShort(ageMs: number | null): string {
-  if (ageMs == null || !Number.isFinite(ageMs) || ageMs < 0) return "—";
-  const s = Math.floor(ageMs / 1000);
-  if (s < 60) return `${s} second${s === 1 ? "" : "s"} ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} minute${m === 1 ? "" : "s"} ago`;
-  const h = Math.floor(m / 60);
-  return `${h} hour${h === 1 ? "" : "s"} ago`;
-}
-
 function beaconFresh(iso: string | null | undefined): boolean {
   if (!iso) return false;
   return Date.now() - new Date(iso).getTime() < BEACON_MS;
@@ -331,12 +307,6 @@ export function BusDetailPage() {
 
   /** "🟠 Reconnecting…" / "🟢 Live connection restored" — never a full page reload. */
   const [socketPhase, setSocketPhase] = useState<"connecting" | "connected" | "reconnecting">("connecting");
-  const [nowTick, setNowTick] = useState(() => Date.now());
-
-  useEffect(() => {
-    const t = window.setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     const targetBusId = bus?.busId;
@@ -440,20 +410,6 @@ export function BusDetailPage() {
     return rows;
   }, [bus, effectiveLive, corridor]);
 
-  const gpsAgeMs = useMemo(() => {
-    const iso = effectiveLive?.recordedAt;
-    if (!iso) return null;
-    const t = new Date(iso).getTime();
-    return Number.isFinite(t) ? nowTick - t : null;
-  }, [effectiveLive?.recordedAt, nowTick]);
-
-  const gpsStatus = gpsStatusFromAge(gpsAgeMs);
-
-  const gpsSourceLabel = useMemo(() => {
-    if (gpsStatus === "offline" || !effectiveLive) return "⚠ None";
-    if (effectiveLive.source === "hardware_sms") return "📶 SMS Fallback (LILYGO)";
-    return effectiveLive.source === "hardware" ? "📡 LILYGO Hardware" : "📱 Bus Attendant Phone";
-  }, [effectiveLive, gpsStatus]);
 
   async function handleReassignRoute() {
     if (!bus?.id || !corridors.length) {
@@ -735,66 +691,13 @@ export function BusDetailPage() {
           </div>
         </div>
 
-        <div className="bus-hub__tile">
-          <div className="bus-hub__tile-label">Live tracking</div>
-          <div className="bus-hub__live-status">
-            <span className={`bus-hub__live-status-badge bus-hub__live-status-badge--${gpsStatus}`}>
-              {gpsStatus === "online" ? "🟢 Online" : gpsStatus === "unstable" ? "🟠 Connection unstable" : "🔴 Offline"}
-            </span>
-            <span className="bus-hub__live-status-age">Last updated: {formatAgeShort(gpsAgeMs)}</span>
-            <span className="bus-hub__live-status-source">
-              GPS Source
-              <strong>{gpsSourceLabel}</strong>
-            </span>
-          </div>
-          <div className="bus-hub__live-status" style={{ marginTop: 8 }}>
-            <span
-              className={`bus-hub__live-status-badge bus-hub__live-status-badge--${
-                effectiveLive?.gpsSourceState === "STAFF" ? "online" : "offline"
-              }`}
-            >
-              {effectiveLive?.gpsSourceState === "STAFF" ? "🟢 Staff GPS — Online" : "🔴 Staff GPS — Offline"}
-            </span>
-            <span
-              className={`bus-hub__live-status-badge bus-hub__live-status-badge--${
-                effectiveLive?.gpsSourceState === "HARDWARE_MOBILE"
-                  ? "online"
-                  : effectiveLive?.cellularConnected
-                    ? "unstable"
-                    : "offline"
-              }`}
-            >
-              {effectiveLive?.gpsSourceState === "HARDWARE_MOBILE"
-                ? "🟢 Hardware Mobile — Online"
-                : effectiveLive?.cellularConnected
-                  ? "🟠 Hardware Mobile — Standby"
-                  : "🔴 Hardware Mobile — Offline"}
-            </span>
-            {effectiveLive?.smsFallbackStatus != null ? (
-              <>
-                <span
-                  className={`bus-hub__live-status-badge bus-hub__live-status-badge--${
-                    effectiveLive?.gpsSourceState === "HARDWARE_SMS" ? "online" : "unstable"
-                  }`}
-                >
-                  {effectiveLive?.gpsSourceState === "HARDWARE_SMS" ? "🟢 SMS Fallback — ACTIVE" : "🟡 SMS Fallback — Standby"}
-                </span>
-                {effectiveLive?.gpsSourceState === "HARDWARE_SMS" ? (
-                  <span className="bus-hub__live-status-age">
-                    Last SMS GPS: {formatAgeShort(effectiveLive?.lastSmsAt ? nowTick - new Date(effectiveLive.lastSmsAt).getTime() : null)}
-                    {" · "}
-                    SMS GPS interval: {effectiveLive?.smsGpsIntervalMs ? Math.round(effectiveLive.smsGpsIntervalMs / 1000) : "—"} seconds
-                  </span>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-          {congestionSegments.length > 0 ? (
+        {congestionSegments.length > 0 ? (
+          <div className="bus-hub__tile">
             <div className="bus-hub__congestion-bar">
               <CorridorTrafficLoadBar label="Recent road conditions" segments={congestionSegments} />
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="bus-hub__tile" style={{ gridColumn: "1 / -1" }}>
           <div className="bus-hub__tile-label">Vehicle ID &amp; technical</div>
