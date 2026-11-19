@@ -6,14 +6,28 @@ import "./LiveFleetBusCard.css";
 export type LiveFleetBusCardProps = {
   busId: string;
   route: string;
-  /** e.g. Last sync 3:45:02 PM — updates on each live fleet ping */
-  lastSyncLine?: string;
+  /** e.g. Last sync 3:45:02 PM — updates on each live fleet ping. "Never synced" for a registered
+   *  bus that has never produced a GPS reading, rather than an invented timestamp. */
+  lastSyncLine?: string | null;
   /** Attendant name currently associated with this live GPS stream */
-  attendantLine?: string;
-  /** Connectivity from last telemetry (stationary → treat as offline for LED row) */
+  attendantLine?: string | null;
+  /** Connectivity from last telemetry (stationary → treat as offline for LED row); null renders the
+   *  existing dim "n/a" LED styling, used when this bus has never had a GPS reading at all. */
   signalTier?: GpsSignalTier | null;
+  /** Explicit text under the signal LEDs — "GPS SIGNAL LOST" (synced before, not now) or "UNKNOWN"
+   *  (never synced). Omitted/null while the LEDs' own strong/weak color already says enough. */
+  signalStatusText?: string | null;
+  /** The LILYGO hardware device's own backup status, independent of whichever source (staff phone
+   *  vs hardware) is currently active — always shown, since this is a separate fact from it. */
+  hardwareStatus?: "active" | "signal_lost" | "unknown";
   active?: boolean;
   onClick: () => void;
+};
+
+const HARDWARE_STATUS_LABEL: Record<"active" | "signal_lost" | "unknown", string> = {
+  active: "ACTIVE",
+  signal_lost: "GPS SIGNAL LOST",
+  unknown: "UNKNOWN",
 };
 
 export function LiveFleetBusCard({
@@ -22,6 +36,8 @@ export function LiveFleetBusCard({
   lastSyncLine,
   attendantLine,
   signalTier,
+  signalStatusText,
+  hardwareStatus,
   active,
   onClick,
 }: LiveFleetBusCardProps) {
@@ -84,6 +100,15 @@ export function LiveFleetBusCard({
             <span className="live-fleet-card__signal-bar" />
           </span>
         </span>
+        {signalStatusText ? <span className="live-fleet-card__signal-text">{signalStatusText}</span> : null}
+        {hardwareStatus ? (
+          <span
+            className="live-fleet-card__attendant"
+            title="The LILYGO hardware tracker's own status — separate from whichever source is currently active."
+          >
+            🛰️ Hardware backup: {HARDWARE_STATUS_LABEL[hardwareStatus]}
+          </span>
+        ) : null}
         {attendantLine ? <span className="live-fleet-card__attendant">{attendantLine}</span> : null}
         <span className="live-fleet-card__route">{route}</span>
         {lastSyncLine ? <span className="live-fleet-card__sync">{lastSyncLine}</span> : null}

@@ -15,7 +15,8 @@ const {
   ingestDeviceGps,
 } = require("../services/attendantGpsIngest");
 const { ingestDeviceStatus } = require("../services/deviceStatusIngest");
-const { deriveGpsSourceState } = require("../services/gpsSourceArbiter");
+const { deriveGpsSourceState, getSourceStatus, listBusIds } = require("../services/gpsSourceArbiter");
+const { getSmsGatewayStatus } = require("../services/smsGpsReceiver");
 const { SMS_GPS_INTERVAL_MS } = require("../config/gpsThresholds");
 const {
   getFreeEtaMinutes,
@@ -26,7 +27,7 @@ const {
 const { snapGpsToRoad } = require("../services/osrmTrafficService");
 const { nearestPointOnPolyline } = require("../services/corridorGeometry");
 const { getPortalSettingsLean } = require("../services/adminPortalSettingsService");
-const { gpsStatusFromAgeMs, gpsFreshnessFromAgeMs } = require("../config/gpsThresholds");
+const { gpsStatusFromAgeMs, gpsFreshnessFromAgeMs, GPS_OFFLINE_THRESHOLD_MS } = require("../config/gpsThresholds");
 const { computeBusCongestion } = require("../services/congestionEngine");
 const { classifyDelay } = require("../services/delayClassifier");
 const { recordAssignmentChange, closeOpenAssignmentsForBus } = require("../services/attendantAssignmentHistory");
@@ -363,6 +364,45 @@ function createBusesRouter(io) {
   });
 
   /** Latest positions for admin / passenger maps */
+  /**
+   * Admin: per-bus GPS source arbitration status (active source, Active/Stale/Fallback/Recovering,
+   * last valid fix per source, last switch event) + SMS gateway health. All values come from the
+   * live in-memory arbiter / gateway receiver state of THIS server process — nothing defaulted.
+   * Registered before "/:id" so the path is not captured as a bus id.
+   */
+  router.get("/gps-source-status", requireAdminJwt, async (_req, res) => {
+    try {
+      const now = Date.now();
+      const fleet = await Bus.find({}).select("busId busNumber").lean();
+      const ids = new Set(fleet.map((b) => String(b.busId)));
+      for (const id of listBusIds()) ids.add(String(id));
+      const buses = Array.from(ids)
+        .sort()
+        .map((busId) => ({ busId, ...getSourceStatus(busId, now) }));
+      res.json({ generatedAt: new Date(now).toISOString(), buses, smsGateway: getSmsGatewayStatus(now) });
+    } catch (e) {
+      res.status(500).json({ error: e.message || "gps source status failed" });
+    }
+  });
+
+  /**
+   * The LILYGO hardware device's own backup status, judged independently of whichever source is
+   * currently published/active (staff phone vs hardware) — a bus can be live via the attendant
+   * phone while its hardware backup is simultaneously lost, or vice versa. Based on the raw
+   * hardwareRecordedAt/smsRecordedAt fix times already stored per bus (see services/attendantGpsIngest.js),
+   * never on a synthesized value: "unknown" means this device has never sent anything at all.
+   */
+  function hardwareBackupStatusFromDoc(doc) {
+    const hwMs = doc?.hardwareRecordedAt ? new Date(doc.hardwareRecordedAt).getTime() : NaN;
+    const smsMs = doc?.smsRecordedAt ? new Date(doc.smsRecordedAt).getTime() : NaN;
+    const latestMs = Math.max(
+      Number.isFinite(hwMs) ? hwMs : -Infinity,
+      Number.isFinite(smsMs) ? smsMs : -Infinity
+    );
+    if (!Number.isFinite(latestMs)) return "unknown";
+    return Date.now() - latestMs <= GPS_OFFLINE_THRESHOLD_MS ? "active" : "signal_lost";
+  }
+
   router.get("/live", async (_req, res) => {
     try {
       const portal = await getPortalSettingsLean().catch(() => null);
@@ -518,6 +558,9 @@ function createBusesRouter(io) {
           gpsSource,
           /** STAFF | HARDWARE_MOBILE | HARDWARE_SMS | NO_SIGNAL — see gpsSourceArbiter.deriveGpsSourceState. */
           gpsSourceState,
+          /** "active" | "signal_lost" | "unknown" — the LILYGO device's own backup status,
+           *  independent of whichever source (staff vs hardware) is currently published. */
+          hardwareStatus: hardwareBackupStatusFromDoc(doc),
           deviceId: doc.deviceId != null ? String(doc.deviceId) : null,
           cellularConnected: doc.cellularConnected != null ? Boolean(doc.cellularConnected) : null,
           gpsFixAcquired: doc.gpsFixAcquired != null ? Boolean(doc.gpsFixAcquired) : null,

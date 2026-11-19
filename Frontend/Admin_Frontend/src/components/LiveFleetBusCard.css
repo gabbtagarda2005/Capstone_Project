@@ -326,6 +326,19 @@
   height: 12px;
 }
 
+/* Explicit "GPS SIGNAL LOST" / "UNKNOWN" text — the LED colors alone can't distinguish a bus that
+   synced before and went stale from one that has never produced a GPS reading at all. */
+.live-fleet-card__signal-text {
+  display: block;
+  margin-top: 0.05rem;
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", monospace;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fca5a5;
+}
+
 .live-fleet-card__signal--strong .live-fleet-card__signal-bar {
   background: linear-gradient(180deg, #5eead4, #14b8a6);
   box-shadow: 0 0 6px rgba(45, 212, 191, 0.55);

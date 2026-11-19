@@ -1177,6 +1177,49 @@ export function LocationsPage() {
     mapRef.current.setZoom(14);
   }, [flyTarget, flySeq]);
 
+  /** One Live Fleet card's worth of state — `pos`/GPS fields are null for a registered bus that has
+   *  never produced a GpsLog row, rather than any of them being invented. */
+  type LiveFleetBusState = {
+    busId: string;
+    assignedRoute: string;
+    currentTerminal: string;
+    seats: number;
+    issuedApprox: number;
+    pos: [number, number] | null;
+    pct: number;
+    full: boolean;
+    violating: boolean;
+    speedKph: number | null;
+    speedCritical: boolean;
+    terminalArrival: boolean;
+    nearestTerminalDistanceM: number | null;
+    attendantName: string | null;
+    source: "hardware" | "staff" | null;
+    sourceNet: "wifi" | "4g" | "unknown" | null;
+    sourceSignalStrength: number | null;
+    sourceVoltage: number | null;
+    corridorHud: string;
+    displayBusLabel: string;
+    stationary: boolean;
+    lastSyncLabel: string;
+    fleetStatus: string;
+    precisionSyncPulse: boolean;
+    signalTier: GpsSignalTier | null;
+    etaMinutes: number | null;
+    etaTargetIso: string | null;
+    nextTerminal: string | null;
+    trafficDelay: boolean;
+    congestion: BusCongestion | null;
+    delay: BusDelay | null;
+    gpsFreshness: "live" | "recent" | "stale" | "offline" | null;
+    /** The LILYGO device's own backup status, independent of whichever source is currently
+     *  published — "unknown" when it has never sent anything at all. */
+    hardwareStatus: "active" | "signal_lost" | "unknown";
+    /** True for a registered bus with no GpsLog row of any age — distinct from one that synced
+     *  before and has since gone stale/offline. */
+    neverSynced: boolean;
+  };
+
   const busRegistry = useMemo(() => new Map(busRows.map((b) => [b.busId, b])), [busRows]);
 
   const visibleLiveLogs = useMemo(
@@ -1185,10 +1228,9 @@ export function LocationsPage() {
   );
 
   const busState = useMemo(() => {
-    if (visibleLiveLogs.length === 0) return [];
     const now = Date.now();
-    return visibleLiveLogs.map((log) => {
-      const row = busRegistry.get(log.busId);
+
+    function computeLiveBusState(log: BusLiveLogRow, row: BusRow | undefined): LiveFleetBusState {
       const pos: [number, number] = [log.latitude, log.longitude];
       const route = row?.route?.trim() || "Assigned route —";
       const seats = typeof row?.seatCapacity === "number" && row.seatCapacity > 0 ? row.seatCapacity : 45;
@@ -1290,10 +1332,70 @@ export function LocationsPage() {
         congestion: log.congestion ?? null,
         delay: log.delay ?? null,
         gpsFreshness: log.gpsFreshness ?? null,
+        hardwareStatus: log.hardwareStatus ?? "unknown",
+        neverSynced: false,
       };
-    });
+    }
+
+    const liveByBusId = new Map(visibleLiveLogs.map((log) => [String(log.busId), log]));
+    const out: LiveFleetBusState[] = [];
+
+    for (const log of visibleLiveLogs) {
+      out.push(computeLiveBusState(log, busRegistry.get(log.busId)));
+    }
+
+    // A registered bus that has never produced a GpsLog row at all (the common case for a brand-new
+    // assignment, or any bus before its first real ping) has nothing in visibleLiveLogs to iterate
+    // over above — without this, it never got a card at all. Bus registration and GPS availability
+    // are separate facts: show its identity/route from the Fleet record either way, and report GPS
+    // honestly as "unknown" rather than inventing a position, a timestamp, or a heartbeat for it.
+    for (const row of busRows) {
+      if (liveByBusId.has(row.busId)) continue;
+      if (String(row.status || "").trim().toLowerCase() === "inactive") continue;
+      const route = row.route?.trim() || "Assigned route —";
+      const seats = typeof row.seatCapacity === "number" && row.seatCapacity > 0 ? row.seatCapacity : 45;
+      out.push({
+        busId: row.busId,
+        assignedRoute: route,
+        currentTerminal: "",
+        seats,
+        issuedApprox: row.ticketsIssued ?? 0,
+        pos: null,
+        pct: Math.min(100, ((row.ticketsIssued ?? 0) / seats) * 100),
+        full: false,
+        violating: false,
+        speedKph: null,
+        speedCritical: false,
+        terminalArrival: false,
+        nearestTerminalDistanceM: null,
+        attendantName: null,
+        source: null,
+        sourceNet: null,
+        sourceSignalStrength: null,
+        sourceVoltage: null,
+        corridorHud: formatCorridorDisplay(route),
+        displayBusLabel: row.busNumber?.trim() || row.busId,
+        stationary: true,
+        lastSyncLabel: "Never synced",
+        fleetStatus: "Never synced",
+        precisionSyncPulse: false,
+        signalTier: null,
+        etaMinutes: null,
+        etaTargetIso: null,
+        nextTerminal: null,
+        trafficDelay: false,
+        congestion: null,
+        delay: null,
+        gpsFreshness: null,
+        hardwareStatus: "unknown" as const,
+        neverSynced: true,
+      });
+    }
+
+    return out;
   }, [
     visibleLiveLogs,
+    busRows,
     busRegistry,
     corridorRoutes,
     lastSyncMsByBus,
@@ -1303,6 +1405,13 @@ export function LocationsPage() {
     forceSyncPulseUntil,
     adminHubs,
   ]);
+
+  /** Map markers need a real position — a never-synced placeholder has nowhere to be drawn.
+   *  The Live Fleet card list below uses the full `busState` instead, so those buses still show. */
+  const mappableBusState = useMemo(
+    () => busState.filter((b): b is LiveFleetBusState & { pos: [number, number] } => b.pos != null),
+    [busState]
+  );
 
   const averageSpeedByRoute = useMemo(() => {
     const sums = new Map<string, { sum: number; n: number }>();
@@ -1597,7 +1706,7 @@ export function LocationsPage() {
                 })}
 
                 {layers.buses || layers.delays
-                  ? busState.map((b) => {
+                  ? mappableBusState.map((b) => {
                       const delayMin = delayMinutesByBus.get(b.busId) ?? 0;
                       const etaDelayMin = b.etaMinutes != null ? Number(b.etaMinutes) : 0;
                       const isDelayed =
@@ -1921,7 +2030,7 @@ export function LocationsPage() {
                   );
                 })}
                 {layers.buses || layers.delays
-                  ? busState.map((b) => {
+                  ? mappableBusState.map((b) => {
                       const delayMin = delayMinutesByBus.get(b.busId) ?? 0;
                       const etaDelayMin = b.etaMinutes != null ? Number(b.etaMinutes) : 0;
                       const isDelayed =
@@ -2103,7 +2212,7 @@ export function LocationsPage() {
                 onBasemapChange={setBasemap}
                 layers={layers}
                 onToggle={onToggleLayer}
-                activeBuses={busState.length}
+                activeBuses={mappableBusState.length}
                 regionLabel="Bukidnon"
               />
             ) : null}
@@ -2185,15 +2294,19 @@ export function LocationsPage() {
                 <LiveFleetBusCard
                   busId={b.busId}
                   route={b.assignedRoute}
-                  signalTier={b.stationary ? "offline" : (b.signalTier ?? "weak")}
+                  signalTier={b.neverSynced ? null : b.stationary ? "offline" : (b.signalTier ?? "weak")}
+                  signalStatusText={b.neverSynced ? "UNKNOWN" : b.stationary ? "GPS SIGNAL LOST" : null}
+                  hardwareStatus={b.hardwareStatus}
                   attendantLine={
-                    b.source === "hardware"
-                      ? `🛰️ Hardware backup${b.sourceNet ? ` (${b.sourceNet.toUpperCase()})` : ""}`
-                      : b.attendantName
-                        ? `📱 Attendant · ${b.attendantName}`
-                        : "📱 Attendant · —"
+                    b.neverSynced
+                      ? null
+                      : b.source === "hardware"
+                        ? `🛰️ Hardware backup${b.sourceNet ? ` (${b.sourceNet.toUpperCase()})` : ""}`
+                        : b.attendantName
+                          ? `📱 Attendant · ${b.attendantName}`
+                          : "📱 Attendant · —"
                   }
-                  lastSyncLine={`Last sync ${b.lastSyncLabel}`}
+                  lastSyncLine={b.neverSynced ? "Never synced" : `Last sync ${b.lastSyncLabel}`}
                   active={selectedBusId === b.busId}
                   onClick={() => {
                     if (selectedBusId === b.busId) {

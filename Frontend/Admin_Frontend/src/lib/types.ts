@@ -69,6 +69,9 @@ export type BusLiveLogRow = {
   /** How much to trust this reading — see services/trafficConfidence.js. Never render a HIGH-confidence
    *  claim the backend didn't actually report. */
   confidence?: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN" | null;
+  /** The LILYGO hardware device's own backup status, independent of whichever source (staff phone
+   *  vs hardware) is currently published/active — "unknown" means it has never sent anything at all. */
+  hardwareStatus?: "active" | "signal_lost" | "unknown" | null;
 };
 
 export type BusCongestion = {
