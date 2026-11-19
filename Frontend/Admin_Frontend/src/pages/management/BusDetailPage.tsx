@@ -410,7 +410,6 @@ export function BusDetailPage() {
     return rows;
   }, [bus, effectiveLive, corridor]);
 
-
   async function handleReassignRoute() {
     if (!bus?.id || !corridors.length) {
       await swalAlert("No corridor definitions loaded. Configure routes in Route management first.", { icon: "info" });
@@ -698,25 +697,6 @@ export function BusDetailPage() {
             </div>
           </div>
         ) : null}
-
-        <div className="bus-hub__tile" style={{ gridColumn: "1 / -1" }}>
-          <div className="bus-hub__tile-label">Vehicle ID &amp; technical</div>
-          <div className="bus-hub__mono" style={{ lineHeight: 1.7 }}>
-            busId <strong style={{ color: "#fff" }}>{bus.busId}</strong>
-            <br />
-            IMEI <strong style={{ color: "#fff" }}>{bus.imei || "—"}</strong>
-            <br />
-            GPS (lat, lng){" "}
-            <strong className="bus-hub__mono" style={{ color: "#fff" }}>
-              {effectiveLive
-                ? `${effectiveLive.latitude.toFixed(6)}, ${effectiveLive.longitude.toFixed(6)}`
-                : "—"}
-            </strong>
-            <br />
-            Tickets (lifetime) <strong style={{ color: "#fff" }}>{bus.ticketsIssued}</strong> · Strict pickup{" "}
-            <strong style={{ color: "#fff" }}>{bus.strictPickup === true ? "on" : "off"}</strong>
-          </div>
-        </div>
 
         <div className="bus-hub__tile" style={{ gridColumn: "1 / -1" }}>
           <div className="bus-hub__tile-head">

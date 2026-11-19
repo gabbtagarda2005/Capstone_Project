@@ -7,7 +7,8 @@ const { onBusGpsForTerminalArrival } = require("./terminalGeofenceIntercept");
 const { completeTicketsAtArrivedStops } = require("./ticketDropoffCompletion");
 const { maybeRecordSpeedViolation } = require("./speedViolationAlert");
 const { normalizeGpsSignal } = require("./normalizeGpsSignal");
-const { decideActiveSource, getActiveSource } = require("./gpsSourceArbiter");
+const { decideActiveSource, onSourceSwitch } = require("./gpsSourceArbiter");
+const { logSystemEvent } = require("./systemHealthLog");
 const { checkGpsOutlier } = require("./gpsOutlierGuard");
 const { isValidGpsCoordinate, resolveRecordedAtFromClientTimestamp } = require("./gpsValidation");
 const { buildPublicPayload } = require("../routes/liveDispatch");
@@ -129,6 +130,19 @@ function logGpsSourceTransition(busId, prevActive, nextActive) {
     console.log(`${tag} SMS fallback stopped`);
   }
 }
+
+const GPS_SOURCE_LABEL = { phone: "Bus Attendant Phone", lilygo: "LILYGO Mobile Data", lilygo_sms: "LILYGO SMS" };
+
+// Every real source change (decided inside gpsSourceArbiter) → console + admin System Events log.
+onSourceSwitch((busId, evt) => {
+  logGpsSourceTransition(busId, evt.from, evt.to);
+  if (!evt.from) return; // first source after a restart — not a switch worth alerting on
+  logSystemEvent({
+    level: evt.to === "phone" ? "info" : "warn",
+    service: "GPS",
+    message: `Bus ${busId}: GPS source ${GPS_SOURCE_LABEL[evt.from] || evt.from} → ${GPS_SOURCE_LABEL[evt.to] || evt.to} (${evt.reason})`,
+  });
+});
 
 /** gpsSourceArbiter's internal vocabulary (phone/lilygo/lilygo_sms) → GpsLog.source vocabulary
  *  (staff/hardware/hardware_sms) used everywhere else in this codebase (routes, sockets, UI). */
@@ -360,17 +374,6 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
   const resolvedBusId = b.busId;
   const recordedAt = resolveRecordedAt(body);
 
-  const prevActiveArbiterSource = getActiveSource(resolvedBusId);
-  // Phone is the primary GPS source — always preferred. This only defers to LILYGO during the
-  // brief stabilization window right after the phone recovers from an outage (see gpsSourceArbiter).
-  const { shouldPublish: sourceWantsPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(
-    resolvedBusId,
-    "phone",
-    null,
-    Date.now()
-  );
-  logGpsSourceTransition(resolvedBusId, prevActiveArbiterSource, nextActiveArbiterSource);
-
   const prevDoc = await GpsLog.findOne({ busId: String(resolvedBusId) })
     .select("attendantLatitude attendantLongitude attendantRecordedAt")
     .lean();
@@ -384,7 +387,14 @@ async function ingestAttendantGps(io, broadcastLocationUpdate, ticketingUser, bo
     prevLng: Number(prevDoc?.attendantLongitude),
     prevRecordedAtMs: prevDoc?.attendantRecordedAt ? new Date(prevDoc.attendantRecordedAt).getTime() : null,
   });
-  const shouldPublish = sourceWantsPublish && !isOutlier;
+  // Phone is the primary GPS source. The arbiter decides (on GPS fix time + arrival time) whether
+  // this fix is published, is part of a recovery streak after a LILYGO fallback, or is stale/older.
+  // The outlier verdict is passed in so a rejected jump can't count toward recovery.
+  const { shouldPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(resolvedBusId, "phone", {
+    fixMs: recordedAt.getTime(),
+    nowMs: Date.now(),
+    valid: !isOutlier,
+  });
 
   const gpsLogSet = {
     busId: String(resolvedBusId),
@@ -582,17 +592,6 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
   let nextLat = hwLat;
   let nextLng = hwLng;
   const nextSource = "hardware";
-  const prevActiveArbiterSource = getActiveSource(bid);
-  /** LILYGO is backup-only: phone (primary) wins whenever it's within its timeout window — see
-   *  gpsSourceArbiter for why this replaces the older recency-only fusion logic that was reverted
-   *  (it had hidden legitimate hardware fixes; this version tracks explicit per-bus state instead). */
-  const { shouldPublish: sourceWantsPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(
-    bid,
-    "lilygo",
-    { phoneLastRecordedAt: doc?.attendantRecordedAt ?? null },
-    recordedAt.getTime()
-  );
-  logGpsSourceTransition(bid, prevActiveArbiterSource, nextActiveArbiterSource);
   const { outlier: isOutlier } = await checkGpsOutlier({
     busId: bid,
     source: "hardware",
@@ -603,7 +602,14 @@ async function ingestDeviceGps(io, broadcastLocationUpdate, resolvedBusId, body)
     prevLng: Number(doc?.hardwareLongitude),
     prevRecordedAtMs: doc?.hardwareRecordedAt ? new Date(doc.hardwareRecordedAt).getTime() : null,
   });
-  const shouldPublish = sourceWantsPublish && !isOutlier;
+  /** LILYGO is backup-only: phone (primary) wins while it has delivered a valid fresh fix within
+   *  PHONE_GPS_STALE_TIMEOUT_MS — see gpsSourceArbiter. recordedAt here is the GNSS fix time. */
+  const { shouldPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(bid, "lilygo", {
+    fixMs: recordedAt.getTime(),
+    nowMs: Date.now(),
+    valid: !isOutlier,
+    ctx: { phoneLastRecordedAt: doc?.attendantRecordedAt ?? null },
+  });
   if (shouldPublish) {
     const snapped = await snapHardwareFixToCorridor(bid, hwLat, hwLng);
     if (snapped) {
@@ -776,18 +782,6 @@ async function ingestHardwareSmsGps(io, broadcastLocationUpdate, busId, { latitu
   const smsLat = Number(latitude);
   const smsLng = Number(longitude);
 
-  const prevActiveArbiterSource = getActiveSource(bid);
-  const { shouldPublish: sourceWantsPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(
-    bid,
-    "lilygo_sms",
-    {
-      phoneLastRecordedAt: doc?.attendantRecordedAt ?? null,
-      hardwareMobileLastRecordedAt: doc?.hardwareRecordedAt ?? null,
-    },
-    recordedAt.getTime()
-  );
-  logGpsSourceTransition(bid, prevActiveArbiterSource, nextActiveArbiterSource);
-
   const { outlier: isOutlier } = await checkGpsOutlier({
     busId: bid,
     source: "hardware_sms",
@@ -798,7 +792,15 @@ async function ingestHardwareSmsGps(io, broadcastLocationUpdate, busId, { latitu
     prevLng: Number(doc?.smsLongitude),
     prevRecordedAtMs: doc?.smsRecordedAt ? new Date(doc.smsRecordedAt).getTime() : null,
   });
-  const shouldPublish = sourceWantsPublish && !isOutlier;
+  const { shouldPublish, activeSource: nextActiveArbiterSource } = decideActiveSource(bid, "lilygo_sms", {
+    fixMs: recordedAt.getTime(),
+    nowMs: Date.now(),
+    valid: !isOutlier,
+    ctx: {
+      phoneLastRecordedAt: doc?.attendantRecordedAt ?? null,
+      hardwareMobileLastRecordedAt: doc?.hardwareRecordedAt ?? null,
+    },
+  });
 
   const resolvedSpeedKph = speedKph != null && Number.isFinite(Number(speedKph)) ? Number(speedKph) : null;
 

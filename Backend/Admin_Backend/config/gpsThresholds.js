@@ -13,11 +13,39 @@ function envInt(name, fallback) {
   return Number.isInteger(n) && n > 0 ? n : fallback;
 }
 
-/** How long the phone (primary GPS) can go silent before LILYGO is allowed to take over. */
-const PHONE_GPS_TIMEOUT_MS = envMs("PHONE_GPS_TIMEOUT_MS", 15_000);
+/** First env name that is set wins — lets the newer names coexist with the original ones. */
+function envMsAny(names, fallbackMs) {
+  for (const n of names) if (process.env[n] != null && process.env[n] !== "") return envMs(n, fallbackMs);
+  return fallbackMs;
+}
+function envIntAny(names, fallback) {
+  for (const n of names) if (process.env[n] != null && process.env[n] !== "") return envInt(n, fallback);
+  return fallback;
+}
 
-/** Consecutive valid phone updates required before failing back from LILYGO to phone (anti-flap). */
-const PHONE_FAILBACK_STABLE_COUNT = envInt("PHONE_FAILBACK_STABLE_COUNT", 3);
+/** How long the phone (primary GPS) can go without a VALID, FRESH fix before it is marked stale and
+ *  LILYGO is allowed to take over. Phone cadence is 3s, so 10s ≈ three missed updates. Measured on
+ *  server arrival time of the last accepted phone fix. Env: PHONE_GPS_STALE_TIMEOUT_MS (preferred)
+ *  or the original PHONE_GPS_TIMEOUT_MS. */
+const PHONE_GPS_TIMEOUT_MS = envMsAny(["PHONE_GPS_STALE_TIMEOUT_MS", "PHONE_GPS_TIMEOUT_MS"], 10_000);
+const PHONE_GPS_STALE_TIMEOUT_MS = PHONE_GPS_TIMEOUT_MS;
+
+/** Consecutive fresh, valid phone updates (each arriving within PHONE_GPS_STALE_TIMEOUT_MS of the
+ *  previous one, with increasing GPS time) required before failing back from LILYGO to phone
+ *  (anti-flap). Env: PHONE_GPS_RECOVERY_REQUIRED_UPDATES (preferred) or PHONE_FAILBACK_STABLE_COUNT. */
+const PHONE_FAILBACK_STABLE_COUNT = envIntAny(
+  ["PHONE_GPS_RECOVERY_REQUIRED_UPDATES", "PHONE_FAILBACK_STABLE_COUNT"],
+  3
+);
+const PHONE_GPS_RECOVERY_REQUIRED_UPDATES = PHONE_FAILBACK_STABLE_COUNT;
+
+/** A fix whose GPS collection time is older than this (vs server arrival) is stored but never
+ *  published as the live position, and never counts toward source health — e.g. offline-outbox or
+ *  ring-buffer replays. Phone + LILYGO mobile data. */
+const GPS_FIX_MAX_AGE_MS = envMs("GPS_FIX_MAX_AGE_MS", 30_000);
+
+/** Same, for SMS fixes — SMS delivery + gateway polling add real latency, so allow more. */
+const SMS_FIX_MAX_AGE_MS = envMs("SMS_FIX_MAX_AGE_MS", 120_000);
 
 /**
  * How long LILYGO mobile-data (HTTPS) telemetry can go silent before the SMS-fallback tier
@@ -26,12 +54,12 @@ const PHONE_FAILBACK_STABLE_COUNT = envInt("PHONE_FAILBACK_STABLE_COUNT", 3);
  * lilygo_ta7670e_cellular_telemetry firmware's MOBILE_FAIL_CONFIRM_COUNT), so by the time an SMS
  * fix arrives this window has already elapsed on the backend side too — no separate counter needed.
  */
-const HARDWARE_MOBILE_TIMEOUT_MS = envMs("HARDWARE_MOBILE_TIMEOUT_MS", 30_000);
+const HARDWARE_MOBILE_TIMEOUT_MS = envMs("HARDWARE_MOBILE_TIMEOUT_MS", 15_000);
 
 /** Device-governed SMS send cadence while SMS fallback is active — echoed to clients via
  *  GET /api/buses/live (smsGpsIntervalMs) so the frontend never hardcodes "15 seconds". Not
  *  enforced backend-side; the LILYGO firmware paces its own sends. */
-const SMS_GPS_INTERVAL_MS = envMs("SMS_GPS_INTERVAL_MS", 15_000);
+const SMS_GPS_INTERVAL_MS = envMs("SMS_GPS_INTERVAL_MS", 8_000);
 
 /** Dashboard online/unstable/offline status thresholds, keyed off "ms since last published fix". */
 const GPS_ONLINE_THRESHOLD_MS = envMs("GPS_ONLINE_THRESHOLD_MS", 10_000);
@@ -72,7 +100,11 @@ function gpsFreshnessFromAgeMs(ageMs) {
 
 module.exports = {
   PHONE_GPS_TIMEOUT_MS,
+  PHONE_GPS_STALE_TIMEOUT_MS,
   PHONE_FAILBACK_STABLE_COUNT,
+  PHONE_GPS_RECOVERY_REQUIRED_UPDATES,
+  GPS_FIX_MAX_AGE_MS,
+  SMS_FIX_MAX_AGE_MS,
   HARDWARE_MOBILE_TIMEOUT_MS,
   SMS_GPS_INTERVAL_MS,
   GPS_ONLINE_THRESHOLD_MS,

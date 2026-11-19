@@ -82,6 +82,9 @@ class _MainShellState extends State<MainShell> {
   bool _beaconBusy = false;
   bool _gpsBlocked = false;
   bool _gpsLost = false;
+  /// True while one GPS ping (fix + send) is running. The 3s timer skips its tick instead of
+  /// stacking a second request — getCurrentPosition alone can take up to 35-45s on a weak fix.
+  bool _pingInFlight = false;
   Timer? _pingTimer;
   Timer? _gpsWatchTimer;
   String? _mapSyncError;
@@ -914,6 +917,16 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _pushOnePing({bool precisionHandshake = false}) async {
+    if (_pingInFlight) return;
+    _pingInFlight = true;
+    try {
+      await _pushOnePingOnce(precisionHandshake: precisionHandshake);
+    } finally {
+      _pingInFlight = false;
+    }
+  }
+
+  Future<void> _pushOnePingOnce({bool precisionHandshake = false}) async {
     final t = _token ?? '';
     if (t.isEmpty || !_beaconLive || _gpsLost) return;
     if (_ticketing.isEmpty) {
@@ -932,6 +945,7 @@ class _MainShellState extends State<MainShell> {
       late final double lng;
       double? speedKph;
       double? heading;
+      DateTime? fixTime; // when the GPS fix was taken (not when it was sent)
       if (_webMockGpsEnabled()) {
         lat = _kMockGpsLat;
         lng = _kMockGpsLng;
@@ -948,6 +962,7 @@ class _MainShellState extends State<MainShell> {
         lng = p.longitude;
         speedKph = p.speed.isFinite ? p.speed * 3.6 : null;
         heading = p.heading.isFinite ? p.heading : null;
+        fixTime = p.timestamp;
       } else {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: _pingLocationSettings(precision: precisionHandshake),
@@ -956,10 +971,11 @@ class _MainShellState extends State<MainShell> {
         lng = pos.longitude;
         speedKph = pos.speed.isFinite ? pos.speed * 3.6 : null;
         heading = pos.heading.isFinite ? pos.heading : null;
+        fixTime = pos.timestamp;
       }
 
       final tier = await classifyNetworkSignalTier();
-      final clientIso = DateTime.now().toUtc().toIso8601String();
+      final clientIso = (fixTime ?? DateTime.now()).toUtc().toIso8601String();
       Map<String, dynamic> outboxPoint() => {
             'latitude': lat,
             'longitude': lng,
@@ -987,6 +1003,7 @@ class _MainShellState extends State<MainShell> {
             heading: heading,
             forceSync: precisionHandshake,
             signal: tier,
+            clientRecordedAt: clientIso,
           ) ??
           false;
       if (!viaSocket) {

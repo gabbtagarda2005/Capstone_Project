@@ -300,7 +300,38 @@ void setup() {
   gwLog("listening for inbound SMS (polling every SMS_POLL_INTERVAL_MS)...");
 }
 
+#ifndef GATEWAY_HEARTBEAT_MS
+#define GATEWAY_HEARTBEAT_MS 30000
+#endif
+
+/** One "GWSTAT {json}" line every GATEWAY_HEARTBEAT_MS so the backend (smsGpsReceiver.js) can tell
+ *  "serial port open" apart from "gateway modem actually registered and able to receive SMS".
+ *  No phone numbers/SIM identifiers are included. */
+static void emitHeartbeat() {
+  String reg = modemExchange("AT+CEREG?", 2000);
+  bool registered = reg.indexOf(",1") >= 0 || reg.indexOf(",5") >= 0;
+  if (!registered) {
+    reg = modemExchange("AT+CREG?", 2000);
+    registered = reg.indexOf(",1") >= 0 || reg.indexOf(",5") >= 0;
+  }
+  int rssiDbm;
+  bool haveRssi = getSignalRssiDbm(rssiDbm);
+  StaticJsonDocument<192> doc;
+  doc["registered"] = registered;
+  doc["smsReady"] = gSmsTextModeReady;
+  if (haveRssi) doc["rssiDbm"] = rssiDbm; else doc["rssiDbm"] = nullptr;
+  doc["uptimeS"] = (uint32_t)(millis() / 1000);
+  Serial.print("GWSTAT ");
+  serializeJson(doc, Serial);
+  Serial.println();
+}
+
 void loop() {
+  static uint32_t lastHeartbeatMs = 0;
+  if (lastHeartbeatMs == 0 || millis() - lastHeartbeatMs >= GATEWAY_HEARTBEAT_MS) {
+    lastHeartbeatMs = millis();
+    emitHeartbeat();
+  }
   if (!gSmsTextModeReady) {
     delay(1000);
     return;

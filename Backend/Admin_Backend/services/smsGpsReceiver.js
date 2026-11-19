@@ -40,6 +40,55 @@ function alreadySeen(key) {
   return false;
 }
 
+/** Real, observed gateway state for the admin dashboard — never inferred or defaulted to "ok".
+ *  Deliberately excludes sender numbers / SIM identifiers. */
+const gatewayStatus = {
+  configured: false,
+  receiverEnabled: false,
+  disabledReason: null,
+  portOpen: false,
+  lastPortOpenedAt: null,
+  lastPortError: null,
+  lastLineAt: null,
+  lastHeartbeatAt: null,
+  heartbeat: null, // { registered, smsReady, rssiDbm, uptimeS } from the gateway's GWSTAT line
+  lastSmsReceivedAt: null,
+  lastSmsAcceptedAt: null,
+  lastSmsAcceptedBusId: null,
+  lastRejectAt: null,
+  lastRejectReason: null,
+  counts: { accepted: 0, rejected: 0, duplicates: 0 },
+};
+const GATEWAY_HEARTBEAT_STALE_MS = 90_000; // gateway emits GWSTAT every 30s
+
+function noteReject(reason) {
+  gatewayStatus.lastRejectAt = new Date().toISOString();
+  gatewayStatus.lastRejectReason = reason;
+  gatewayStatus.counts.rejected += 1;
+}
+
+/** Snapshot + derived "operational" verdict: port open AND a recent heartbeat saying the gateway
+ *  modem is registered with SMS text mode ready. */
+function getSmsGatewayStatus(nowMs = Date.now()) {
+  const hbAge = gatewayStatus.lastHeartbeatAt ? nowMs - new Date(gatewayStatus.lastHeartbeatAt).getTime() : null;
+  const hb = gatewayStatus.heartbeat;
+  let state;
+  if (!gatewayStatus.configured) state = "NOT_CONFIGURED";
+  else if (!gatewayStatus.receiverEnabled) state = "DISABLED";
+  else if (!gatewayStatus.portOpen) state = "DISCONNECTED";
+  else if (hbAge == null || hbAge > GATEWAY_HEARTBEAT_STALE_MS) state = "NO_HEARTBEAT";
+  else if (!hb?.registered) state = "NOT_REGISTERED";
+  else if (!hb?.smsReady) state = "SMS_NOT_READY";
+  else state = "OPERATIONAL";
+  return {
+    ...gatewayStatus,
+    counts: { ...gatewayStatus.counts },
+    msSinceLastHeartbeat: hbAge,
+    operational: state === "OPERATIONAL",
+    state,
+  };
+}
+
 function log(msg) {
   console.log(`[GPS][sms-gateway] ${msg}`);
 }
@@ -55,13 +104,32 @@ function warn(msg) {
  */
 async function handleLine(io, broadcastLocationUpdate, rawLine) {
   const line = String(rawLine || "").trim();
+  if (!line) return;
+  gatewayStatus.lastLineAt = new Date().toISOString();
+  if (line.startsWith("GWSTAT ")) {
+    try {
+      const hb = JSON.parse(line.slice("GWSTAT ".length));
+      gatewayStatus.heartbeat = {
+        registered: hb?.registered === true,
+        smsReady: hb?.smsReady === true,
+        rssiDbm: Number.isFinite(Number(hb?.rssiDbm)) && hb?.rssiDbm !== null ? Number(hb.rssiDbm) : null,
+        uptimeS: Number.isFinite(Number(hb?.uptimeS)) ? Number(hb.uptimeS) : null,
+      };
+      gatewayStatus.lastHeartbeatAt = new Date().toISOString();
+    } catch {
+      warn(`malformed GWSTAT line, dropped: ${line.slice(0, 200)}`);
+    }
+    return;
+  }
   if (!line.startsWith("SMSRX ")) return; // other gateway diagnostic output, e.g. "[gw] ..." — ignore
+  gatewayStatus.lastSmsReceivedAt = new Date().toISOString();
 
   let parsed;
   try {
     parsed = JSON.parse(line.slice("SMSRX ".length));
   } catch {
     warn(`malformed line, dropped: ${line.slice(0, 200)}`);
+    noteReject("malformed_gateway_line");
     return;
   }
 
@@ -69,12 +137,14 @@ async function handleLine(io, broadcastLocationUpdate, rawLine) {
   const body = parsed?.body != null ? String(parsed.body) : "";
   if (!SENDER_RE.test(sender)) {
     warn(`rejected: sender "${sender}" is not E.164`);
+    noteReject("sender_not_e164");
     return;
   }
 
   const m = BODY_RE.exec(body);
   if (!m) {
     warn(`rejected malformed BTGPS body from ${sender}: ${body.slice(0, 200)}`);
+    noteReject("malformed_btgps_body");
     return;
   }
   const [, claimedBusIdRaw, latRaw, lonRaw, speedRaw, headingRaw, tsRaw] = m;
@@ -85,16 +155,19 @@ async function handleLine(io, broadcastLocationUpdate, rawLine) {
     device = await IngestDevice.findOne({ smsSenderNumber: sender, revoked: { $ne: true } }).lean();
   } catch (e) {
     warn(`device lookup failed for sender ${sender}: ${e.message || e}`);
+    noteReject("device_lookup_failed");
     return;
   }
   if (!device) {
     warn(`rejected: sender ${sender} not in allowlist (no non-revoked IngestDevice.smsSenderNumber match)`);
+    noteReject("sender_not_registered");
     return;
   }
   if (String(device.busId).trim() !== claimedBusId) {
     warn(
       `rejected: SMS from ${sender} (device ${device.deviceId}, registered to bus ${device.busId}) claimed busId "${claimedBusId}" — mismatch`
     );
+    noteReject("bus_id_mismatch");
     return;
   }
 
@@ -102,6 +175,7 @@ async function handleLine(io, broadcastLocationUpdate, rawLine) {
   const longitude = Number(lonRaw);
   if (!isValidGpsCoordinate(latitude, longitude)) {
     warn(`rejected: invalid coordinates from ${sender} (device ${device.deviceId}): ${latRaw},${lonRaw}`);
+    noteReject("invalid_coordinates");
     return;
   }
   const speedKph = Number(speedRaw);
@@ -110,6 +184,7 @@ async function handleLine(io, broadcastLocationUpdate, rawLine) {
 
   const dedupKey = `${device.deviceId}|${recordedAt.toISOString()}|${latitude}|${longitude}|hardware_sms`;
   if (alreadySeen(dedupKey)) {
+    gatewayStatus.counts.duplicates += 1;
     return; // silent — duplicate of an already-processed fix
   }
 
@@ -122,9 +197,13 @@ async function handleLine(io, broadcastLocationUpdate, rawLine) {
       recordedAt,
       deviceId: device.deviceId,
     });
+    gatewayStatus.counts.accepted += 1;
+    gatewayStatus.lastSmsAcceptedAt = new Date().toISOString();
+    gatewayStatus.lastSmsAcceptedBusId = String(device.busId);
     log(`SMS GPS received (bus ${device.busId}, device ${device.deviceId})`);
   } catch (e) {
     warn(`ingestHardwareSmsGps failed for bus ${device.busId}: ${e.message || e}`);
+    noteReject("ingest_failed");
   }
 }
 
@@ -134,7 +213,9 @@ async function handleLine(io, broadcastLocationUpdate, rawLine) {
  */
 function startSmsGpsReceiver(io, broadcastLocationUpdate) {
   const portPath = process.env.SMS_GATEWAY_SERIAL_PORT;
+  gatewayStatus.configured = Boolean(portPath);
   if (!portPath) {
+    gatewayStatus.disabledReason = "SMS_GATEWAY_SERIAL_PORT not set on this server";
     log("SMS_GATEWAY_SERIAL_PORT not set — SMS fallback receiver disabled");
     return { stop: () => {} };
   }
@@ -143,12 +224,14 @@ function startSmsGpsReceiver(io, broadcastLocationUpdate) {
   try {
     serialport = require("serialport");
   } catch (e) {
+    gatewayStatus.disabledReason = "serialport package not installed";
     warn(
       `"serialport" package not installed — run "npm install serialport" in Backend/Admin_Backend to enable the SMS fallback receiver (${e.message || e})`
     );
     return { stop: () => {} };
   }
   const { SerialPort, ReadlineParser } = serialport;
+  gatewayStatus.receiverEnabled = true;
 
   let stopped = false;
   let port = null;
@@ -167,9 +250,15 @@ function startSmsGpsReceiver(io, broadcastLocationUpdate) {
     try {
       port = new SerialPort({ path: portPath, baudRate: 115200 }, (err) => {
         if (err) {
+          gatewayStatus.portOpen = false;
+          gatewayStatus.lastPortError = String(err.message || err).slice(0, 200);
           warn(`failed to open ${portPath}: ${err.message || err} — retrying in ${SERIAL_REOPEN_DELAY_MS / 1000}s`);
           scheduleReopen();
+          return;
         }
+        gatewayStatus.portOpen = true;
+        gatewayStatus.lastPortOpenedAt = new Date().toISOString();
+        gatewayStatus.lastPortError = null;
       });
     } catch (e) {
       warn(`failed to open ${portPath}: ${e.message || e} — retrying in ${SERIAL_REOPEN_DELAY_MS / 1000}s`);
@@ -184,9 +273,11 @@ function startSmsGpsReceiver(io, broadcastLocationUpdate) {
       });
     });
     port.on("error", (err) => {
+      gatewayStatus.lastPortError = String(err.message || err).slice(0, 200);
       warn(`serial port error on ${portPath}: ${err.message || err}`);
     });
     port.on("close", () => {
+      gatewayStatus.portOpen = false;
       if (stopped) return;
       warn(`serial port ${portPath} closed — retrying in ${SERIAL_REOPEN_DELAY_MS / 1000}s`);
       scheduleReopen();
@@ -209,4 +300,4 @@ function startSmsGpsReceiver(io, broadcastLocationUpdate) {
   };
 }
 
-module.exports = { startSmsGpsReceiver };
+module.exports = { startSmsGpsReceiver, getSmsGatewayStatus, handleLine };

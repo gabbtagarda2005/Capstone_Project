@@ -73,6 +73,7 @@ class LiveFleetSocket {
     double? heading,
     bool forceSync = false,
     String? signal,
+    String? clientRecordedAt,
   }) {
     final s = _socket;
     if (s == null || !s.connected || !_authenticated) return false;
@@ -84,6 +85,7 @@ class LiveFleetSocket {
       if (forceSync) 'forceSync': true,
       if (signal != null && signal.isNotEmpty) 'signal': signal,
       if (signal != null && signal.isNotEmpty) 'signal_status': signal,
+      if (clientRecordedAt != null) 'clientRecordedAt': clientRecordedAt,
     }, ack: (_) {});
     return true;
   }

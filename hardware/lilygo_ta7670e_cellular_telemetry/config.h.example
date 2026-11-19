@@ -56,7 +56,7 @@
 #define SMS_GATEWAY_NUMBER "+63XXXXXXXXXX"
 
 /** SMS-fallback send cadence while active. */
-#define SMS_INTERVAL_MS 15000
+#define SMS_INTERVAL_MS 8000
 
 /** Consecutive HTTPS telemetry failures required before treating mobile-data as "confirmed down"
  *  and switching to SMS fallback — not on the very first failure. At POST_INTERVAL_MS=5000 this is

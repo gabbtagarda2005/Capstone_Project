@@ -7,10 +7,10 @@
       "routeLabel": "Malaybalay Integrated Bus Terminal, Barangay 9 → Maramag Integrated Bus Terminal, Purok 5",
       "departurePoint": "Malaybalay Integrated Bus Terminal, Barangay 9",
       "scheduledDeparture": "06:00",
-      "serviceDate": "2026-10-17",
+      "serviceDate": "2026-11-18",
       "status": "on-time",
       "createdAt": "2026-04-06T01:05:58.008Z",
-      "updatedAt": "2026-10-17T13:44:36.985Z",
+      "updatedAt": "2026-11-17T20:32:21.886Z",
       "etaMinutes": 0,
       "nextTerminal": "Malaybalay Integrated Bus Terminal, Barangay 9"
     }

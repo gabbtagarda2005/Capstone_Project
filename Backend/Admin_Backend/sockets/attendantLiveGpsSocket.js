@@ -110,6 +110,9 @@ function attachAttendantLiveGpsSocket(io) {
           heading,
           forceSync,
           signal,
+          // Phone-side GPS fix time (same field and server-side clamp as POST /live-location);
+          // absent from older app builds → ingest falls back to server receive time.
+          clientRecordedAt: body.clientRecordedAt,
         });
         if (typeof ack === "function") ack({ ok: true });
       } catch (e) {

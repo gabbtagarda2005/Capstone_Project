@@ -70,7 +70,7 @@
 #define POST_INTERVAL_MS 5000
 #endif
 #ifndef SMS_INTERVAL_MS
-#define SMS_INTERVAL_MS 15000
+#define SMS_INTERVAL_MS 8000
 #endif
 #ifndef MOBILE_FAIL_CONFIRM_COUNT
 #define MOBILE_FAIL_CONFIRM_COUNT 2
@@ -1197,23 +1197,34 @@ void loop() {
 
     case ST_SMS_FALLBACK: {
       static bool announced = false;
+      uint32_t now = millis();
       if (!announced) {
         gpsLog("SMS fallback ACTIVATED");
         announced = true;
+        // Start the recovery-recheck clock on entry. Previously a stale timestamp made the recheck
+        // fire immediately on entry, so the device bounced straight back out without ever sending
+        // an SMS.
+        gLastSmsPdpRecheckMs = now;
       }
-      uint32_t now = millis();
 
-      // Background PDP recheck — does not interrupt the SMS cadence below.
+      // Background mobile-data recheck — does not interrupt the SMS cadence below. Only leave SMS
+      // fallback when a real telemetry POST succeeds: a PDP attach alone isn't proof (server down /
+      // carrier "no credit" redirect both keep PDP up while every POST fails — verified on this
+      // unit: HTTP 530 and 302→filter.dito.ph).
       if (now - gLastSmsPdpRecheckMs >= SMS_PDP_RECHECK_MS) {
         gLastSmsPdpRecheckMs = now;
-        if (pdpConnectAttempt()) {
-          announced = false;
-          gMobileFailConsecutive = 0;
-          gPdpFailConsecutive = 0;
-          gpsLog("SMS fallback stopped");
-          gState = ST_TELEMETRY_SEND;
-          return;
+        if (gHasFix && pdpConnectAttempt()) {
+          FailureReason fr;
+          if (httpsPostTelemetry(gLat, gLon, gSpeedKph, gHeading, buildGnssTimestampIso(), fr)) {
+            announced = false;
+            gPdpFailConsecutive = 0;
+            gLastTelemetrySendMs = millis();  // keep the 5s mobile cadence from this successful send
+            gpsLog("SMS fallback stopped");
+            gState = ST_TELEMETRY_SUCCESS;    // resets fail counters + flushes the ring buffer
+            return;
+          }
         }
+        now = millis();  // the recheck can take several seconds of AT exchanges
       }
 
       uint32_t smsIntervalMs = gSmsFailConsecutive >= SMS_FAIL_ABANDON_COUNT ? SMS_RETRY_BACKOFF_MS : SMS_INTERVAL_MS;
