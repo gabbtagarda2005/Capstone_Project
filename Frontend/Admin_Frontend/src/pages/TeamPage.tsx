@@ -121,6 +121,9 @@ export function TeamPage() {
 
   useEffect(() => {
     document.title = "People Behind the System";
+    // React Router doesn't reset scroll on navigation — without this, arriving here from a page
+    // scrolled partway down (e.g. the landing page) lands mid-page instead of at the top.
+    window.scrollTo(0, 0);
     let cancelled = false;
     void fetchPublicCompanyProfile()
       .then((p) => {

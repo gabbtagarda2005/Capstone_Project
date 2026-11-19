@@ -112,21 +112,21 @@ async function collectAllMonitoredSpots() {
   return spots;
 }
 
-async function fetchWeatherForSpot(s) {
+async function fetchWeatherForSpotOnce(s, timeoutMs) {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(s.lat)}` +
     `&longitude=${encodeURIComponent(s.lon)}` +
     `&current=weather_code,temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation` +
     `&timezone=auto`;
   const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), 10_000);
+  const to = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: ctrl.signal });
     clearTimeout(to);
-    if (!res.ok) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const code = Number(data?.current?.weather_code);
-    if (!Number.isFinite(code)) return null;
+    if (!Number.isFinite(code)) throw new Error("no weather_code in response");
     const summary = needsPassengerAdvisory(code) ? labelForCode(code) : summaryForAnyWeatherCode(code);
     const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
     return {
@@ -143,13 +143,30 @@ async function fetchWeatherForSpot(s) {
       precipitationMm: num(data?.current?.precipitation),
       observedAt: typeof data?.current?.time === "string" ? data.current.time : null,
     };
-  } catch {
+  } catch (e) {
     clearTimeout(to);
-    return null;
+    throw e;
   }
 }
 
-/** Limit parallel Open-Meteo calls per refresh. */
+/** One retry on top of the raw attempt — a single slow/flaky Open-Meteo call (common on a cold
+ *  host, e.g. Render free tier) would otherwise drop that spot from the board for a full refresh
+ *  cycle (10 min). Logs only the final failure, so one retry succeeding stays silent. */
+async function fetchWeatherForSpot(s) {
+  try {
+    return await fetchWeatherForSpotOnce(s, 15_000);
+  } catch (e1) {
+    try {
+      return await fetchWeatherForSpotOnce(s, 15_000);
+    } catch (e2) {
+      console.warn(`[weather-advisories] ${s.name}: ${e2.message || e2}`);
+      return null;
+    }
+  }
+}
+
+/** Limit parallel Open-Meteo calls per refresh — kept modest since a shared hosting IP (e.g. Render)
+ *  is more likely than a residential one to see a burst of concurrent calls slow down or stall. */
 async function mapInChunks(items, chunkSize, fn) {
   const out = [];
   for (let i = 0; i < items.length; i += chunkSize) {
@@ -172,7 +189,7 @@ async function refreshWeatherAdvisoriesOnce() {
   if (mongoose.connection.readyState !== 1) return;
   try {
     const spots = await collectAllMonitoredSpots();
-    const byLocation = await mapInChunks(spots, 8, fetchWeatherForSpot);
+    const byLocation = await mapInChunks(spots, 4, fetchWeatherForSpot);
     byLocation.sort((a, b) => String(a.locationName).localeCompare(String(b.locationName)));
 
     const alerts = byLocation
