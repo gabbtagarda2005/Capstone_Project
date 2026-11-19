@@ -2,6 +2,7 @@ const express = require("express");
 const GpsLog = require("../models/GpsLog");
 const store = require("../services/liveDispatchStore");
 const { broadcastLiveBoard } = require("../sockets/socket");
+const { manilaNowMinutes, parseHmToMinutes } = require("../services/manilaTime");
 
 const GPS_FRESH_MS = 5 * 60 * 1000;
 
@@ -85,9 +86,24 @@ async function enrichItemsForPublic(rawBlocks) {
       arrivalTerminalName: b.arrivalTerminalName != null ? String(b.arrivalTerminalName) : null,
       arrivalLockedEta: b.arrivalLockedEta != null ? String(b.arrivalLockedEta) : null,
       arrivalDetectedAt: b.arrivalDetectedAt != null ? String(b.arrivalDetectedAt) : null,
-      etaMinutes: Number.isFinite(Number(b.etaMinutes)) ? Math.max(1, Math.round(Number(b.etaMinutes))) : null,
+      // A trip with no GPS fix yet still has a published schedule — fall back to minutes-until-scheduled-
+      // departure (Asia/Manila) rather than hiding the trip from passengers until a device happens to ping.
+      // Already at/past that time with no fix means it's due any moment, so floor it at 1 rather than go negative.
+      etaMinutes: Number.isFinite(Number(b.etaMinutes))
+        ? Math.max(1, Math.round(Number(b.etaMinutes)))
+        : (() => {
+            if (b.status === "cancelled") return null;
+            const schedMin = parseHmToMinutes(b.scheduledDeparture);
+            if (schedMin == null) return null;
+            const diff = schedMin - manilaNowMinutes();
+            return diff > 0 ? diff : 1;
+          })(),
       etaTargetIso: b.etaTargetIso != null ? String(b.etaTargetIso) : null,
       nextTerminal: b.nextTerminal != null ? String(b.nextTerminal) : null,
+      /** Raw published schedule (HH:mm), unlike `departureTime` above which locks to the live
+       *  arrival clock or reads "ESTIMATED" — passenger UI uses this to show the original
+       *  timetable slot regardless of live status. */
+      scheduledDeparture: b.scheduledDeparture != null ? String(b.scheduledDeparture).trim() || null : null,
     });
   }
   return out;
