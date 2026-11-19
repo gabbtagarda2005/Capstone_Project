@@ -46,20 +46,12 @@ async function enrichItemsForPublic(rawBlocks) {
     const trackingLost = !fresh;
     const trackingDegraded = Boolean(fresh && sig === "weak");
 
-    // Dispatch status (is this trip active/boarding/etc.) and GPS status (is a device actually
-    // reporting a position) are reported as two separate facts — a trip stays ACTIVE in dispatch
-    // terms with no live device behind it yet, so the passenger UI must not infer one from the other.
-    // activeGpsSource: "staff" (attendant phone) | "hardware" (LILYGO mobile data) |
-    // "hardware_sms" (LILYGO SMS fallback) | "simulated" (manually-tagged demo fix, never set by
-    // any live ingest path today) | "no_signal" | null.
-    const activeSrc = log?.activeGpsSource ? String(log.activeGpsSource) : null;
-    const gpsStatus = !fresh
-      ? "signal_lost"
-      : activeSrc === "simulated"
-        ? "simulated"
-        : activeSrc === "hardware_sms"
-          ? "fallback"
-          : "connected";
+    // Raw timestamp of the last VALID, PUBLISHED fix (set only when the GPS source arbiter accepted
+    // it — see decideActiveSource/shouldPublish in attendantGpsIngest.js — so a buffered/replayed or
+    // rejected-outlier fix never advances this). This is the one source of truth for GPS freshness;
+    // the passenger UI derives its own live-ticking ACTIVE/SIGNAL LOST state from it rather than from
+    // the 5-minute-windowed `trackingLost` below, which is tuned for the admin ops board instead.
+    const gpsUpdatedAt = log?.recordedAt ? new Date(log.recordedAt).toISOString() : null;
 
     const departurePoint =
       (b.departurePoint && String(b.departurePoint).trim()) ||
@@ -126,9 +118,11 @@ async function enrichItemsForPublic(rawBlocks) {
       etaSource,
       etaTargetIso: b.etaTargetIso != null ? String(b.etaTargetIso) : null,
       nextTerminal: b.nextTerminal != null ? String(b.nextTerminal) : null,
-      /** "connected" | "fallback" (SMS) | "signal_lost" | "simulated" — independent of `status`,
-       *  which reflects the dispatch/trip lifecycle, not whether a device is actually reporting. */
-      gpsStatus,
+      /** ISO timestamp of the last valid, published GPS fix from ANY source (phone, LILYGO mobile
+       *  data, or LILYGO SMS fallback — the arbiter already picks the right one) — null if this bus
+       *  has never had one. Independent of `status`, which reflects the dispatch/trip lifecycle, not
+       *  whether a device is actually reporting right now. */
+      gpsUpdatedAt,
       /** Raw published schedule (HH:mm), unlike `departureTime` above which locks to the live
        *  arrival clock or reads "ESTIMATED" — passenger UI uses this to show the original
        *  timetable slot regardless of live status. */

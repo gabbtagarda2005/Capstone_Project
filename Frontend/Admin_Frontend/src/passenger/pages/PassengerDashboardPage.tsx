@@ -15,7 +15,6 @@ import { fetchPublicFleetBuses, type PublicFleetBus } from "@/passenger/lib/fetc
 import {
   bestEtaByBusId,
   fetchPublicLiveBoard,
-  type PublicGpsStatus,
   type PublicLiveBoardItem,
 } from "@/passenger/lib/fetchPublicLiveBoard";
 import { clearPassengerLocationGate, getPassengerLocationSession } from "@/passenger/lib/passengerLocationGate";
@@ -179,7 +178,9 @@ function PassengerDashboardPageInner() {
       }
     };
     void poll();
-    const id = window.setInterval(() => void poll(), 30_000);
+    // Polled well under GPS_FRESH_WINDOW_MS (10s) so a bus's gpsUpdatedAt reaching the UI is never
+    // itself the reason the GPS status tile flips to "signal lost" — only an actual stopped device is.
+    const id = window.setInterval(() => void poll(), 5_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -492,17 +493,23 @@ type PassengerQuickEtaRow = {
   /** "live" = real GPS-computed ETA; "scheduled" = estimated from the timetable because no
    *  device has reported in yet; null = no estimate available either way. */
   etaSource: "live" | "scheduled" | null;
-  /** Whether a device is actually reporting right now — independent of `statusActive`, which
-   *  reflects the trip's dispatch status, not its GPS. */
-  gpsStatus: PublicGpsStatus | null;
+  /** ISO timestamp of the last valid, published GPS fix from any source — independent of
+   *  `statusActive`, which reflects the trip's dispatch status, not its GPS. The tile judges
+   *  freshness against this on its own live clock rather than trusting a pre-computed label. */
+  gpsUpdatedAt: string | null;
 };
 
-const GPS_STATUS_LABEL: Record<PublicGpsStatus, string> = {
-  connected: "GPS Connected",
-  fallback: "GPS Fallback (SMS)",
-  signal_lost: "GPS Signal Lost",
-  simulated: "GPS Simulated",
-};
+/** A fix older than this is no longer "ACTIVE" for GPS purposes — tighter than the 5-minute
+ *  window the admin ops board uses, since passengers want near-real-time feedback. Devices ping
+ *  every ~3-8s in normal operation (phone fastest, SMS fallback slowest), so 10s gives a couple of
+ *  missed pings of slack before flipping to lost. */
+const GPS_FRESH_WINDOW_MS = 10_000;
+
+function isGpsFresh(gpsUpdatedAt: string | null, nowMs: number): boolean {
+  if (!gpsUpdatedAt) return false;
+  const t = new Date(gpsUpdatedAt).getTime();
+  return Number.isFinite(t) && nowMs - t <= GPS_FRESH_WINDOW_MS;
+}
 
 /** "06:00" -> "6:00 AM" to match the admin Schedule board's display convention. */
 function formatScheduledDeparture(hm: string | null): string | null {
@@ -671,7 +678,7 @@ function buildQuickEtaRows(fleet: PublicFleetBus[], live: PublicLiveBoardItem[])
         routePath,
         scheduledDeparture: rec?.scheduledDeparture ?? null,
         etaSource,
-        gpsStatus: rec?.gpsStatus ?? null,
+        gpsUpdatedAt: rec?.gpsUpdatedAt ?? null,
       });
     }
     merged.sort((a, b) => a.etaMinutes - b.etaMinutes);
@@ -707,7 +714,7 @@ function buildQuickEtaRows(fleet: PublicFleetBus[], live: PublicLiveBoardItem[])
         routePath,
         scheduledDeparture: row.scheduledDeparture?.trim() || null,
         etaSource: row.etaSource ?? null,
-        gpsStatus: row.gpsStatus ?? null,
+        gpsUpdatedAt: row.gpsUpdatedAt ?? null,
       };
     });
 }
@@ -744,6 +751,15 @@ function PassengerQuickEtaTile({
   const fillPct = cap > 0 ? Math.min(100, (boardedClamped / cap) * 100) : 0;
   const isFull = cap > 0 && boardedClamped >= cap;
 
+  // Ticks independently of the ~5s live-board poll so a bus that stops reporting flips to
+  // GPS SIGNAL LOST within GPS_FRESH_WINDOW_MS of its last valid fix, not just on the next poll.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const gpsActive = isGpsFresh(row.gpsUpdatedAt, nowMs);
+
   const inner = (
     <div className="pd-spa-eta-tile__surface">
       <header className="pd-spa-eta-tile__header">
@@ -763,15 +779,13 @@ function PassengerQuickEtaTile({
             <span className="pd-spa-eta-tile__status-pill-dot" aria-hidden />
             <span>{row.statusLabel}</span>
           </div>
-          {row.gpsStatus ? (
-            <div
-              className={`pd-spa-eta-tile__gps-pill pd-spa-eta-tile__gps-pill--${row.gpsStatus}`}
-              title="Dispatch status above is independent of this — a trip can stay active with no device reporting."
-            >
-              <span className="pd-spa-eta-tile__gps-pill-dot" aria-hidden />
-              <span>{GPS_STATUS_LABEL[row.gpsStatus]}</span>
-            </div>
-          ) : null}
+          <div
+            className={"pd-spa-eta-tile__gps-pill" + (gpsActive ? " pd-spa-eta-tile__gps-pill--active" : " pd-spa-eta-tile__gps-pill--lost")}
+            title="Dispatch status above is independent of this — a trip can stay active with no device reporting."
+          >
+            <span className="pd-spa-eta-tile__gps-pill-dot" aria-hidden />
+            <span>{gpsActive ? "ACTIVE" : "GPS SIGNAL LOST"}</span>
+          </div>
         </div>
         <div
           className={

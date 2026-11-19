@@ -1,9 +1,5 @@
 import { fetchPublicGetJson } from "@/passenger/lib/fetchWithPublicApiBases";
 
-/** "connected" | "fallback" (SMS) | "signal_lost" | "simulated" — whether a device is actually
- *  reporting right now, independent of the trip's dispatch `status`. */
-export type PublicGpsStatus = "connected" | "fallback" | "signal_lost" | "simulated";
-
 export type PublicLiveBoardItem = {
   id: string;
   busId: string;
@@ -16,7 +12,11 @@ export type PublicLiveBoardItem = {
   status?: string;
   /** Raw published schedule (HH:mm) — the original timetable slot, not the live-status clock. */
   scheduledDeparture?: string | null;
-  gpsStatus?: PublicGpsStatus | null;
+  /** ISO timestamp of the last valid, published GPS fix from any source (phone, LILYGO mobile
+   *  data, or LILYGO SMS fallback) — null if this bus has never had one. The UI derives its own
+   *  live-ticking freshness state from this rather than trusting a pre-computed status label, so
+   *  staleness is judged against the real clock, not against how long ago the last poll happened. */
+  gpsUpdatedAt?: string | null;
 };
 
 export async function fetchPublicLiveBoard(): Promise<PublicLiveBoardItem[]> {
@@ -31,7 +31,7 @@ type BestEtaEntry = {
   status: string | null;
   scheduledDeparture: string | null;
   etaSource: "live" | "scheduled" | null;
-  gpsStatus: PublicGpsStatus | null;
+  gpsUpdatedAt: string | null;
 };
 
 export function bestEtaByBusId(items: PublicLiveBoardItem[]): Map<string, BestEtaEntry> {
@@ -46,10 +46,10 @@ export function bestEtaByBusId(items: PublicLiveBoardItem[]): Map<string, BestEt
     const status = it.status?.trim() || null;
     const scheduledDeparture = it.scheduledDeparture?.trim() || null;
     const etaSource = it.etaSource ?? null;
-    const gpsStatus = it.gpsStatus ?? null;
+    const gpsUpdatedAt = it.gpsUpdatedAt ?? null;
     const prev = m.get(bid);
     if (!prev || (eta != null && (prev.eta == null || eta < prev.eta))) {
-      m.set(bid, { eta, nextTerminal, status, scheduledDeparture, etaSource, gpsStatus });
+      m.set(bid, { eta, nextTerminal, status, scheduledDeparture, etaSource, gpsUpdatedAt });
     }
   }
   return m;

@@ -3111,44 +3111,24 @@ a.pd-card:hover {
   opacity: 0.9;
 }
 
-.pd-spa-eta-tile__gps-pill--connected {
+.pd-spa-eta-tile__gps-pill--active {
   color: #86efac;
   background: rgba(34, 197, 94, 0.16);
 }
 
-.pd-spa-eta-tile__gps-pill--fallback {
-  color: #fcd34d;
-  background: rgba(245, 158, 11, 0.18);
+.pd-spa-eta-tile__gps-pill--lost {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.16);
 }
 
-.pd-spa-eta-tile__gps-pill--signal_lost {
-  color: rgba(226, 232, 240, 0.72);
-  background: rgba(148, 163, 184, 0.16);
-}
-
-.pd-spa-eta-tile__gps-pill--simulated {
-  color: #d8b4fe;
-  background: rgba(168, 85, 247, 0.18);
-}
-
-:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--connected {
+:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--active {
   color: #15803d;
   background: rgba(34, 197, 94, 0.14);
 }
 
-:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--fallback {
-  color: #b45309;
-  background: rgba(245, 158, 11, 0.16);
-}
-
-:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--signal_lost {
-  color: #475569;
-  background: rgba(100, 116, 139, 0.12);
-}
-
-:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--simulated {
-  color: #7e22ce;
-  background: rgba(168, 85, 247, 0.14);
+:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--lost {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.14);
 }
 
 .pd-spa-eta-tile__hero-source {
