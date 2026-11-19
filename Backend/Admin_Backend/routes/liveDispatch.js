@@ -46,6 +46,21 @@ async function enrichItemsForPublic(rawBlocks) {
     const trackingLost = !fresh;
     const trackingDegraded = Boolean(fresh && sig === "weak");
 
+    // Dispatch status (is this trip active/boarding/etc.) and GPS status (is a device actually
+    // reporting a position) are reported as two separate facts — a trip stays ACTIVE in dispatch
+    // terms with no live device behind it yet, so the passenger UI must not infer one from the other.
+    // activeGpsSource: "staff" (attendant phone) | "hardware" (LILYGO mobile data) |
+    // "hardware_sms" (LILYGO SMS fallback) | "simulated" (manually-tagged demo fix, never set by
+    // any live ingest path today) | "no_signal" | null.
+    const activeSrc = log?.activeGpsSource ? String(log.activeGpsSource) : null;
+    const gpsStatus = !fresh
+      ? "signal_lost"
+      : activeSrc === "simulated"
+        ? "simulated"
+        : activeSrc === "hardware_sms"
+          ? "fallback"
+          : "connected";
+
     const departurePoint =
       (b.departurePoint && String(b.departurePoint).trim()) ||
       store.deriveDeparturePoint(b.routeLabel, null);
@@ -67,6 +82,25 @@ async function enrichItemsForPublic(rawBlocks) {
       (b.arrivalTerminalName && String(b.arrivalTerminalName).trim()) ||
       null;
 
+    // A trip with no GPS fix yet still has a published schedule — fall back to minutes-until-
+    // scheduled-departure (Asia/Manila) rather than hiding the trip from passengers until a device
+    // happens to ping. Already at/past that time with no fix means it's due any moment, so floor
+    // it at 1 rather than go negative. `etaSource` tells the UI which kind of number this is, so it
+    // can label a schedule-derived estimate differently from a real GPS-computed ETA.
+    let etaMinutes = null;
+    let etaSource = null;
+    if (Number.isFinite(Number(b.etaMinutes))) {
+      etaMinutes = Math.max(1, Math.round(Number(b.etaMinutes)));
+      etaSource = "live";
+    } else if (b.status !== "cancelled") {
+      const schedMin = parseHmToMinutes(b.scheduledDeparture);
+      if (schedMin != null) {
+        const diff = schedMin - manilaNowMinutes();
+        etaMinutes = diff > 0 ? diff : 1;
+        etaSource = "scheduled";
+      }
+    }
+
     out.push({
       id: b.id,
       routeId: b.routeId,
@@ -86,20 +120,15 @@ async function enrichItemsForPublic(rawBlocks) {
       arrivalTerminalName: b.arrivalTerminalName != null ? String(b.arrivalTerminalName) : null,
       arrivalLockedEta: b.arrivalLockedEta != null ? String(b.arrivalLockedEta) : null,
       arrivalDetectedAt: b.arrivalDetectedAt != null ? String(b.arrivalDetectedAt) : null,
-      // A trip with no GPS fix yet still has a published schedule — fall back to minutes-until-scheduled-
-      // departure (Asia/Manila) rather than hiding the trip from passengers until a device happens to ping.
-      // Already at/past that time with no fix means it's due any moment, so floor it at 1 rather than go negative.
-      etaMinutes: Number.isFinite(Number(b.etaMinutes))
-        ? Math.max(1, Math.round(Number(b.etaMinutes)))
-        : (() => {
-            if (b.status === "cancelled") return null;
-            const schedMin = parseHmToMinutes(b.scheduledDeparture);
-            if (schedMin == null) return null;
-            const diff = schedMin - manilaNowMinutes();
-            return diff > 0 ? diff : 1;
-          })(),
+      etaMinutes,
+      /** "live" = computed from a real GPS fix; "scheduled" = estimated from the published
+       *  timetable because no device has reported in yet; null = no schedule to estimate from either. */
+      etaSource,
       etaTargetIso: b.etaTargetIso != null ? String(b.etaTargetIso) : null,
       nextTerminal: b.nextTerminal != null ? String(b.nextTerminal) : null,
+      /** "connected" | "fallback" (SMS) | "signal_lost" | "simulated" — independent of `status`,
+       *  which reflects the dispatch/trip lifecycle, not whether a device is actually reporting. */
+      gpsStatus,
       /** Raw published schedule (HH:mm), unlike `departureTime` above which locks to the live
        *  arrival clock or reads "ESTIMATED" — passenger UI uses this to show the original
        *  timetable slot regardless of live status. */

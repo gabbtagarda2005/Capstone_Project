@@ -3089,6 +3089,81 @@ a.pd-card:hover {
   box-shadow: none;
 }
 
+/* GPS status is reported separately from dispatch status above — a trip can be ACTIVE with no
+   device currently reporting, so this pill never borrows the status-pill's on/off color. */
+.pd-spa-eta-tile__gps-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.14rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pd-spa-eta-tile__gps-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+
+.pd-spa-eta-tile__gps-pill--connected {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.pd-spa-eta-tile__gps-pill--fallback {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.pd-spa-eta-tile__gps-pill--signal_lost {
+  color: rgba(226, 232, 240, 0.72);
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.pd-spa-eta-tile__gps-pill--simulated {
+  color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.18);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--connected {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--fallback {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--signal_lost {
+  color: #475569;
+  background: rgba(100, 116, 139, 0.12);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__gps-pill--simulated {
+  color: #7e22ce;
+  background: rgba(168, 85, 247, 0.14);
+}
+
+.pd-spa-eta-tile__hero-source {
+  margin-top: 0.3rem;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-theme="light"] .pd-spa-eta-tile__hero-source {
+  color: #7a8495;
+}
+
 .pd-spa-eta-tile__hero {
   flex-shrink: 0;
   text-align: right;
@@ -3393,6 +3468,16 @@ a.pd-card:hover {
 .pd-spa-eta-tile--peek .pd-spa-eta-tile__status-pill {
   font-size: 0.44rem;
   padding: 0.1rem 0.38rem;
+}
+
+.pd-spa-eta-tile--peek .pd-spa-eta-tile__gps-pill {
+  font-size: 0.4rem;
+  padding: 0.08rem 0.34rem;
+}
+
+.pd-spa-eta-tile--peek .pd-spa-eta-tile__hero-source {
+  font-size: 0.48rem;
+  margin-top: 0.18rem;
 }
 
 .pd-spa-eta-tile--peek .pd-spa-eta-tile__hero-val {
