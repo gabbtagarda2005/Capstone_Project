@@ -1,3 +1,9 @@
+import erichPhoto from "@/Image/team/erich-delacerna.jpg";
+import christianPhoto from "@/Image/team/christian-adolfo.jpg";
+import danicaPhoto from "@/Image/team/danica-pahanggin.jpg";
+import mhyllesPhoto from "@/Image/team/mhylles-aguilar.jpg";
+import raulPhoto from "@/Image/team/raul-lecaros.jpg";
+
 export type TeamMember = {
   id: string;
   name: string;
@@ -22,6 +28,7 @@ export const TEAM_ADVISER: TeamMember = {
   role: "Adviser",
   initials: "RL",
   accent: "linear-gradient(135deg, #22d3ee, #a855f7)",
+  photoUrl: raulPhoto,
   specialization: "Information Technology / Systems Development",
   contribution: "Project guidance, consultation, and supervision",
   responsibilities: ["Project Guidance", "Consultation", "Supervision"],
@@ -34,6 +41,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: "Programmer and UI Designer",
     initials: "MA",
     accent: "linear-gradient(135deg, #22d3ee, #38bdf8)",
+    photoUrl: mhyllesPhoto,
     program: "BS Information Technology",
     specialization: "Web Development & UI/UX",
     contribution: "Programming, system interface, and user experience",
@@ -45,6 +53,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: "Database, QA, and Programmer",
     initials: "CA",
     accent: "linear-gradient(135deg, #a855f7, #e879f9)",
+    photoUrl: christianPhoto,
     program: "BS Information Technology",
     specialization: "Database & Software Testing",
     contribution: "Database development, programming, and quality assurance",
@@ -56,6 +65,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: "Documentation, QA, and UI",
     initials: "DP",
     accent: "linear-gradient(135deg, #fb923c, #fbbf24)",
+    photoUrl: danicaPhoto,
     program: "BS Information Technology",
     specialization: "Documentation, UI/UX & Testing",
     contribution: "Documentation, interface design, and quality assurance",
@@ -67,6 +77,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: "Documentation, Presenter, QA and UI",
     initials: "EL",
     accent: "linear-gradient(135deg, #a3e635, #22d3ee)",
+    photoUrl: erichPhoto,
     program: "BS Information Technology",
     specialization: "Presentation, UI/UX & Testing",
     contribution: "Documentation, presentations, interface design, and quality assurance",
