@@ -42,6 +42,63 @@ function normalizeLabel(s) {
 let pointsCache = { at: 0, points: [] };
 const POINTS_CACHE_MS = 45_000;
 
+/**
+ * A stop's own geofence (as small as 100 m for an intermediate stop, vs. 200-500 m for a major
+ * terminal) can be crossed by a highway-speed bus between two published GPS fixes — phone/LILYGO
+ * publish every 3-8 s, and a brief signal gap (the exact GPS-reliability issue this project keeps
+ * running into) can mean NO fix ever lands inside a tight circle even though the bus genuinely
+ * passed right by it. Tracking each bus's closest-ever approach to a pending destination and
+ * confirming once it visibly recedes again catches that case without just blanket-widening every
+ * stop's radius (which would risk false positives from a parallel road). Reset whenever the trip
+ * segment changes so a NEW leg never inherits a stale "closest approach" from a previous one.
+ */
+const approachStateByBus = new Map();
+/** How far past a stop's own radius still counts as "passed close enough" once distance is clearly
+ *  increasing again — generous enough to absorb typical road/GPS offset, tight enough that a stop
+ *  on a genuinely different nearby road (which never gets this close) still won't false-trigger. */
+const NEAR_MISS_RADIUS_MULTIPLIER = 2.5;
+/** Consecutive published fixes showing increasing distance before we trust "it passed" over a
+ *  single noisy jump. */
+const RECEDE_CONFIRM_UPDATES = 2;
+
+function getApproachState(busId, segmentStartIso) {
+  let s = approachStateByBus.get(busId);
+  if (!s || s.segmentStartIso !== segmentStartIso) {
+    s = { segmentStartIso, perPoint: new Map() };
+    approachStateByBus.set(busId, s);
+  }
+  return s;
+}
+
+/**
+ * Folds one new distance reading for one point into that bus's tracked state, returning whether
+ * this reading should count as "arrived" — either a direct hit, or a confirmed near-miss pass.
+ */
+function foldApproachReading(perPoint, normLabel, distM, radiusM) {
+  if (distM <= radiusM) {
+    perPoint.delete(normLabel);
+    return true;
+  }
+  const prev = perPoint.get(normLabel);
+  if (!prev) {
+    perPoint.set(normLabel, { minM: distM, consecutiveReceding: 0 });
+    return false;
+  }
+  if (distM < prev.minM - 1) {
+    prev.minM = distM;
+    prev.consecutiveReceding = 0;
+    return false;
+  }
+  if (distM > prev.minM + 1) {
+    prev.consecutiveReceding += 1;
+  }
+  if (prev.consecutiveReceding >= RECEDE_CONFIRM_UPDATES && prev.minM <= radiusM * NEAR_MISS_RADIUS_MULTIPLIER) {
+    perPoint.delete(normLabel);
+    return true;
+  }
+  return false;
+}
+
 /** Flat list of every registered terminal AND stop, each carrying the exact ticket-label format. */
 async function loadDropoffPoints() {
   const now = Date.now();
@@ -98,12 +155,6 @@ async function completeTicketsAtArrivedStops(io, busId, lat, lng) {
   }
   if (!points.length) return { completed: 0 };
 
-  const hitLabels = new Set();
-  for (const p of points) {
-    if (haversineMeters(la, ln, p.latitude, p.longitude) <= p.radiusM) hitLabels.add(p.normLabel);
-  }
-  if (!hitLabels.size) return { completed: 0 };
-
   const bus = await Bus.findOne({ busId: bid }).select("busId busNumber tripSegmentStartedAt").lean();
   if (!bus) return { completed: 0 };
   const bKey = normalizeBusKey(bus.busNumber || bus.busId);
@@ -113,6 +164,16 @@ async function completeTicketsAtArrivedStops(io, busId, lat, lng) {
   // occupancy count already uses, so a ticket from a previous leg (or an old out-of-scope ticket
   // whose destination string happens to match a currently-hit stop) can never be swept up here.
   const segmentStart = effectiveSegmentStart(bus.tripSegmentStartedAt);
+
+  const approachState = getApproachState(bid, segmentStart.toISOString());
+  const hitLabels = new Set();
+  for (const p of points) {
+    const distM = haversineMeters(la, ln, p.latitude, p.longitude);
+    if (foldApproachReading(approachState.perPoint, p.normLabel, distM, p.radiusM)) {
+      hitLabels.add(p.normLabel);
+    }
+  }
+  if (!hitLabels.size) return { completed: 0 };
 
   // Small working set (a bus's currently-boarded tickets) — filtering bus key / destination /
   // segment boundary in JS mirrors the exact pattern enrichPublicFleetBuses() already uses, rather
@@ -153,4 +214,9 @@ async function completeTicketsAtArrivedStops(io, busId, lat, lng) {
   return { completed };
 }
 
-module.exports = { completeTicketsAtArrivedStops };
+module.exports = {
+  completeTicketsAtArrivedStops,
+  // Exported for tests/ticketDropoffCompletion.test.js only — pure helpers, no DB access.
+  foldApproachReading,
+  haversineMeters,
+};

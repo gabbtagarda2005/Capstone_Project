@@ -484,10 +484,6 @@ async function tryPreTerminalChainPlusSpur({
   );
   if (!multi || multi.segments.length < 2) return null;
 
-  const withoutLast = multi.segments.slice(0, -1);
-  const matrixBase = withoutLast.reduce((s, seg) => s + Number(seg.basePesos), 0);
-  if (!Number.isFinite(matrixBase) || matrixBase < 0) return null;
-
   const lastSeg = multi.segments[multi.segments.length - 1];
   const anchorHubId = String(lastSeg.fromId || "");
   const anchorCov = coverages.find((c) => String(c._id) === anchorHubId);
@@ -496,9 +492,76 @@ async function tryPreTerminalChainPlusSpur({
   if (!anchorTerm || !Number.isFinite(anchorTerm.latitude) || !Number.isFinite(anchorTerm.longitude)) return null;
   if (!Number.isFinite(dStop.latitude) || !Number.isFinite(dStop.longitude)) return null;
 
-  const spurKm = haversineKm(anchorTerm.latitude, anchorTerm.longitude, dStop.latitude, dStop.longitude);
-  if (!Number.isFinite(spurKm) || spurKm < 0) return null;
+  const spurFromAnchorKm = haversineKm(anchorTerm.latitude, anchorTerm.longitude, dStop.latitude, dStop.longitude);
+  if (!Number.isFinite(spurFromAnchorKm) || spurFromAnchorKm < 0) return null;
 
+  // A pre-terminal stop is usually much closer to the DESTINATION hub's own terminal than to the
+  // hub several legs back (e.g. Casisang sits ~1.6 km short of Malaybalay's terminal, not out near
+  // Valencia) — pricing it as "drop the last matrix leg, then charge per-km from that far-away
+  // anchor" charges per-km for nearly the ENTIRE last leg's distance at a rate calibrated for short
+  // local spurs, wildly overshooting the matrix fare for that same leg (this was the actual ₱279
+  // bug: Maramag→Casisang priced at ₱50 matrix + ~₱230 of per-km spur from Valencia, instead of
+  // ≈₱64). When the stop is nearer the destination terminal, charge the FULL hub-chain fare (same
+  // as going all the way to the terminal) minus a small per-km credit for the short remaining
+  // distance not travelled — this can never exceed the fare to the farther terminal.
+  const spurFromDestTerminalKm = Number.isFinite(endRes.extraKm) ? Number(endRes.extraKm) : Infinity;
+  const nearerToDestination = spurFromDestTerminalKm < spurFromAnchorKm;
+
+  const withoutLast = multi.segments.slice(0, -1);
+  const matrixBaseWithoutLast = withoutLast.reduce((s, seg) => s + Number(seg.basePesos), 0);
+  if (!Number.isFinite(matrixBaseWithoutLast) || matrixBaseWithoutLast < 0) return null;
+
+  if (nearerToDestination) {
+    const fullMatrixBase = Number(multi.totalBase);
+    if (!Number.isFinite(fullMatrixBase) || fullMatrixBase < 0) return null;
+
+    const distanceCredit = perKm * spurFromDestTerminalKm;
+    const distanceCreditPesos = Math.round(distanceCredit * 100) / 100;
+    const subtotalRaw = Math.max(0, fullMatrixBase - distanceCredit);
+    const subtotalRoundedHalf = roundFareToNearestHalfPeso(subtotalRaw);
+    const fareAfterDiscount = applyDiscount(subtotalRoundedHalf, pct);
+    const fare = roundFareToNearestHalfPeso(fareAfterDiscount);
+
+    const segmentLines = multi.segments.map((s) => {
+      const tag = segmentPairAbbrev(s.fromLabel, s.toLabel);
+      return `₱${Number(s.basePesos).toFixed(2)} (${tag})`;
+    });
+    const destLabel = endRes.hubMatrixLabel;
+    const kmShown = formatGeoKmForPerKmLine(spurFromDestTerminalKm, distanceCreditPesos, perKm);
+
+    let fareBreakdownDisplay =
+      `${segmentLines.join(" + ")} − ₱${distanceCreditPesos.toFixed(2)} (${kmShown} km × ₱${Number(perKm).toFixed(2)}/km short of ${destLabel})`;
+    if (Number(pct) > 0) {
+      fareBreakdownDisplay += ` → ₱${Number(fare).toFixed(2)} after ${Number(pct)}% discount`;
+    } else {
+      fareBreakdownDisplay += ` → ₱${Number(fare).toFixed(2)} total`;
+    }
+    const pricingSummary = `${segmentLines.join(" + ")} = ₱${fullMatrixBase.toFixed(2)} full fare − ₱${distanceCreditPesos.toFixed(2)} (${kmShown} km short of terminal) → ₱${Number(subtotalRoundedHalf).toFixed(2)}${Number(pct) > 0 ? ` → ₱${Number(fare).toFixed(2)} after ${Number(pct)}% discount` : " total"}`;
+
+    return {
+      matched: true,
+      fare,
+      baseFarePesos: fullMatrixBase,
+      discountPct: pct,
+      categoryUsed: cat,
+      pricingMode: "pre_terminal_near_destination_credit",
+      extraDistanceKm: spurFromDestTerminalKm,
+      distanceChargePesos: -distanceCreditPesos,
+      farePerKmPesos: perKm,
+      hubStartLabel: multi.segments[0]?.fromLabel || startRes.hubMatrixLabel,
+      hubEndLabel: endRes.hubMatrixLabel,
+      subtotalRoundedHalfPeso: subtotalRoundedHalf,
+      preTerminalDestination: true,
+      originSpurKm: 0,
+      destinationSpurKm: spurFromDestTerminalKm,
+      segmentFares: multi.segments,
+      fareBreakdownDisplay,
+      pricingSummary,
+    };
+  }
+
+  const matrixBase = matrixBaseWithoutLast;
+  const spurKm = spurFromAnchorKm;
   const distanceCharge = perKm * spurKm;
   const distanceChargePesos = Math.round(distanceCharge * 100) / 100;
   const subtotalRaw = matrixBase + distanceCharge;
@@ -1191,6 +1254,54 @@ async function computeTicketFare({ startLocation, destination, category, clientF
     const oTerm = startRes.cov.terminal;
     const dStop = endRes.stop;
     const fullKm = haversineKm(oTerm.latitude, oTerm.longitude, dStop.latitude, dStop.longitude);
+
+    // Same failure mode as the multi-hop chain case: if the stop sits much closer to the
+    // DESTINATION hub's own terminal than the straight-line origin→stop distance implies (e.g.
+    // Valencia→Casisang, where Casisang is ~1.6 km short of Malaybalay but ~28 km of raw per-km
+    // billing from Valencia), a direct hub-to-hub matrix fare (if one exists for this exact pair)
+    // minus a small distance credit for the short remaining stretch is the correct price — it can
+    // never exceed the fare to the farther terminal. Only takes over when it's actually cheaper
+    // than the plain per-km fallback below, so a genuinely-short local spur is unaffected.
+    const destSpurKm = Number.isFinite(endRes.extraKm) ? Number(endRes.extraKm) : Infinity;
+    if (destSpurKm < fullKm) {
+      const directEntry = await findMatrixEntryHubTerminalToHubTerminal(startRes.cov, endRes.cov);
+      const directBase = directEntry != null ? Number(directEntry.baseFarePesos) : NaN;
+      if (Number.isFinite(directBase) && directBase >= 0) {
+        const distanceCredit = perKm * destSpurKm;
+        const distanceCreditPesos = Math.round(distanceCredit * 100) / 100;
+        const subtotalRawCredit = Math.max(0, directBase - distanceCredit);
+        const subtotalRoundedHalfCredit = roundFareToNearestHalfPeso(subtotalRawCredit);
+        const fareAfterDiscountCredit = applyDiscount(subtotalRoundedHalfCredit, pct);
+        const fareCredit = roundFareToNearestHalfPeso(fareAfterDiscountCredit);
+        const destLabel = endRes.hubMatrixLabel;
+        const kmShownCredit = formatGeoKmForPerKmLine(destSpurKm, distanceCreditPesos, perKm);
+        let fareBreakdownDisplayCredit = `₱${directBase.toFixed(2)} (${startRes.hubMatrixLabel}-${destLabel}) − ₱${distanceCreditPesos.toFixed(2)} (${kmShownCredit} km × ₱${Number(perKm).toFixed(2)}/km short of ${destLabel})`;
+        fareBreakdownDisplayCredit +=
+          Number(pct) > 0
+            ? ` → ₱${Number(fareCredit).toFixed(2)} after ${Number(pct)}% discount`
+            : ` → ₱${Number(fareCredit).toFixed(2)} total`;
+        return {
+          matched: true,
+          fare: fareCredit,
+          baseFarePesos: directBase,
+          discountPct: pct,
+          categoryUsed: cat,
+          pricingMode: "pre_terminal_near_destination_credit",
+          extraDistanceKm: destSpurKm,
+          distanceChargePesos: -distanceCreditPesos,
+          farePerKmPesos: perKm,
+          hubStartLabel: startRes.hubMatrixLabel,
+          hubEndLabel: endRes.hubMatrixLabel,
+          subtotalRoundedHalfPeso: subtotalRoundedHalfCredit,
+          preTerminalDestination: true,
+          originSpurKm: 0,
+          destinationSpurKm: destSpurKm,
+          fareBreakdownDisplay: fareBreakdownDisplayCredit,
+          pricingSummary: fareBreakdownDisplayCredit,
+        };
+      }
+    }
+
     const subtotalRaw = perKm > 0 ? fullKm * perKm : 0;
 
     if (subtotalRaw > 0) {
