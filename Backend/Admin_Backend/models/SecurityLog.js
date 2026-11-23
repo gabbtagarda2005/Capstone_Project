@@ -16,6 +16,13 @@ const securityLogSchema = new mongoose.Schema(
     attendantEmail: { type: String, default: null },
     driverDisplayName: { type: String, default: null },
     plateNumber: { type: String, default: null },
+    /** accident | mechanical | traffic — set on attendant_incident reports only (see
+     *  routes/buses.js "/attendant-incident"); lets passengerCommandFeed.js query by category
+     *  without parsing the free-text `message` string. */
+    category: { type: String, default: null },
+    /** Attendant's free-text note at report time, kept separate from `message` (which bundles
+     *  bus/plate context) so passenger-facing copy can be built from just this. */
+    note: { type: String, default: null },
     /** Resolution (SOS intercept protocol) */
     resolutionNotes: { type: String, default: null },
     resolvedAt: { type: Date, default: null },

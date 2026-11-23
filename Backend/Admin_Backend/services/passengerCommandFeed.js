@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const SecurityLog = require("../models/SecurityLog");
 const AppBroadcast = require("../models/AppBroadcast");
 const IssuedTicketRecord = require("../models/IssuedTicketRecord");
 const RouteCoverage = require("../models/RouteCoverage");
@@ -95,6 +96,43 @@ async function buildPassengerCommandFeedItems() {
     }
   } catch (e) {
     console.warn("[command-feed] live board:", e.message || e);
+  }
+
+  try {
+    if (mongoose.connection.readyState === 1) {
+      // Attendant-reported traffic incidents (routes/buses.js "/attendant-incident") surface here
+      // for a bounded window — long enough to warn passengers while the road condition is likely
+      // still current, short enough that a stale report doesn't linger with no way to clear it
+      // (there is no admin "resolve" action for this report type, unlike SOS).
+      const TRAFFIC_INCIDENT_WINDOW_MS = 2 * 60 * 60 * 1000;
+      const since = new Date(Date.now() - TRAFFIC_INCIDENT_WINDOW_MS);
+      const incidents = await SecurityLog.find({
+        type: "attendant_incident",
+        category: "traffic",
+        resolvedAt: null,
+        createdAt: { $gte: since },
+      })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean();
+      for (const inc of incidents) {
+        const route = String(inc.assignedRoute || "").trim();
+        const note = String(inc.note || "").trim();
+        const where = route ? ` on ${route}` : "";
+        const body = note
+          ? `A bus attendant reported a traffic condition${where}: ${note.slice(0, 400)}. Expect possible delays in this area.`
+          : `A bus attendant reported a traffic condition${where}. Expect possible delays in this area.`;
+        items.push({
+          id: `feed-incident-${String(inc._id)}`,
+          category: "Traffic & delays",
+          title: route ? `Traffic report — ${route}` : "Traffic report",
+          body,
+          publishedAt: inc.createdAt ? new Date(inc.createdAt).toISOString() : nowIso,
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[command-feed] traffic incidents:", e.message || e);
   }
 
   const wx = getCachedWeatherAdvisories();

@@ -344,6 +344,8 @@ function createBusesRouter(io) {
         longitude: Number(longitude),
         assignedRoute: b.route != null ? String(b.route) : null,
         source: "attendant_app",
+        category,
+        note: noteStr || null,
       });
       const alertPayload = {
         kind: "incident",
